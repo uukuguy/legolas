@@ -15,4 +15,7 @@ $ ./startcluster.sh
 
 $ ./dev/dev1/bin/legolas attach
 
+$ rel/legolas/bin/legolas console
+$ curl -i -H "Accept: application/octet-stream" http://localhost:19090
+
 
