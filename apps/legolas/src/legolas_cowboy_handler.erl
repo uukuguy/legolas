@@ -78,18 +78,13 @@ resource_exists(Req, State) ->
 
 accept_resource(Req, State) ->
     NewID = common_utils:new_id(16),
-    ?DEBUG({"NewID = ", NewID}),
-    %Msg = "~p:~p - NewID = ~p",
-    %Args = [?MODULE, ?LINE, NewID],
-    Msg = ["NewID =", " ~p"],
-    Args = [NewID],
-    lager:debug(list_to_string(Msg), Args),
+    ?DEBUG("NewID = ~p", [NewID]),
     %{ok, [{<<"paste">>, Paste}], Req2} = cowboy_req:body_qs(Req),
     %{ok, [Paste}], Req2} = cowboy_req:body_qs(Req),
-    {ok, Data, Req2} = cowboy_req:body_qs(Req),
-    ?DEBUG({"After cowboy_req:body_qs"}),
+    {ok, [{Data, true}], Req2} = cowboy_req:body_qs(infinity, Req),
+    ?DEBUG("After cowboy_req:body_qs", []),
     legolas:store_data(NewID, Data),
-    ?DEBUG({"After legolas:store_data"}),
+    ?DEBUG("After legolas:store_data", []),
     case cowboy_req:method(Req2) of
         {<<"POST">>, Req3} ->
             {{true, <<$/, NewID/binary>>}, Req3, State};

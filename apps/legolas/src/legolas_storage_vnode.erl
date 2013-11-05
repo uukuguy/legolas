@@ -51,7 +51,7 @@ init([Partition]) ->
     {ok, #state { partition=Partition }}.
 
 handle_command({store_data, Path, Data}, _Sender, #state{}=State) ->
-    io:format("[DEBUG] ~p ~p ~p~n", [{store_data, State#state.partition}, Path, Data]),
+    ?DEBUG("Partition: ~p Path: ~p Data: ~p~n", [{store_data, State#state.partition}, Path, Data]),
     {noreply, State}.
 
 handle_handoff_command(_Message, _Sender, State) ->

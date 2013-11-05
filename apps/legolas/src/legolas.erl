@@ -1,4 +1,5 @@
 -module(legolas).
+-compile([{parse_transform, lager_transform}]).
 -include("legolas.hrl").
 -include_lib("riak_core/include/riak_core_vnode.hrl").
 
@@ -26,12 +27,12 @@ command(Cmd) ->
     riak_core_vnode_master:sync_spawn_command(IdxNode, Cmd, legolas_vnode_master).
 
 store_data(Path, Data) ->
-    ?DEBUG({"Enter store_data", " Path = ", Path}),
+    ?DEBUG("Enter store_data Path = ~p Data = ~p", [Path, Data]),
     %DocIdx = riak_core_util:chash_key({list_to_binary(Path), term_to_binary(now())}),
-    DocIdx = riak_core_util:chash_key({<<Path/binary>>, term_to_binary(now())}),
-    ?DEBUG({"DocIdx = ", DocIdx}),
+    DocIdx = riak_core_util:chash_key({Path, Path}),
+    ?DEBUG("DocIdx : ~p", [DocIdx]),
     PrefList = riak_core_apl:get_apl(DocIdx, 1, legolas_storage),
-    ?DEBUG({"PrefList :", PrefList}),
+    ?DEBUG("PrefList : ~p", [PrefList]),
     [IdxNode] = PrefList,
-    ?DEBUG({"IdxNode : ", IdxNode}),
-    legolas_store_vnode:store_data(IdxNode, Path, Data).
+    ?DEBUG("IdxNode : ~p", [IdxNode]),
+    legolas_storage_vnode:store_data(IdxNode, Path, Data).
