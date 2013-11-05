@@ -8,9 +8,11 @@
 %%%------------------------------------------------------------ 
 
 -module(common_utils).
+-include("legolas.hrl").
 
 -export([
          get_env/3,
+         new_id/1,
          read_file/2,
          full_path/2,
          file_exists/2,
@@ -45,8 +47,13 @@ new_id(Bin, Rem) ->
 %%% file & path
 %%%------------------------------------------------------------ 
 read_file(App, Name) ->
-    {ok, Binary} = file:read_file(full_path(App, Name)),
-    Binary.
+    case file:read_file(full_path(App, Name)) of
+        {ok, Binary} -> {ok, Binary};
+        _ -> 
+            Reason = string:concat(string:concat("Read file ", Name), " error."),
+            ?PRINT(Reason),
+            error
+    end.
 
 full_path(App, Name) ->
     filename:join([code:priv_dir(App), Name]).

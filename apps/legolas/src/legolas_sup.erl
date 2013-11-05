@@ -24,6 +24,11 @@ init(_Args) ->
                   {riak_core_vnode_master, start_link, [legolas_vnode]},
                   permanent, 5000, worker, [riak_core_vnode_master]},
 
+    Storage = { legolas_storage_vnode_master,
+                  {riak_core_vnode_master, start_link, [legolas_storage_vnode]},
+                  permanent, 5000, worker, [riak_core_vnode_master]},
+
     { ok,
         { {one_for_one, 5, 10},
-          [VMaster]}}.
+          [VMaster, Storage]}}.
+

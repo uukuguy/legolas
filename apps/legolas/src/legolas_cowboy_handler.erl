@@ -26,17 +26,17 @@
          provide_resource/2
         ]).
 
--record(state, {test_data}).
+%-record(state, {test_data}).
 
 %%%------------------------------------------------------------ 
 %%% Cowboy handler callacks
 %%%------------------------------------------------------------ 
 
-init(_Transport, _Req, []) ->
+init(_Transport, _Req, _Opts) ->
     {upgrade, protocol, cowboy_rest}.
 
 allowed_methods(Req, State) ->
-    {[<<"HEAD">>, <<"GET">>, <<"PUT">>, <<"DELETE">>], Req, State}.
+    {[<<"HEAD">>, <<"GET">>, <<"PUT">>, <<"POST">>, <<"DELETE">>], Req, State}.
 
 content_types_accepted(Req, State) ->
     {[
@@ -48,13 +48,9 @@ content_types_provided(Req, State) ->
       {<<"application/octet-stream">>, provide_resource}
      ], Req, State}.
 
-%% The value returned indicates if the action was successful, regardless of whether the resource is immediately deleted from the system.
 delete_resource(Req, State) ->
     {false, Req, State}.
 
-%% Return whether the delete action has been completed.
-%% The function should return false if there is no guarantee that the resource gets deleted immediately from the system, including from any internal cache.
-%% Whene this function returns false, a 202 Accepted response will be sent instead of a 200 OK or 204 Not Content.
 delete_completed(Req, State) ->
     {false, Req, State}.
 
@@ -70,14 +66,7 @@ is_authorized(Req, State) ->
         %_ ->
             %{{false, <<"Basic realm=\"legolas\"">>}, Req1, State}
     %end.
-    case Authorized of
-        true ->
-            {true, Req, #state{test_data = common_utils:read_file(legolas, "1m.dat")}};
-            %{true, Req, State};
-        false ->
-            io:format("<<Legolas>> Not authorized!\n"),
-            {false, Req, State}
-    end.
+    {Authorized, Req, State}.
 
 resource_exists(Req, State) ->
     ResourceExists = true,
@@ -88,10 +77,29 @@ resource_exists(Req, State) ->
 %%%------------------------------------------------------------ 
 
 accept_resource(Req, State) ->
-    {true, Req, State}.
+    NewID = common_utils:new_id(16),
+    ?DEBUG({"NewID = ", NewID}),
+    %Msg = "~p:~p - NewID = ~p",
+    %Args = [?MODULE, ?LINE, NewID],
+    Msg = ["NewID =", " ~p"],
+    Args = [NewID],
+    lager:debug(list_to_string(Msg), Args),
+    %{ok, [{<<"paste">>, Paste}], Req2} = cowboy_req:body_qs(Req),
+    %{ok, [Paste}], Req2} = cowboy_req:body_qs(Req),
+    {ok, Data, Req2} = cowboy_req:body_qs(Req),
+    ?DEBUG({"After cowboy_req:body_qs"}),
+    legolas:store_data(NewID, Data),
+    ?DEBUG({"After legolas:store_data"}),
+    case cowboy_req:method(Req2) of
+        {<<"POST">>, Req3} ->
+            {{true, <<$/, NewID/binary>>}, Req3, State};
+        {_, Req3} ->
+            {true, Req3, State}
+    end.
 
-%provide_resource(Req, State) ->
-    %Body = <<"{\"rest\": \"Hello World!\"}">>,
-provide_resource(Req, #state{test_data = Body} = State) ->
-    {Body, Req, State}.
+provide_resource(Req, State) ->
+    case common_utils:read_file(legolas, "data/1m.dat") of
+        {ok, Body} -> {Body, Req, State};
+        error -> {"", Req, State}
+    end.
 

@@ -4,10 +4,10 @@
 %%% @doc
 %%%
 %%% @end
-%%% Created : 2013-11-04 21:44:12
+%%% Created : 2013-11-04 22:18:49
 %%%------------------------------------------------------------ 
 
--module(legolas_vnode).
+-module(legolas_storage_vnode).
 -behaviour(riak_core_vnode).
 -include("legolas.hrl").
 
@@ -26,20 +26,32 @@
          handle_coverage/4,
          handle_exit/3]).
 
+-export([
+         store_data/3
+        ]).
+
 -record(state, {partition}).
+
+-define(MASTER, legolas_storage_vnode_master).
 
 %% API
 start_vnode(I) ->
     riak_core_vnode_master:get_vnode_pid(I, ?MODULE).
 
+store_data(IdxNode, Path, Data) ->
+    riak_core_vnode_master:command(IdxNode,
+                                   {store_data, Path, Data},
+                                   ?MASTER).
+
+%%%------------------------------------------------------------ 
+%%% Callbacks
+%%%------------------------------------------------------------ 
+
 init([Partition]) ->
     {ok, #state { partition=Partition }}.
 
-%% Sample command: respond to a ping
-handle_command(ping, _Sender, State) ->
-    {reply, {pong, State#state.partition}, State};
-handle_command(Message, _Sender, State) ->
-    ?PRINT({unhandled_command, Message}),
+handle_command({store_data, Path, Data}, _Sender, #state{}=State) ->
+    io:format("[DEBUG] ~p ~p ~p~n", [{store_data, State#state.partition}, Path, Data]),
     {noreply, State}.
 
 handle_handoff_command(_Message, _Sender, State) ->
