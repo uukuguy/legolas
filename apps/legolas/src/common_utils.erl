@@ -51,7 +51,7 @@ read_file(App, Name) ->
         {ok, Binary} -> {ok, Binary};
         _ -> 
             Reason = string:concat(string:concat("Read file ", Name), " error."),
-            ?PRINT(Reason),
+            ?ERROR(Reason, []),
             error
     end.
 

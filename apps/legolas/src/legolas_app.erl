@@ -23,6 +23,10 @@ start(_StartType, _StartArgs) ->
 
             %% Start lager
             ok = lager:start(),
+            %lager:trace_console([{module, legolas}], debug),
+            lager:trace_file("log/legolas_debug.log", [{module, legolas}], debug),
+            lager:trace_file("log/legolas_debug.log", [{module, legolas_cowboy_handler}], debug),
+            lager:trace_file("log/legolas_debug.log", [{module, legolas_storage_vnode}], debug),
 
             %% Start legolas cowboy 
             ok = legolas_cowboy_app:start(_StartType, _StartArgs),

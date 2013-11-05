@@ -8,8 +8,7 @@
                   kernel,
                   stdlib,
                   riak_core,
-                  cowboy,
-                  lager
+                  cowboy
                  ]},
   {mod, { legolas_app, []}},
   {env, []}

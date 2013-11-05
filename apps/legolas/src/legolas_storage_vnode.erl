@@ -51,7 +51,7 @@ init([Partition]) ->
     {ok, #state { partition=Partition }}.
 
 handle_command({store_data, Path, Data}, _Sender, #state{}=State) ->
-    ?DEBUG("Partition: ~p Path: ~p Data: ~p~n", [{store_data, State#state.partition}, Path, Data]),
+    do_store_data(Path, Data),
     {noreply, State}.
 
 handle_handoff_command(_Message, _Sender, State) ->
@@ -91,4 +91,8 @@ terminate(_Reason, _State) ->
 %%%------------------------------------------------------------ 
 %%% Internal functions
 %%%------------------------------------------------------------ 
+
+do_store_data(Path, Data) ->
+    ?DEBUG("do_store_data/2 Path: ~p Data: ~p", [Path, Data]),
+    ok.
 

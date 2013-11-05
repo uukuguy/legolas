@@ -1,5 +1,5 @@
 -module(legolas).
--compile([{parse_transform, lager_transform}]).
+%-compile([{parse_transform, lager_transform}]).
 -include("legolas.hrl").
 -include_lib("riak_core/include/riak_core_vnode.hrl").
 
