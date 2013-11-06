@@ -13,9 +13,14 @@
 %-define(ERROR(Msg, Args), ?LOG(error, "\e[1;31m", Msg, Args)).
 %-define(CRITICAL(Msg, Args), ?LOG(critical, "\e[1;35m", Msg, Args)).
 
--define(DEBUG(Msg, Args), lager:debug([{module, ?MODULE}], string:concat(string:concat(" \e[0;32m<<-- legolas log -->> \e[0;38m", Msg), "\e[0;38m"), Args)).
--define(INFO(Msg, Args), lager:info([{module, ?MODULE}], string:concat(string:concat(" \e[0;32m<<-- legolas log -->> \e[1;37m", Msg), "\e[0;38m"), Args)).
--define(NOTICE(Msg, Args), lager:notice([{module, ?MODULE}], string:concat(string:concat(" \e[0;32m<<-- legolas log -->> \e[1;36m", Msg), "\e[0;38m"), Args)).
--define(WARNING(Msg, Args), lager:warning([{module, ?MODULE}], string:concat(string:concat(" \e[0;32m<<-- legolas log -->> \e[1;33m", Msg), "\e[0;38m"), Args)).
--define(ERROR(Msg, Args), lager:error([{module, ?MODULE}], string:concat(string:concat(" \e[0;32m<<-- legolas log -->> \e[1;31m", Msg), "\e[0;38m"), Args)).
--define(CRITICAL(Msg, Args), lager:critical([{module, ?MODULE}], string:concat(string:concat(" \e[0;32m<<-- legolas log -->> \e[1;35m", Msg), "\e[0;38m"), Args)).
+%-define(DEBUG(Msg, Args), lager:debug([{module, ?MODULE}], string:join([" \e[0;32m<<-- legolas log -->> \e[0;38m", Msg, "\e[0;38m"], ""), Args)).
+-define(MSGHEAD(Color), " \e[0;32m<<-- legolas log -->> " ++ Color).
+-define(MSGTAIL(), "\e[0;38m").
+%-define(DEBUG(Msg, Args), lager:debug([{module, ?MODULE}], " \e[0;32m<<-- legolas log -->> \e[0;38m" ++ Msg ++ "\e[0;38m", Args)).
+-define(DEBUG(Msg, Args), lager:debug([{module, ?MODULE}], ?MSGHEAD("\e[0;38m") ++ Msg ++ ?MSGTAIL(), Args)).
+-define(INFO(Msg, Args), lager:info([{module, ?MODULE}], " \e[0;32m<<-- legolas log -->> \e[1;37m" ++ Msg ++ "\e[0;38m", Args)).
+-define(NOTICE(Msg, Args), lager:notice([{module, ?MODULE}], " \e[0;32m<<-- legolas log -->> \e[1;36m" ++ Msg ++ "\e[0;38m", Args)).
+-define(WARNING(Msg, Args), lager:warning([{module, ?MODULE}], " \e[0;32m<<-- legolas log -->> \e[1;33m" ++ Msg ++ "\e[0;38m", Args)).
+-define(ERROR(Msg, Args), lager:error([{module, ?MODULE}], " \e[0;32m<<-- legolas log -->> \e[1;31m" ++ Msg ++ "\e[0;38m", Args)).
+-define(CRITICAL(Msg, Args), lager:critical([{module, ?MODULE}], " \e[0;32m<<-- legolas log -->> \e[1;35m" ++ Msg ++ "\e[0;38m", Args)).
+

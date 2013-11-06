@@ -4,7 +4,7 @@
 %%% @doc
 %%%
 %%% @end
-%%% Created : 
+%%% Created : 2013-11-06 13:32:02
 %%%------------------------------------------------------------ 
 
 -module(legolas_cowboy_handler).
@@ -49,7 +49,14 @@ content_types_provided(Req, State) ->
      ], Req, State}.
 
 delete_resource(Req, State) ->
-    {false, Req, State}.
+    {Url, _Req} = cowboy_req:path(Req),
+    Path = binary_to_list(Url),
+    case legolas:delete_data(Path) of
+        ok -> 
+            {true, Req, State};
+        _ -> 
+            {false, Req, State}
+    end.
 
 delete_completed(Req, State) ->
     {false, Req, State}.
@@ -77,24 +84,30 @@ resource_exists(Req, State) ->
 %%%------------------------------------------------------------ 
 
 accept_resource(Req, State) ->
-    NewID = common_utils:new_id(16),
-    ?DEBUG("NewID = ~p", [NewID]),
-    %{ok, [{<<"paste">>, Paste}], Req2} = cowboy_req:body_qs(Req),
-    %{ok, [Paste}], Req2} = cowboy_req:body_qs(Req),
-    {ok, [{Data, true}], Req2} = cowboy_req:body_qs(infinity, Req),
-    ?DEBUG("After cowboy_req:body_qs", []),
-    legolas:store_data(NewID, Data),
-    ?DEBUG("After legolas:store_data", []),
-    case cowboy_req:method(Req2) of
-        {<<"POST">>, Req3} ->
-            {{true, <<$/, NewID/binary>>}, Req3, State};
-        {_, Req3} ->
-            {true, Req3, State}
+    ?NOTICE("Enter accept_resource/2", []),
+    {Url, _Req} = cowboy_req:path(Req),
+    Path = binary_to_list(Url),
+    case cowboy_req:stream_body(infinity, Req) of
+        {error, Reason} ->
+            ?ERROR("cowboy_req:stream_body/2 fail. Reason: ~p", [Reason]),
+            {false, Req, State};
+        {done, Req2} ->
+            {true, Req2, State};
+        {ok, Data, Req2} ->
+            legolas:store_data(Path, Data),
+            {true, Req2, State}
     end.
 
 provide_resource(Req, State) ->
-    case common_utils:read_file(legolas, "data/1m.dat") of
-        {ok, Body} -> {Body, Req, State};
-        error -> {"", Req, State}
+    ?NOTICE("Enter provide_resource/2", []),
+    {Url, _Req} = cowboy_req:path(Req),
+    Path = binary_to_list(Url),
+    ?DEBUG("Request path = ~p", [Path]),
+    case legolas:fetch_data(Path) of
+        {ok, Binary} ->
+            {Binary, Req, State};
+        {error, _Reason} ->
+            {"", Req, State}
     end.
+
 

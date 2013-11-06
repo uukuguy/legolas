@@ -27,7 +27,9 @@
          handle_exit/3]).
 
 -export([
-         store_data/3
+         store_data/3,
+         fetch_data/2,
+         delete_data/2
         ]).
 
 -record(state, {partition}).
@@ -39,8 +41,17 @@ start_vnode(I) ->
     riak_core_vnode_master:get_vnode_pid(I, ?MODULE).
 
 store_data(IdxNode, Path, Data) ->
-    riak_core_vnode_master:command(IdxNode,
+    riak_core_vnode_master:sync_command(IdxNode,
                                    {store_data, Path, Data},
+                                   ?MASTER).
+
+fetch_data(IdxNode, Path) ->
+    riak_core_vnode_master:sync_command(IdxNode,
+                                        {fetch_data, Path},
+                                        ?MASTER).
+delete_data(IdxNode, Path) ->
+    riak_core_vnode_master:sync_command(IdxNode,
+                                   {delete_data, Path},
                                    ?MASTER).
 
 %%%------------------------------------------------------------ 
@@ -51,8 +62,14 @@ init([Partition]) ->
     {ok, #state { partition=Partition }}.
 
 handle_command({store_data, Path, Data}, _Sender, #state{}=State) ->
-    do_store_data(Path, Data),
-    {noreply, State}.
+    Result = do_store_data(Path, Data),
+    {reply, Result, State};
+handle_command({fetch_data, Path}, _Sender, #state{}=State) ->
+    Result = do_fetch_data(Path),
+    {reply, Result, State};
+handle_command({delete_data, Path}, _Sender, #state{}=State) ->
+    Result = do_delete_data(Path),
+    {reply, Result, State}.
 
 handle_handoff_command(_Message, _Sender, State) ->
     {noreply, State}.
@@ -92,7 +109,23 @@ terminate(_Reason, _State) ->
 %%% Internal functions
 %%%------------------------------------------------------------ 
 
+path_to_filename(Path) ->
+    Filename = "data/" ++ binary_to_list(list_to_binary([io_lib:format("~2.16.0b", [N]) || N <- binary_to_list(erlang:md5(Path))])),
+    ?DEBUG("Filename: ~p", [Filename]),
+    Filename.
+
 do_store_data(Path, Data) ->
     ?DEBUG("do_store_data/2 Path: ~p Data: ~p", [Path, Data]),
-    ok.
+    Filename = path_to_filename(Path),
+    common_utils:write_file(legolas, Filename, Data).
+
+do_fetch_data(Path) ->
+    ?DEBUG("do_fetch_data/2 Path: ~p", [Path]),
+    Filename = path_to_filename(Path),
+    common_utils:read_file(legolas, Filename).
+
+do_delete_data(Path) ->
+    ?DEBUG("do_delete_data/2 Path: ~p", [Path]),
+    Filename = path_to_filename(Path),
+    common_utils:delete_file(legolas, Filename).
 

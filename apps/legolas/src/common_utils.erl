@@ -14,6 +14,8 @@
          get_env/3,
          new_id/1,
          read_file/2,
+         write_file/3,
+         delete_file/2,
          full_path/2,
          file_exists/2,
          valid_path/1,
@@ -49,10 +51,33 @@ new_id(Bin, Rem) ->
 read_file(App, Name) ->
     case file:read_file(full_path(App, Name)) of
         {ok, Binary} -> {ok, Binary};
-        _ -> 
-            Reason = string:concat(string:concat("Read file ", Name), " error."),
-            ?ERROR(Reason, []),
-            error
+        {error, enoent} ->
+            Reason = "File not exist.",
+            ?ERROR("read_file ~p fail. Reason: ~p", [Name, Reason]),
+            {error, Reason};
+        {error, Reason} -> 
+            ?ERROR("read_file ~p fail. Reason: ~p", [Name, Reason]),
+            {error, Reason}
+    end.
+
+write_file(App, Name, Data) ->
+    case file:write_file(full_path(App, Name), Data) of
+        ok -> ok;
+        {error, Reason} -> 
+            ?ERROR("write_file ~p fail. Reason: ~p", [Name, Reason]),
+            {error, Reason}
+    end.
+
+delete_file(App, Name) ->
+    case file:delete(full_path(App, Name)) of
+        ok -> ok;
+        {error, enoent} ->
+            Reason = "File not exist.",
+            ?ERROR("delete_file ~p fail. Reason: ~p", [Name, Reason]),
+            {error, Reason};
+        {error, Reason} -> 
+            ?ERROR("delete_file ~p fail. Reason: ~p", [Name, Reason]),
+            {error, Reason}
     end.
 
 full_path(App, Name) ->
