@@ -15,6 +15,7 @@
 %% Copyright (c) 2007-2011 Basho Technologies, Inc.  All Rights Reserved.
 
 -module(legolas_node_event_handler).
+-include("legolas.hrl").
 -behaviour(gen_event).
 
 %% gen_event callbacks
@@ -25,7 +26,8 @@
 init([]) ->
     {ok, #state{}}.
 
-handle_event({service_update, _Services}, State) ->
+handle_event({service_update, Services}, State) ->
+    ?NOTICE("service_update! Services = ~p State = ~p", [Services, State]),
     {ok, State}.
 
 handle_call(_Event, State) ->

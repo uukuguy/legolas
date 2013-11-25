@@ -23,7 +23,8 @@
         ]).
 
 -export([accept_resource/2,
-         provide_resource/2
+         provide_resource/2,
+         to_html/2
         ]).
 
 %-record(state, {test_data}).
@@ -45,7 +46,8 @@ content_types_accepted(Req, State) ->
 
 content_types_provided(Req, State) ->
     {[
-      {<<"application/octet-stream">>, provide_resource}
+      {<<"application/octet-stream">>, provide_resource},
+      {<<"text/html">>, to_html}
      ], Req, State}.
 
 delete_resource(Req, State) ->
@@ -94,7 +96,7 @@ accept_resource(Req, State) ->
         {done, Req2} ->
             {true, Req2, State};
         {ok, Data, Req2} ->
-            legolas:store_data(Path, Data),
+            legolas:put_data(Path, Data),
             {true, Req2, State}
     end.
 
@@ -103,11 +105,26 @@ provide_resource(Req, State) ->
     {Url, _Req} = cowboy_req:path(Req),
     Path = binary_to_list(Url),
     ?DEBUG("Request path = ~p", [Path]),
-    case legolas:fetch_data(Path) of
+    case legolas:get_data(Path) of
         {ok, Binary} ->
             {Binary, Req, State};
         {error, _Reason} ->
             {"", Req, State}
     end.
 
+
+to_html(Req, State) ->
+    ?NOTICE("Enter to_html/2", []),
+    {Url, _Req} = cowboy_req:path(Req),
+    Path = binary_to_list(Url),
+    ?DEBUG("Request path = ~p", [Path]),
+    {Method, _Req2} = cowboy_req:method(Req),
+    ?DEBUG("Request Method = ~p", [Method]),
+    case Method of
+        "HEAD" ->
+            Filename = legolas:path_to_filename(Path),
+            ?DEBUG("HEAD filename: ~p", [Filename]),
+            {"Filename: " ++ Filename, Req, State};
+        _ -> {"", Req, State}
+    end.
 

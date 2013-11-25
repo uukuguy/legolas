@@ -28,7 +28,24 @@ init(_Args) ->
                   {riak_core_vnode_master, start_link, [legolas_storage_vnode]},
                   permanent, 5000, worker, [riak_core_vnode_master]},
 
-    { ok,
-        { {one_for_one, 5, 10},
-          [VMaster, Storage]}}.
+    PutFSMs = {legolas_put_data_fsm_sup,
+                 {legolas_put_data_fsm_sup, start_link, []},
+                 permanent, infinity, supervisor, [legolas_put_data_fsm_sup]},
+
+    GetFSMs = {legolas_get_data_fsm_sup,
+               {legolas_get_data_fsm_sup, start_link, []},
+               permanent, infinity, supervisor, [legolas_get_data_fsm_sup]},
+
+    DeleteFSMs = {legolas_delete_data_fsm_sup,
+               {legolas_delete_data_fsm_sup, start_link, []},
+               permanent, infinity, supervisor, [legolas_delete_data_fsm_sup]},
+
+    Children = [
+                VMaster, 
+                Storage, 
+                PutFSMs, 
+                GetFSMs, 
+                DeleteFSMs
+               ],
+    { ok, { {one_for_one, 5, 10}, Children}}.
 

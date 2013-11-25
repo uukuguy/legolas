@@ -1,8 +1,8 @@
 %% -*- erlang -*-
 {application, legolas,
  [
-  {description, ""},
-  {vsn, "1"},
+  {description, "A distributed file system especially for massive small files."},
+  {vsn, "0.1.0"},
   {registered, []},
   {applications, [
                   kernel,

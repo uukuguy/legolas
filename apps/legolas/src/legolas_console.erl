@@ -1,5 +1,6 @@
 %% @doc Interface for legolas-admin commands.
 -module(legolas_console).
+-include("legolas.hrl").
 -export([join/1,
          leave/1,
          remove/1,
@@ -8,19 +9,19 @@
 join([NodeStr]) ->
     try riak_core:join(NodeStr) of
         ok ->
-            io:format("Sent join request to ~s\n", [NodeStr]),
+            ?NOTICE("Sent join request to ~s\n", [NodeStr]),
             ok;
         {error, not_reachable} ->
-            io:format("Node ~s is not reachable!\n", [NodeStr]),
+            ?ERROR("Node ~s is not reachable!\n", [NodeStr]),
             error;
         {error, different_ring_sizes} ->
-            io:format("Failed: ~s has a different ring_creation_size~n",
+            ?ERROR("Failed: ~s has a different ring_creation_size~n",
                       [NodeStr]),
             error
     catch
         Exception:Reason ->
             lager:error("Join failed ~p:~p", [Exception, Reason]),
-            io:format("Join failed, see log for details~n"),
+            ?CRITICAL("Join failed, see log for details~n", []),
             error
     end.
 
@@ -38,14 +39,14 @@ remove_node(Node) when is_atom(Node) ->
             %% the result of subtracting the current node from the
             %% cluster member list results in the empty list. When
             %% that code gets refactored this can probably go away.
-            io:format("Leave failed, this node is the only member.~n"),
+            ?ERROR("Leave failed, this node is the only member.~n", []),
             error;
         Res ->
-            io:format(" ~p\n", [Res])
+            ?NOTICE(" ~p\n", [Res])
     catch
         Exception:Reason ->
             lager:error("Leave failed ~p:~p", [Exception, Reason]),
-            io:format("Leave failed, see log for details~n"),
+            ?CRITICAL("Leave failed, see log for details~n", []),
             error
     end.
 
@@ -53,18 +54,18 @@ remove_node(Node) when is_atom(Node) ->
 ringready([]) ->
     try riak_core_status:ringready() of
         {ok, Nodes} ->
-            io:format("TRUE All nodes agree on the ring ~p\n", [Nodes]);
+            ?NOTICE("TRUE All nodes agree on the ring ~p\n", [Nodes]);
         {error, {different_owners, N1, N2}} ->
-            io:format("FALSE Node ~p and ~p list different partition owners\n",
+            ?ERROR("FALSE Node ~p and ~p list different partition owners\n",
                       [N1, N2]),
             error;
         {error, {nodes_down, Down}} ->
-            io:format("FALSE ~p down.  All nodes need to be up to check.\n",
+            ?ERROR("FALSE ~p down.  All nodes need to be up to check.\n",
                       [Down]),
             error
     catch
         Exception:Reason ->
             lager:error("Ringready failed ~p:~p", [Exception, Reason]),
-            io:format("Ringready failed, see log for details~n"),
+            ?CRITICAL("Ringready failed, see log for details~n", []),
             error
     end.

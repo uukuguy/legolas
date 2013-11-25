@@ -12,15 +12,25 @@
 
 -export([
          get_env/3,
+         get_nested_config/3,
+         binary_to_string/1,
+         string_to_binary/1,
+         make_vtag/1,
+         integer_to_list/2,
+         integer_to_fixed_list/3,
+         different/1,
          new_id/1,
-         read_file/2,
-         write_file/3,
-         delete_file/2,
-         full_path/2,
-         file_exists/2,
+         random_id/0,
+         read_file/1,
+         write_file/2,
+         delete_file/1,
+         ensure_path/1,
+         file_exists/1,
          valid_path/1,
          escape_html_chars/1
         ]).
+
+-compile({no_auto_import, [integer_to_list/2]}).
 
 %%%------------------------------------------------------------ 
 %%% environment
@@ -30,6 +40,124 @@ get_env(App, Par, Default) ->
         {ok, Value} -> Value;
          _ -> Default
     end.
+
+
+%%%------------------------------------------------------------ 
+%%% Configure
+%%%------------------------------------------------------------ 
+get_nested_config(Key, Config, Category) ->
+    case proplists:get_value(Key, Config) of
+        undefined ->
+            case proplists:get_value(Category, Config) of
+                undefined ->
+                    undefined;
+                {InnerConfig, SubCategory} ->
+                    get_nested_config(Key, InnerConfig, SubCategory);
+                InnerConfig ->
+                    proplists:get_value(Key, InnerConfig)
+            end;
+        Val ->
+            Val
+    end.
+
+-spec make_vtag(erlang:timestamp()) -> list().
+make_vtag(Now) ->
+    <<HashAsNum:128/integer>> = crypto:hash(md5, (term_to_binary({node(), Now}))),
+    integer_to_list(HashAsNum,62).
+
+%% @spec integer_to_list(Integer :: integer(), Base :: integer()) ->
+%%          string()
+%% @doc Convert an integer to its string representation in the given
+%%      base.  Bases 2-62 are supported.
+
+calc_power(X, Base, P) ->
+    X1 = X / Base,
+    case X1 > Base of
+        true -> calc_power(X1, Base, P + 1);
+        false -> P + 1
+    end.
+
+append_zero(Str, Remains) ->
+    case Remains >= 1 of
+        true -> append_zero("0" ++ Str, Remains - 1);
+        false -> Str
+    end.
+
+integer_to_fixed_list(I, Base, Len) ->
+    Str = integer_to_list(I, Base),
+    P = calc_power(math:pow(2, Len), Base, 0) + 1,
+    Remains = P - length(Str),
+    %?NOTICE("fixed Str = ~p Remains = ~p", [Str, Remains]),
+    case Remains > 0 of
+        true -> append_zero(Str, Remains);
+        false -> Str
+    end.
+
+integer_to_list(I, 10) ->
+    erlang:integer_to_list(I);
+integer_to_list(I, Base)
+  when is_integer(I), is_integer(Base),Base >= 2, Base =< 1+$Z-$A+10+1+$z-$a ->
+    if I < 0 ->
+            [$-|integer_to_list(-I, Base, [])];
+       true ->
+            integer_to_list(I, Base, [])
+    end;
+integer_to_list(I, Base) ->
+    erlang:error(badarg, [I, Base]).
+
+%% @spec integer_to_list(integer(), integer(), string()) -> string()
+integer_to_list(I0, Base, R0) ->
+    D = I0 rem Base,
+    I1 = I0 div Base,
+    R1 = if D >= 36 ->
+		 [D-36+$a|R0];
+	    D >= 10 ->
+		 [D-10+$A|R0];
+	    true ->
+		 [D+$0|R0]
+	 end,
+    if I1 =:= 0 ->
+	    R1;
+       true ->
+	    integer_to_list(I1, Base, R1)
+    end.
+
+%%%------------------------------------------------------------ 
+%%% binary convert
+%%%------------------------------------------------------------ 
+binary_to_string(Bin) ->
+    binary_to_list(to_hex(Bin)).
+
+string_to_binary(Str) ->
+   list_to_binary(from_hex(Str)). 
+
+%% @spec to_hex(Bin::binary()) -> binary()
+to_hex(Bin) ->
+    << << (nib2hex(N)):8 >> || <<N:4>> <= Bin >>.
+
+%% @spec from_hex(Bin::binary()) -> binary()
+from_hex(Bin) ->
+    << << (hex2nib(H)):4 >> || <<H:8>> <= Bin >>.
+
+nib2hex(N) when 0 =< N, N =< 9 -> $0 + N;
+nib2hex(N) when 10 =< N, N =< 15 -> $A + 10.
+
+hex2nib(C) when $0 =< C, C =< $9 -> C - $0;
+hex2nib(C) when $A =< C, C =< $F -> C - $A + 10.
+
+%%%------------------------------------------------------------ 
+%%% different
+%%%------------------------------------------------------------ 
+different(A) -> 
+    fun(B) -> 
+            A =/= B 
+    end.
+
+%%%------------------------------------------------------------ 
+%%% random_id
+%%%------------------------------------------------------------ 
+random_id() ->
+    erlang:phash2(erlang:now()).
 
 %%%------------------------------------------------------------ 
 %%% new id
@@ -48,43 +176,68 @@ new_id(Bin, Rem) ->
 %%%------------------------------------------------------------ 
 %%% file & path
 %%%------------------------------------------------------------ 
-read_file(App, Name) ->
-    case file:read_file(full_path(App, Name)) of
+-spec ensure_path(string()) -> {ok, exists} | {ok, created} | {error, term()}.
+ensure_path(Path) ->
+    case file:read_file_info(Path) of
+        {ok, _Info} -> {ok, exists};
+        {error, Reason} -> 
+            ?NOTICE("Dir does not exist, Create it! Reason: ~p Path: ~p", [Reason, Path]),
+            PathList = string:tokens(Path, "/"),
+            case recursively_ensure_path(PathList, "") of
+                ok -> {ok, created};
+                {error, Reason} -> {error, Reason}
+            end
+    end.
+
+-spec recursively_ensure_path([nonempty_string()], string()) -> ok | {error, term()}.
+recursively_ensure_path([], _Dir) -> ok;
+recursively_ensure_path([Path | PathList], Dir) ->
+    DirList = filename:join(Dir, Path),
+    case filelib:is_dir(DirList) of
+        true ->
+            recursively_ensure_path(PathList, DirList);
+        false ->
+            case file:make_dir(DirList) of
+                ok ->
+                    recursively_ensure_path(PathList, DirList);
+                {error, Reason} -> {error, Reason}
+            end
+    end.
+
+read_file(Filename) ->
+    case file:read_file(Filename) of
         {ok, Binary} -> {ok, Binary};
         {error, enoent} ->
             Reason = "File not exist.",
-            ?ERROR("read_file ~p fail. Reason: ~p", [Name, Reason]),
+            ?ERROR("read_file ~p fail. Reason: ~p", [Filename, Reason]),
             {error, Reason};
         {error, Reason} -> 
-            ?ERROR("read_file ~p fail. Reason: ~p", [Name, Reason]),
+            ?ERROR("read_file ~p fail. Reason: ~p", [Filename, Reason]),
             {error, Reason}
     end.
 
-write_file(App, Name, Data) ->
-    case file:write_file(full_path(App, Name), Data) of
+write_file(Filename, Data) ->
+    case file:write_file(Filename, Data) of
         ok -> ok;
         {error, Reason} -> 
-            ?ERROR("write_file ~p fail. Reason: ~p", [Name, Reason]),
+            ?ERROR("write_file ~p fail. Reason: ~p", [Filename, Reason]),
             {error, Reason}
     end.
 
-delete_file(App, Name) ->
-    case file:delete(full_path(App, Name)) of
+delete_file(Filename) ->
+    case file:delete(Filename) of
         ok -> ok;
         {error, enoent} ->
             Reason = "File not exist.",
-            ?ERROR("delete_file ~p fail. Reason: ~p", [Name, Reason]),
+            ?ERROR("delete_file ~p fail. Reason: ~p", [Filename, Reason]),
             {error, Reason};
         {error, Reason} -> 
-            ?ERROR("delete_file ~p fail. Reason: ~p", [Name, Reason]),
+            ?ERROR("delete_file ~p fail. Reason: ~p", [Filename, Reason]),
             {error, Reason}
     end.
 
-full_path(App, Name) ->
-    filename:join([code:priv_dir(App), Name]).
-
-file_exists(App, Name) ->
-    case file:read_file_info(full_path(App, Name)) of
+file_exists(Filename) ->
+    case file:read_file_info(Filename) of
         {ok, _Info} -> true;
         {error, _Reason} -> false
     end.

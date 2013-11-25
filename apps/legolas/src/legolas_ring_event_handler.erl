@@ -15,6 +15,7 @@
 %% Copyright (c) 2007-2011 Basho Technologies, Inc.  All Rights Reserved.
 
 -module(legolas_ring_event_handler).
+-include("legolas.hrl").
 -behaviour(gen_event).
 
 %% gen_event callbacks
@@ -26,6 +27,8 @@ init([]) ->
     {ok, #state{}}.
 
 handle_event({ring_update, _Ring}, State) ->
+    %?NOTICE("ring_update! Ring = ~p~nState = ~p", [Ring, State]),
+    ?NOTICE("ring_update! ", []),
     {ok, State}.
 
 handle_call(_Event, State) ->
