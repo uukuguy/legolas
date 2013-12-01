@@ -20,6 +20,9 @@ start_link() ->
 %% ===================================================================
 
 init(_Args) ->
+
+    legolas_entropy_info:create_table(),
+
     VMaster = { legolas_vnode_master,
                   {riak_core_vnode_master, start_link, [legolas_vnode]},
                   permanent, 5000, worker, [riak_core_vnode_master]},

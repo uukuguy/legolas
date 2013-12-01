@@ -11,7 +11,9 @@
 -include("legolas.hrl").
 
 -export([
+         enable_console_debug/2,
          get_env/3,
+         get_config_value/3,
          get_nested_config/3,
          binary_to_string/1,
          string_to_binary/1,
@@ -32,6 +34,20 @@
 
 -compile({no_auto_import, [integer_to_list/2]}).
 
+
+-spec enable_console_debug(boolean(), [module()]) -> ok.
+enable_console_debug(Enabled, Modules) ->
+    case Enabled of
+        true ->
+            [lager:trace_console([{module, Mod}]) || Mod <- Modules];
+        false ->
+            [begin
+                 {ok, Trace} = lager:trace_console([{module, Mod}]),
+                 lager:stop_trace(Trace)
+             end || Mod <- Modules]
+    end,
+    ok.
+
 %%%------------------------------------------------------------ 
 %%% environment
 %%%------------------------------------------------------------ 
@@ -45,6 +61,15 @@ get_env(App, Par, Default) ->
 %%%------------------------------------------------------------ 
 %%% Configure
 %%%------------------------------------------------------------ 
+
+get_config_value(Key, Config, Default) ->
+    case orddict:find(Key, Config) of
+        error ->
+            Default;
+        {ok, Value} ->
+            Value
+    end.
+
 get_nested_config(Key, Config, Category) ->
     case proplists:get_value(Key, Config) of
         undefined ->

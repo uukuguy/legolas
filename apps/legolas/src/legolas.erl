@@ -2,6 +2,7 @@
 %-compile([{parse_transform, lager_transform}]).
 -include("legolas.hrl").
 -include_lib("riak_core/include/riak_core_vnode.hrl").
+-include_lib("riak_core/include/riak_core_ring.hrl").
 
 -define(TIMEOUT, 5000).
 
@@ -13,6 +14,11 @@
         ]).
 
 -export([
+         to_object_key/2,
+         from_object_key/1,
+         to_index_key/4,
+         from_index_key/1,
+         to_first_key/1,
          path_to_filename/1,
          get_chash_args/0,
          get_storage_preflist/2, %% (Path::string(), N:nag_integer()) -> riak_core_apl:preflist2()
@@ -21,7 +27,9 @@
          get_resource_primary_apl/2,
          get_resource_apl/1,
          get_resource_apl/2,
-         get_resource_vnode/1
+         get_resource_vnode/1,
+         responsible_preflists/1,
+         get_index_n/1
         ]).
 
 %% Public API
@@ -106,7 +114,7 @@ get_resource_vnode(Path) ->
     end.
 
 put_data(Path, Data) ->
-    ?NOTICE("-------------------- call put_data/2 --------------------", []),
+    ?NOTICE("call put_data/2", []),
     ?DEBUG("Enter put_data/2 Path = ~p ", [Path]),
     %case get_resource_vnode(Path) of
         %not_found -> {error, "vnode not found."};
@@ -116,7 +124,7 @@ put_data(Path, Data) ->
     wait_for_reqid(ReqId, ?TIMEOUT).
 
 get_data(Path) ->
-    ?NOTICE("-------------------- call get_data/1 --------------------", []),
+    ?NOTICE("call get_data/1", []),
     ?DEBUG("Enter get_data/1 Path = ~p", [Path]),
     %case get_resource_vnode(Path) of
         %not_found -> {error, "vnode not found."};
@@ -126,7 +134,7 @@ get_data(Path) ->
     wait_for_reqid(ReqId, ?TIMEOUT).
 
 delete_data(Path) ->
-    ?NOTICE("-------------------- call delete_data/1 --------------------", []),
+    ?NOTICE("call delete_data/1", []),
     ?DEBUG("Enter delete_data/1 Path = ~p", [Path]),
     %case get_resource_vnode(Path) of
         %not_found -> {error, "vnode not found."};
@@ -143,4 +151,119 @@ wait_for_reqid(ReqId, Timeout) ->
     after Timeout ->
               {error, timeout}
     end.
+
+to_object_key(Bucket, Key) ->
+    sext:encode({o, Bucket, Key}).
+
+from_object_key(LKey) ->
+    case (catch sext:decode(LKey)) of
+        {'EXIT', _} -> 
+            lager:warning("Corrupted object key, discarding"),
+            ignore;
+        {o, Bucket, Key} ->
+            {Bucket, Key};
+        _ ->
+            undefined
+    end.
+
+
+to_index_key(Bucket, Key, Field, Term) ->
+    sext:encode({i, Bucket, Field, Term, Key}).
+
+from_index_key(LKey) ->
+    case (catch sext:decode(LKey)) of
+        {'EXIT', _} -> 
+            ?WARNING("Corrupted index key, discarding", []),
+            ignore;
+        {i, Bucket, Field, Term, Key} ->
+            {Bucket, Key, Field, Term};
+        _ ->
+            undefined
+    end.
+
+
+%% @private Given a scope limiter, use sext to encode an expression
+%% that represents the starting key for the scope. For example, since
+%% we store objects under {o, Bucket, Key}, the first key for the
+%% bucket "foo" would be `sext:encode({o, <<"foo">>, <<>>}).`
+to_first_key(undefined) ->
+    %% Start at the first object in LevelDB...
+    to_object_key(<<>>, <<>>);
+to_first_key({bucket, Bucket}) ->
+    %% Start at the first object for a given bucket...
+    to_object_key(Bucket, <<>>).
+%to_first_key({index, incorrect_format, ForUpgrade}) when is_boolean(ForUpgrade) ->
+    %%% Start at first index entry
+    %to_index_key(<<>>, <<>>, <<>>, <<>>);
+%%% V2 indexes
+%to_first_key({index, Bucket,
+              %?KV_INDEX_Q{filter_field=Field,
+                          %start_key=StartKey}}) when Field == <<"$key">>;
+                                                     %Field == <<"$bucket">> ->
+    %to_object_key(Bucket, StartKey);
+%to_first_key({index, Bucket, ?KV_INDEX_Q{filter_field=Field,
+                                         %start_key=StartKey,
+                                         %start_term=StartTerm}}) ->
+    %to_index_key(Bucket, StartKey, Field, StartTerm);
+
+%%% Upgrade legacy queries to current version
+%to_first_key({index, Bucket, Q}) ->
+    %UpgradeQ = riak_index:upgrade_query(Q),
+    %to_first_key({index, Bucket, UpgradeQ});
+%to_first_key(Other) ->
+    %erlang:throw({unknown_limiter, Other}).
+
+-type riak_core_ring() :: riak_core_ring:riak_core_ring().
+-type index() :: non_neg_integer().
+-type index_n() :: {index(), pos_integer()}.
+
+
+-spec determine_all_n(riak_core_ring()) -> [pos_integer(),...].
+determine_all_n(Ring) ->
+    Buckets = riak_core_ring:get_buckets(Ring),
+    BucketProps = [riak_core_bucket:get_bucket(Bucket, Ring) || Bucket <- Buckets],
+    Default = app_helper:get_env(riak_core, default_bucket_props),
+    DefaultN = proplists:get_value(n_val, Default),
+    AllN = lists:foldl(fun(Props, AllN) ->
+                               N = proplists:get_value(n_val, Props),
+                               ordsets:add_element(N, AllN)
+                       end, [DefaultN], BucketProps),
+    AllN.
+
+-spec responsible_preflists(index()) -> [index_n()].
+responsible_preflists(Index) ->
+    {ok, Ring} = riak_core_ring_manager:get_my_ring(),
+    responsible_preflists(Index, Ring).
+
+-spec responsible_preflists(index(), riak_core_ring()) -> [index_n()].
+responsible_preflists(Index, Ring) ->
+    AllN = determine_all_n(Ring),
+    responsible_preflists(Index, AllN, Ring).
+
+-spec responsible_preflists(index(), [pos_integer(),...], riak_core_ring())
+                           -> [index_n()].
+responsible_preflists(Index, AllN, Ring) ->
+    IndexBin = <<Index:160/integer>>,
+    PL = riak_core_ring:preflist(IndexBin, Ring),
+    Indices = [Idx || {Idx, _} <- PL],
+    RevIndices = lists:reverse(Indices),
+    lists:flatmap(fun(N) ->
+                          responsible_preflists_n(RevIndices, N)
+                  end, AllN).
+
+-spec responsible_preflists_n([index()], pos_integer()) -> [index_n()].
+responsible_preflists_n(RevIndices, N) ->
+    {Pred, _} = lists:split(N, RevIndices),
+    [{Idx, N} || Idx <- lists:reverse(Pred)].
+
+
+%% @doc Given a bucket/key, determine the associated preflist index_n.
+-spec get_index_n({binary(), binary()}) -> index_n().
+get_index_n({Bucket, Key}) ->
+    BucketProps = riak_core_bucket:get_bucket(Bucket),
+    N = proplists:get_value(n_val, BucketProps),
+    ChashKey = riak_core_util:chash_key({Bucket, Key}),
+    {ok, CHBin} = riak_core_ring_manager:get_chash_bin(),
+    Index = chashbin:responsible_index(ChashKey, CHBin),
+    {Index, N}.
 

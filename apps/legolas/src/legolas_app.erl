@@ -20,9 +20,9 @@
 %% ===================================================================
 
 start(_StartType, _StartArgs) ->
-    %ok = riak_core_util:start_app_deps(legolas),
+    ok = riak_core_util:start_app_deps(legolas),
     %% Start lager
-    ok = lager:start(),
+    %%ok = lager:start(),
     %lager:trace_console([{module, legolas}], debug),
     lager:trace_file("log/legolas_debug.log", [{module, legolas}], debug),
     lager:trace_file("log/legolas_debug.log", [{module, legolas_app}], debug),
@@ -35,6 +35,12 @@ start(_StartType, _StartArgs) ->
     lager:trace_file("log/legolas_debug.log", [{module, legolas_node_event_handler}], debug),
     lager:trace_file("log/legolas_debug.log", [{module, legolas_ring_event_handler}], debug),
     lager:trace_file("log/legolas_debug.log", [{module, common_utils}], debug),
+
+    %common_utils:enable_console_debug(false, [
+                                              %riak_core_vnode_manager,
+                                              %riak_core_vnode
+                                             %]),
+    %common_utils:enable_console_debug(true, []),
 
     %% Start legolas cowboy 
     ok = legolas_cowboy_app:start(_StartType, _StartArgs),

@@ -10,9 +10,9 @@ compile:
 	$(REBAR) compile
 
 deps:
-	#$(REBAR) get-deps
-	~/apps/frameworks/build_riak_core_deps.sh
-	~/apps/frameworks/build_cowboy_deps.sh
+	$(REBAR) get-deps
+	#~/apps/frameworks/build_riak_core_deps.sh
+	#~/apps/frameworks/build_cowboy_deps.sh
 
 clean:
 	$(REBAR) clean
