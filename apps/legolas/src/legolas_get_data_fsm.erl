@@ -14,7 +14,8 @@
 %% API
 -export([
          start_link/4,
-         get_data/1
+         get_data/1,
+         get_data/2
         ]).
 
 %% Callbacks
@@ -41,6 +42,7 @@
          chash_n :: pos_integer(),
          chash_r :: pos_integer(),
          chash_w :: pos_integer(),
+         chash_dw :: pos_integer(),
          path :: string(),
          preflist :: riak_core_apl:prefilist2(),
          num_r = 0 :: non_neg_integer(),
@@ -48,27 +50,36 @@
          replies = []
         }).
 
-start_link(ReqId, From, CHashArgs, Path) ->
-    gen_fsm:start_link(?MODULE, [ReqId, From, CHashArgs, Path], []).
+start_link(ReqId, From, Path, GetOptions) ->
+    gen_fsm:start_link(?MODULE, [ReqId, From, Path, GetOptions], []).
 
 get_data(Path) ->
-    ReqId = common_utils:random_id(),
     CHashArgs = legolas:get_chash_args(),
-    legolas_get_data_fsm_sup:start_get_data_fsm([ReqId, self(), CHashArgs, Path]),
+    GetOptions = CHashArgs,
+    get_data(Path, GetOptions).
+
+get_data(Path, GetOptions) ->
+    ReqId = common_utils:random_id(),
+    legolas_get_data_fsm_sup:start_get_data_fsm([ReqId, self(), Path, GetOptions]),
     {ok, ReqId}.
+
 
 %%%------------------------------------------------------------ 
 %%% Callbacks
 %%%------------------------------------------------------------ 
 
-init([ReqId, From, CHashArgs, Path]) ->
-    {N, R, W} = CHashArgs,
+init([ReqId, From, Path, Options]) ->
+    N = proplists:get_value(n, Options, ?DEFAULT_CHASH_N),
+    R = proplists:get_value(r, Options, ?DEFAULT_CHASH_R),
+    W = proplists:get_value(w, Options, ?DEFAULT_CHASH_W),
+    DW = proplists:get_value(dw, Options, ?DEFAULT_CHASH_DW),
     State = #state{
                req_id = ReqId,
                from = From,
                chash_n = N,
                chash_r = R,
                chash_w = W,
+               chash_dw = DW,
                path = Path
               },
     {ok, prepare, State, 0}.

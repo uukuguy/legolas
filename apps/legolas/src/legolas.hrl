@@ -19,3 +19,4 @@
 -define(DEFAULT_CHASH_N, 2).
 -define(DEFAULT_CHASH_R, 1).
 -define(DEFAULT_CHASH_W, 1).
+-define(DEFAULT_CHASH_DW, 1).

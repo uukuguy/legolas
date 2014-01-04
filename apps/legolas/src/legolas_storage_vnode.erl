@@ -95,7 +95,7 @@ init([Partition]) ->
     %?NOTICE("Starting VNode. Partition: ~p", [integer_to_list(Partition, 16)]),
     StorageBackend = app_helper:get_env(legolas, storage_backend),
     Configuration = app_helper:get_env(legolas),
-    AsyncFolding = app_helper:get_env(legolas, async_folds, false) == true,
+    AsyncFolding = app_helper:get_env(legolas, async_folds, true) == true,
     WorkerPoolSize = app_helper:get_env(legolas, worker_pool_size, 10),
     %app_helper:get_prop_or_env(data_root, Config, eleveldb),
     Result = case catch StorageBackend:start(Partition, Configuration) of
@@ -252,20 +252,6 @@ do_fold_data(Fun, Acc0, Sender, ReqOpts, #state{
         ER ->
             {reply, ER, State}
     end.
-%{async,
- %{fold, #fun<legolas_fileblock_backend.3.44827535>,#fun<legolas_storage_vnode.11.4830936>},
- %{server,undefined,{<0.516.0>,#ref<0.0.0.1458>}},
- %{state,365375409332725729550921208179070754913983135744,legolas_fileblock_backend,
-  %{state,365375409332725729550921208179070754913983135744,"data/fileblocks/4000000000000000000000000000000000000000","4000000000000000000000000000000000000000",1024,1024,undefined,"data/fileblocks/4000000000000000000000000000000000000000/indexes",
-   %[{create_if_missing,true},{total_leveldb_mem_percent,15},{use_bloomfilter,true},{write_buffer_size,45411246}],
-   %[],[],
-   %[{fill_cache,false}],
-   %[{chash_n,1},{chash_r,1},{chash_w,1},{create_if_missing,true},{http_listeners,100},{http_port,19091},{included_applications,[]},{storage_backend,legolas_fileblock_backend},{storage_datadir,"data/           fileblocks"},{total_leveldb_mem_percent,15},{use_bloomfilter,true},           {write_buffer_size,45411246}],
-   %[],0,0,0},
-  %true,undefined,true,
-  %{ownership_transfer,{365375409332725729550921208179070754913983135744,'legolas2@127.0.0.1'}},
-  %undefined}
-%} 
 
 %% While in handoff, vnodes have the option of returning {forward, State}
 %% which will cause riak_core to forward the request to the handoff target

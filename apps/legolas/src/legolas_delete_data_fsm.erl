@@ -14,7 +14,8 @@
 %% API
 -export([
          start_link/4,
-         delete_data/1
+         delete_data/1,
+         delete_data/2
         ]).
 
 %% Callbacks
@@ -41,32 +42,41 @@
          chash_n :: pos_integer(),
          chash_r :: pos_integer(),
          chash_w :: pos_integer(),
+         chash_dw :: pos_integer(),
          path :: string(),
          preflist :: riak_core_apl:prefilist2(),
          num_d = 0 :: non_neg_integer()
         }).
 
-start_link(ReqId, From, CHashArgs, Path) ->
-    gen_fsm:start_link(?MODULE, [ReqId, From, CHashArgs, Path], []).
+start_link(ReqId, From, Path, DeleteOptions) ->
+    gen_fsm:start_link(?MODULE, [ReqId, From, Path, DeleteOptions], []).
 
 delete_data(Path) ->
-    ReqId = common_utils:random_id(),
     CHashArgs = legolas:get_chash_args(),
-    legolas_delete_data_fsm_sup:start_delete_data_fsm([ReqId, self(), CHashArgs, Path]),
+    DeleteOptions = CHashArgs,
+    delete_data(Path, DeleteOptions).
+
+delete_data(Path, DeleteOptions) ->
+    ReqId = common_utils:random_id(),
+    legolas_delete_data_fsm_sup:start_delete_data_fsm([ReqId, self(), Path, DeleteOptions]),
     {ok, ReqId}.
 
 %%%------------------------------------------------------------ 
 %%% Callbacks
 %%%------------------------------------------------------------ 
 
-init([ReqId, From, CHashArgs, Path]) ->
-    {N, R, W} = CHashArgs,
+init([ReqId, From, Path, Options]) ->
+    N = proplists:get_value(n, Options, ?DEFAULT_CHASH_N),
+    R = proplists:get_value(r, Options, ?DEFAULT_CHASH_R),
+    W = proplists:get_value(w, Options, ?DEFAULT_CHASH_W),
+    DW = proplists:get_value(dw, Options, ?DEFAULT_CHASH_DW),
     State = #state{
                req_id = ReqId,
                from = From,
                chash_n = N,
                chash_r = R,
                chash_w = W,
+               chash_dw = DW,
                path = Path
               },
     {ok, prepare, State, 0}.

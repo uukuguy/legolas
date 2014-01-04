@@ -9,8 +9,11 @@
 -export([
          ping/0,
          put_data/2,
+         put_data/3,
          get_data/1,
-         delete_data/1
+         get_data/2,
+         delete_data/1,
+         delete_data/2
         ]).
 
 -export([
@@ -58,9 +61,10 @@ path_to_filename(Path) ->
 
 get_chash_args() ->
     N = common_utils:get_env(legolas, chash_N, ?DEFAULT_CHASH_N),
-    R = common_utils:get_env(legolas, chash_N, ?DEFAULT_CHASH_R),
-    W = common_utils:get_env(legolas, chash_N, ?DEFAULT_CHASH_W),
-    {N, R, W}.
+    R = common_utils:get_env(legolas, chash_R, ?DEFAULT_CHASH_R),
+    W = common_utils:get_env(legolas, chash_W, ?DEFAULT_CHASH_W),
+    DW = common_utils:get_env(legolas, chash_DW, ?DEFAULT_CHASH_DW),
+    [{n, N}, {r, R}, {w, W}, {dw, DW}].
 
 %% -type preflist2() :: [{{index(), node()}, primary|fallback}].
 -spec get_storage_preflist(string(), pos_integer()) -> riak_core_apl:preflist2().
@@ -114,34 +118,38 @@ get_resource_vnode(Path) ->
     end.
 
 put_data(Path, Data) ->
+    put_data(Path, Data, []).
+
+put_data(Path, Data, Options) when is_list(Options) ->
     ?NOTICE("call put_data/2", []),
     ?DEBUG("Enter put_data/2 Path = ~p ", [Path]),
-    %case get_resource_vnode(Path) of
-        %not_found -> {error, "vnode not found."};
-        %IdxNode -> legolas_storage_vnode:put_data(IdxNode, Path, Data)
-    %end.
     {ok, ReqId} = legolas_put_data_fsm:put_data(Path, Data),
-    wait_for_reqid(ReqId, ?TIMEOUT).
+    wait_for_reqid(ReqId, ?TIMEOUT);
+put_data(Path, Data, W) ->
+    put_data(Path, Data, [{w, W}]).
 
 get_data(Path) ->
+    get_data(Path, []).
+
+get_data(Path, Options) when is_list(Options) ->
     ?NOTICE("call get_data/1", []),
     ?DEBUG("Enter get_data/1 Path = ~p", [Path]),
-    %case get_resource_vnode(Path) of
-        %not_found -> {error, "vnode not found."};
-        %IdxNode -> legolas_storage_vnode:get_data(IdxNode, Path)
-    %end.
-    {ok, ReqId} = legolas_get_data_fsm:get_data(Path),
-    wait_for_reqid(ReqId, ?TIMEOUT).
+    {ok, ReqId} = legolas_get_data_fsm:get_data(Path, Options),
+    wait_for_reqid(ReqId, ?TIMEOUT);
+get_data(Path, R) ->
+    get_data(Path, [{r, R}]).
 
 delete_data(Path) ->
+    delete_data(Path, []).
+
+delete_data(Path, Options) when is_list(Options) ->
     ?NOTICE("call delete_data/1", []),
     ?DEBUG("Enter delete_data/1 Path = ~p", [Path]),
-    %case get_resource_vnode(Path) of
-        %not_found -> {error, "vnode not found."};
-        %IdxNode -> legolas_storage_vnode:delete_data(IdxNode, Path)
-    %end.
     {ok, ReqId} = legolas_delete_data_fsm:delete_data(Path),
-    wait_for_reqid(ReqId, ?TIMEOUT).
+    wait_for_reqid(ReqId, ?TIMEOUT);
+delete_data(Path, DW) ->
+    delete_data(Path, [{dw, DW}]).
+
 
 wait_for_reqid(ReqId, Timeout) ->
     receive
