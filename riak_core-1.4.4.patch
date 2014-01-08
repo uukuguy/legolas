@@ -1,0 +1,36 @@
+diff -rupN riak_core/src/chash.erl riak_core-new/src/chash.erl
+--- riak_core/src/chash.erl	2014-01-07 10:57:30.347313073 +0800
++++ riak_core-new/src/chash.erl	2014-01-07 11:07:10.763337302 +0800
+@@ -102,7 +102,7 @@ lookup(IndexAsInt, CHash) ->
+ %%      considered the same name.
+ -spec key_of(ObjectName :: term()) -> index().
+ key_of(ObjectName) ->    
+-    crypto:sha(term_to_binary(ObjectName)).
++    crypto:hash(sha, term_to_binary(ObjectName)).
+ 
+ %% @doc Return all Nodes that own any partitions in the ring.
+ -spec members(CHash :: chash()) -> [chash_node()].
+diff -rupN riak_core/src/merkerl.erl riak_core-new/src/merkerl.erl
+--- riak_core/src/merkerl.erl	2014-01-07 11:04:52.003331509 +0800
++++ riak_core-new/src/merkerl.erl	2014-01-07 11:04:17.567330072 +0800
+@@ -324,7 +324,7 @@ getkids(Tree) ->
+     [V || {_K,V} <- orddict:to_list(Tree#merk.children)].
+ 
+ sha(X) ->
+-    crypto:sha(term_to_binary(X)).
++    crypto:hash(sha, term_to_binary(X)).
+ 
+ -ifdef(TEST).
+ -include_lib("eunit/include/eunit.hrl").
+diff -rupN riak_core/src/riak_core_util.erl riak_core-new/src/riak_core_util.erl
+--- riak_core/src/riak_core_util.erl	2014-01-07 11:04:36.595330866 +0800
++++ riak_core-new/src/riak_core_util.erl	2014-01-07 11:04:17.567330072 +0800
+@@ -180,7 +180,7 @@ integer_to_list(I0, Base, R0) ->
+ %% @doc Create a random identifying integer, returning its string
+ %%      representation in base 62.
+ unique_id_62() ->
+-    Rand = crypto:sha(term_to_binary({make_ref(), os:timestamp()})),
++    Rand = crypto:hash(sha, term_to_binary({make_ref(), os:timestamp()})),
+     <<I:160/integer>> = Rand,
+     integer_to_list(I, 62).
+ 
