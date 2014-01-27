@@ -2,14 +2,17 @@
 %%% @author Jiangwen Su <uukuguy@gmail.com>
 %%% @copyright (C) 2013, lastz.org
 %%% @doc
+%%%     legolas存储后端接口。
 %%%
 %%% @end
 %%% Created : 2013-11-18 16:32:50
 %%%------------------------------------------------------------ 
 -module(legolas_backend).
 
--export([behaviour_info/1]).
--export([callback_after/3]).
+-export([
+         behaviour_info/1,
+         callback_after/3
+        ]).
 
 -type fold_buckets_fun() :: fun((binary(), any()) -> any() | no_return()).
 -type fold_keys_fun() :: fun((binary(), binary(), any()) -> any() |

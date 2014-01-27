@@ -1,23 +1,30 @@
+%%%------------------------------------------------------------ 
+%%% @author Jiangwen Su <uukuguy@gmail.com>
+%%% @copyright (C) 2013, lastz.org
+%%% @doc
+%%%
+%%% @end
+%%% Created : 2014-01-14 21:31:48
+%%%------------------------------------------------------------ 
+
 -module(legolas_sup).
-
 -behaviour(supervisor).
+-include("legolas.hrl").
 
-%% API
+%% ------------------------------ APIs ------------------------------ 
 -export([start_link/0]).
 
-%% Supervisor callbacks
+%% ------------------------------ Callbacks ------------------------------ 
 -export([init/1]).
 
-%% ===================================================================
-%% API functions
-%% ===================================================================
+%% ============================== APIs ==============================
+%%
 
 start_link() ->
     supervisor:start_link({local, ?MODULE}, ?MODULE, []).
 
-%% ===================================================================
-%% Supervisor callbacks
-%% ===================================================================
+%% ============================== Callbacks ==============================
+%%
 
 init(_Args) ->
 
@@ -43,12 +50,21 @@ init(_Args) ->
                {legolas_delete_data_fsm_sup, start_link, []},
                permanent, infinity, supervisor, [legolas_delete_data_fsm_sup]},
 
-    Children = [
-                VMaster, 
+    EntropyManager = {legolas_entropy_manager,
+                      {legolas_entropy_manager, start_link, []},
+                      permanent, 30000, worker, [legolas_entropy_manager]},
+
+    % Figure out which processes we should run...
+    HasStorageBackend = (app_helper:get_env(legolas, storage_backend) /= undefined),
+
+    Children = lists:flatten([
+                VMaster,
+                ?IF(HasStorageBackend, Storage, []),
                 Storage, 
                 PutFSMs, 
                 GetFSMs, 
-                DeleteFSMs
-               ],
+                DeleteFSMs,
+                EntropyManager
+               ]),
     { ok, { {one_for_one, 5, 10}, Children}}.
 

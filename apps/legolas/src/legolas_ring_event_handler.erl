@@ -27,8 +27,6 @@ init([]) ->
     {ok, #state{}}.
 
 handle_event({ring_update, _Ring}, State) ->
-    %?NOTICE("ring_update! Ring = ~p~nState = ~p", [Ring, State]),
-    ?NOTICE("ring_update! ", []),
     {ok, State}.
 
 handle_call(_Event, State) ->

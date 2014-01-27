@@ -86,7 +86,7 @@ resource_exists(Req, State) ->
 %%%------------------------------------------------------------ 
 
 accept_resource(Req, State) ->
-    ?NOTICE("Enter accept_resource/2", []),
+    ?DEBUG("Enter accept_resource/2", []),
     {Url, _Req} = cowboy_req:path(Req),
     Path = binary_to_list(Url),
     case cowboy_req:stream_body(infinity, Req) of
@@ -101,7 +101,7 @@ accept_resource(Req, State) ->
     end.
 
 provide_resource(Req, State) ->
-    ?NOTICE("Enter provide_resource/2", []),
+    ?DEBUG("Enter provide_resource/2", []),
     {Url, _Req} = cowboy_req:path(Req),
     Path = binary_to_list(Url),
     ?DEBUG("Request path = ~p", [Path]),
@@ -114,7 +114,7 @@ provide_resource(Req, State) ->
 
 
 to_html(Req, State) ->
-    ?NOTICE("Enter to_html/2", []),
+    ?DEBUG("Enter to_html/2", []),
     {Url, _Req} = cowboy_req:path(Req),
     Path = binary_to_list(Url),
     ?DEBUG("Request path = ~p", [Path]),

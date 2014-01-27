@@ -2,6 +2,7 @@
 %%% @author Jiangwen Su <uukuguy@gmail.com>
 %%% @copyright (C) 2013, lastz.org
 %%% @doc
+%%%     应用程序启动入口。
 %%%
 %%% @end
 %%% Created : 2013-11-06 13:31:53
@@ -20,10 +21,12 @@
 %% ===================================================================
 
 start(_StartType, _StartArgs) ->
+
     ok = riak_core_util:start_app_deps(legolas),
-    %% Start lager
-    %%ok = lager:start(),
-    %lager:trace_console([{module, legolas}], debug),
+
+    %% -------------------- lager --------------------
+
+    % 将核心模块相关的日志记录到log/legolas_debug.log中，方便调试。
     lager:trace_file("log/legolas_debug.log", [{module, legolas}], debug),
     lager:trace_file("log/legolas_debug.log", [{module, legolas_app}], debug),
     lager:trace_file("log/legolas_debug.log", [{module, legolas_cowboy_handler}], debug),
@@ -36,17 +39,22 @@ start(_StartType, _StartArgs) ->
     lager:trace_file("log/legolas_debug.log", [{module, legolas_ring_event_handler}], debug),
     lager:trace_file("log/legolas_debug.log", [{module, common_utils}], debug),
 
+    % from legolas_entropy_manager:set_debug.
+    %lager:trace_console([{module, legolas}], debug),
     %common_utils:enable_console_debug(false, [
                                               %riak_core_vnode_manager,
                                               %riak_core_vnode
                                              %]),
     %common_utils:enable_console_debug(true, []),
 
-    %% Start legolas cowboy 
+    %% -------------------- cowboy --------------------
     ok = legolas_cowboy_app:start(_StartType, _StartArgs),
 
     ?NOTICE("=== Legolas Start ===", []),
 
+    %% -------------------- riak_core --------------------
+    %% 注册legolas、legolas_storage两个服务。
+    %%
     case legolas_sup:start_link() of
         {ok, Pid} ->
             ok = riak_core:register(legolas, [{vnode_module, legolas_vnode}]),

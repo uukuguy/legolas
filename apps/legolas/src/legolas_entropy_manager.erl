@@ -2,6 +2,7 @@
 %%% @author Jiangwen Su <uukuguy@gmail.com>
 %%% @copyright (C) 2013, lastz.org
 %%% @doc
+%%%     legolas熵管理器
 %%%
 %%% @end
 %%% Created : 2013-11-30 09:21:35
@@ -10,27 +11,40 @@
 -module(legolas_entropy_manager).
 -behaviour(gen_server).
 
-%% API
--export([start_link/0,
-         manual_exchange/1,
-         enabled/0,
-         enable/0,
-         disable/0,
-         set_mode/1,
-         set_debug/1,
-         cancel_exchange/1,
-         cancel_exchanges/0,
+%% ------------------------------ APIs ------------------------------ 
+-export([
+         start_link/0,
          get_lock/1,
          get_lock/2,
-         requeue_poke/1,
          start_exchange_remote/3,
-         exchange_status/4]).
--export([all_pairwise_exchanges/2]).
+         requeue_poke/1,
+         exchange_status/4,
+         enabled/0,
+         set_mode/1,
+         set_debug/1,
+         enable/0,
+         disable/0,
+         manual_exchange/1,
+         cancel_exchange/1,
+         cancel_exchanges/0
+       ]).
 
+-export([
+         all_pairwise_exchanges/2
+        ]).
+
+%% ------------------------------ Callbacks ------------------------------ 
 %% gen_server callbacks
--export([init/1, handle_call/3, handle_cast/2, handle_info/2,
-         terminate/2, code_change/3]).
+-export([
+         init/1, 
+         handle_call/3, 
+         handle_cast/2, 
+         handle_info/2,
+         terminate/2, 
+         code_change/3
+        ]).
 
+%% ------------------------------ record ------------------------------ 
 -type index() :: non_neg_integer().
 -type index_n() :: {index(), pos_integer()}.
 -type vnode() :: {index(), node()}.
@@ -51,14 +65,14 @@
 -define(DEFAULT_CONCURRENCY, 2).
 -define(DEFAULT_BUILD_LIMIT, {1, 3600000}). %% Once per hour
 
-%%%===================================================================
-%%% API
-%%%===================================================================
+%% ============================== APIs ==============================
+%%
 
 -spec start_link() -> {ok, pid()} | {error, term()}.
 start_link() ->
     gen_server:start_link({local, ?MODULE}, ?MODULE, [], []).
 
+%% ------------------------------ get_lock ------------------------------ 
 %% @doc Acquire an exchange concurrency lock if available, and associate
 %%      the lock with the calling process.
 -spec get_lock(any()) -> ok | max_concurrency.
@@ -71,6 +85,8 @@ get_lock(Type) ->
 get_lock(Type, Pid) ->
     gen_server:call(?MODULE, {get_lock, Type, Pid}, infinity).
 
+
+%% ------------------------------ start_exchange_remote ------------------------------ 
 %% @doc Acquire the necessary locks for an entropy exchange with the specified
 %%      remote vnode. The request is sent to the remote entropy manager which
 %%      will try to acquire a concurrency lock. If successsful, the request is
@@ -88,12 +104,14 @@ start_exchange_remote(_VNode={Index, Node}, IndexN, FsmPid) ->
                     {start_exchange_remote, FsmPid, Index, IndexN},
                     infinity).
 
+%% ------------------------------ requeue_poke ------------------------------ 
 %% @doc Used by {@link legolas_index_hashtree} to requeue a poke on
 %%      build failure.
 -spec requeue_poke(index()) -> ok.
 requeue_poke(Index) ->
     gen_server:cast(?MODULE, {requeue_poke, Index}).
 
+%% ------------------------------ exchange_status ------------------------------ 
 %% @doc Used by {@link legolas_exchange_fsm} to inform the entropy
 %%      manager about the status of an exchange (ie. completed without
 %%      issue, failed, etc)
@@ -103,12 +121,14 @@ exchange_status(LocalVN, RemoteVN, IndexN, Reply) ->
                     {exchange_status,
                      self(), LocalVN, RemoteVN, IndexN, Reply}).
 
+%% ------------------------------ enabled ------------------------------ 
 %% @doc Returns true of AAE is enabled, false otherwise.
 -spec enabled() -> boolean().
 enabled() ->
     {Enabled, _} = settings(),
     Enabled.
 
+%% ------------------------------ set_mode ------------------------------ 
 %% @doc Set AAE to either `automatic' or `manual' mode. In automatic mode, the
 %%      entropy manager triggers all necessary hashtree exchanges. In manual
 %%      mode, exchanges must be triggered using {@link manual_exchange/1}.
@@ -120,6 +140,7 @@ set_mode(Mode=automatic) ->
 set_mode(Mode=manual) ->
     ok = gen_server:call(?MODULE, {set_mode, Mode}, infinity).
 
+%% ------------------------------ set_debug ------------------------------ 
 %% @doc Toggle debug mode, which prints verbose AAE information to the console.
 -spec set_debug(boolean()) -> ok.
 set_debug(Enabled) ->
@@ -137,12 +158,15 @@ set_debug(Enabled) ->
     end,
     ok.
 
+%% ------------------------------ enable ------------------------------ 
 enable() ->
     gen_server:call(?MODULE, enable, infinity).
 
+%% ------------------------------ disable ------------------------------ 
 disable() ->
     gen_server:call(?MODULE, disable, infinity).
 
+%% ------------------------------ manual_exchange ------------------------------ 
 %% @doc Manually trigger hashtree exchanges.
 %%      -- If an index is provided, trigger exchanges between the index and all
 %%         sibling indices for all index_n.
@@ -158,18 +182,22 @@ disable() ->
 manual_exchange(Exchange) ->
     gen_server:call(?MODULE, {manual_exchange, Exchange}, infinity).
 
+%% ------------------------------ cancel_exchange ------------------------------ 
 -spec cancel_exchange(index()) -> ok | undefined.
 cancel_exchange(Index) ->
     gen_server:call(?MODULE, {cancel_exchange, Index}, infinity).
 
+%% ------------------------------ cancel_exchanges ------------------------------ 
 -spec cancel_exchanges() -> [index()].
 cancel_exchanges() ->
     gen_server:call(?MODULE, cancel_exchanges, infinity).
 
-%%%===================================================================
-%%% gen_server callbacks
-%%%===================================================================
 
+%% ============================== Callbacks ==============================
+%%
+
+%% ------------------------------ init ------------------------------ 
+%% @doc 
 -spec init([]) -> {'ok',state()}.
 init([]) ->
     schedule_tick(),
@@ -191,6 +219,7 @@ init([]) ->
     schedule_reset_build_tokens(),
     {ok, State2}.
 
+%% ------------------------------ handle_call ------------------------------ 
 handle_call({set_mode, Mode}, _From, State) ->
     {reply, ok, State#state{mode=Mode}};
 handle_call({manual_exchange, Exchange}, _From, State) ->
@@ -243,6 +272,40 @@ handle_call(cancel_exchanges, _From, State=#state{exchanges=Exchanges}) ->
 handle_call(_Request, _From, State) ->
     {reply, ok, State}.
 
+
+
+%% ~~~~~~~~~~~~~~~~~~~~ do_get_lock ~~~~~~~~~~~~~~~~~~~~
+-spec do_get_lock(any(),pid(),state())
+                 -> {ok | max_concurrency | build_limit_reached, state()}.
+do_get_lock(Type, Pid, State=#state{locks=Locks}) ->
+    Concurrency = app_helper:get_env(legolas,
+                                     anti_entropy_concurrency,
+                                     ?DEFAULT_CONCURRENCY),
+    case length(Locks) >= Concurrency of
+        true ->
+            {max_concurrency, State};
+        false ->
+            case check_lock_type(Type, State) of
+                {ok, State2} ->
+                    Ref = monitor(process, Pid),
+                    State3 = State2#state{locks=[{Pid,Ref}|Locks]},
+                    {ok, State3};
+                Error ->
+                    {Error, State}
+            end
+    end.
+
+%% ~~~~~~~~~~~~~~~~~~~~ check_lock_type ~~~~~~~~~~~~~~~~~~~~
+check_lock_type(build, State=#state{build_tokens=Tokens}) ->
+    if Tokens > 0 ->
+            {ok, State#state{build_tokens=Tokens-1}};
+       true ->
+            build_limit_reached
+    end;
+check_lock_type(_Type, State) ->
+    {ok, State}.
+
+%% ------------------------------ handle_cast ------------------------------ 
 handle_cast({requeue_poke, Index}, State) ->
     State2 = requeue_poke(Index, State),
     {noreply, State2};
@@ -252,6 +315,7 @@ handle_cast({exchange_status, Pid, LocalVN, RemoteVN, IndexN, Reply}, State) ->
 handle_cast(_Msg, State) ->
     {noreply, State}.
 
+%% ------------------------------ handle_info ------------------------------ 
 handle_info(tick, State) ->
     State2 = maybe_tick(State),
     {noreply, State2};
@@ -275,60 +339,52 @@ handle_info({'DOWN', Ref, _, Obj, Status}, State) ->
 handle_info(_Info, State) ->
     {noreply, State}.
 
-terminate(_Reason, _State) ->
-    ok.
-
-code_change(_OldVsn, State, _Extra) ->
-    {ok, State}.
-
-%%%===================================================================
-%%% Internal functions
-%%%===================================================================
-
-schedule_reset_build_tokens() ->
-    {_, Reset} = app_helper:get_env(legolas, anti_entropy_build_limit,
-                                    ?DEFAULT_BUILD_LIMIT),
-    erlang:send_after(Reset, self(), reset_build_tokens).
-
-reset_build_tokens(State) ->
-    {Tokens, _} = app_helper:get_env(legolas, anti_entropy_build_limit,
-                                     ?DEFAULT_BUILD_LIMIT),
-    State#state{build_tokens=Tokens}.
-
--spec settings() -> {boolean(), proplists:proplist()}.
-settings() ->
-    case app_helper:get_env(legolas, anti_entropy, {off, []}) of
-        {on, Opts} ->
-            {true, Opts};
-        {off, Opts} ->
-            {false, Opts};
-        X ->
-            lager:warning("Invalid setting for legolas/anti_entropy: ~p", [X]),
-            application:set_env(legolas, anti_entropy, {off, []}),
-            {false, []}
-    end.
-
--spec maybe_reload_hashtrees(riak_core_ring(), state()) -> state().
-maybe_reload_hashtrees(Ring, State) ->
-    case lists:member(legolas, riak_core_node_watcher:services(node())) of
+%% ~~~~~~~~~~~~~~~~~~~~ maybe_tick ~~~~~~~~~~~~~~~~~~~~
+-spec maybe_tick(state()) -> state().
+maybe_tick(State) ->
+    case enabled() of
         true ->
-            reload_hashtrees(Ring, State);
+            case riak_core_capability:get({legolas, anti_entropy}, disabled) of
+                disabled ->
+                    NextState = State;
+                enabled_v1 ->
+                    NextState = tick(State)
+            end;
         false ->
-            State
+            %% Ensure we do not have any running index_hashtrees, which can
+            %% happen when disabling anti-entropy on a live system.
+            [legolas_index_hashtree:stop(T) || {_,T} <- State#state.trees],
+            NextState = State
+    end,
+    schedule_tick(),
+    NextState.
+
+%% ~~~~~~~~~~~~~~~~~~~~ myabe_release_lock ~~~~~~~~~~~~~~~~~~~~
+-spec maybe_release_lock(reference(), state()) -> state().
+maybe_release_lock(Ref, State) ->
+    Locks = lists:keydelete(Ref, 2, State#state.locks),
+    State#state{locks=Locks}.
+
+%% ~~~~~~~~~~~~~~~~~~~~ myabe_clear_exchange ~~~~~~~~~~~~~~~~~~~~
+-spec maybe_clear_exchange(reference(), term(), state()) -> state().
+maybe_clear_exchange(Ref, Status, State) ->
+    case lists:keytake(Ref, 2, State#state.exchanges) of
+        false ->
+            State;
+        {value, {Idx,Ref,_Pid}, Exchanges} ->
+            lager:debug("Untracking exchange: ~p :: ~p", [Idx, Status]),
+            State#state{exchanges=Exchanges}
     end.
 
-%% Determine the index_hashtree pid for each running primary vnode. This
-%% function is called each tick to ensure that any newly spawned vnodes are
-%% queried.
--spec reload_hashtrees(riak_core_ring(), state()) -> state().
-reload_hashtrees(Ring, State=#state{trees=Trees}) ->
-    Indices = riak_core_ring:my_indices(Ring),
-    Existing = dict:from_list(Trees),
-    MissingIdx = [Idx || Idx <- Indices,
-                         not dict:is_key(Idx, Existing)],
-    [legolas_vnode:request_hashtree_pid(Idx) || Idx <- MissingIdx],
+%% ~~~~~~~~~~~~~~~~~~~~ myabe_clear_registered_tree ~~~~~~~~~~~~~~~~~~~~
+-spec maybe_clear_registered_tree(pid(), state()) -> state().
+maybe_clear_registered_tree(Pid, State) when is_pid(Pid) ->
+    Trees = lists:keydelete(Pid, 2, State#state.trees),
+    State#state{trees=Trees};
+maybe_clear_registered_tree(_, State) ->
     State.
 
+%% ~~~~~~~~~~~~~~~~~~~~ add_hashtree_pid ~~~~~~~~~~~~~~~~~~~~
 add_hashtree_pid(Index, Pid, State) ->
     add_hashtree_pid(enabled(), Index, Pid, State).
 
@@ -348,57 +404,98 @@ add_hashtree_pid(true, Index, Pid, State=#state{trees=Trees}) ->
             State3
     end.
 
--spec do_get_lock(any(),pid(),state())
-                 -> {ok | max_concurrency | build_limit_reached, state()}.
-do_get_lock(Type, Pid, State=#state{locks=Locks}) ->
-    Concurrency = app_helper:get_env(legolas,
-                                     anti_entropy_concurrency,
-                                     ?DEFAULT_CONCURRENCY),
-    case length(Locks) >= Concurrency of
-        true ->
-            {max_concurrency, State};
-        false ->
-            case check_lock_type(Type, State) of
-                {ok, State2} ->
-                    Ref = monitor(process, Pid),
-                    State3 = State2#state{locks=[{Pid,Ref}|Locks]},
-                    {ok, State3};
-                Error ->
-                    {Error, State}
-            end
-    end.
+%% ------------------------------ terminate ------------------------------ 
+terminate(_Reason, _State) ->
+    ok.
 
-check_lock_type(build, State=#state{build_tokens=Tokens}) ->
-    if Tokens > 0 ->
-            {ok, State#state{build_tokens=Tokens-1}};
-       true ->
-            build_limit_reached
-    end;
-check_lock_type(_Type, State) ->
+%% ------------------------------ code_change ------------------------------ 
+code_change(_OldVsn, State, _Extra) ->
     {ok, State}.
 
--spec maybe_release_lock(reference(), state()) -> state().
-maybe_release_lock(Ref, State) ->
-    Locks = lists:keydelete(Ref, 2, State#state.locks),
-    State#state{locks=Locks}.
+%% ============================== Internal functions ==============================
+%%
 
--spec maybe_clear_exchange(reference(), term(), state()) -> state().
-maybe_clear_exchange(Ref, Status, State) ->
-    case lists:keytake(Ref, 2, State#state.exchanges) of
-        false ->
-            State;
-        {value, {Idx,Ref,_Pid}, Exchanges} ->
-            lager:debug("Untracking exchange: ~p :: ~p", [Idx, Status]),
-            State#state{exchanges=Exchanges}
+%% ------------------------------ schedule_reset_build_tokens ------------------------------ 
+schedule_reset_build_tokens() ->
+    {_, Reset} = app_helper:get_env(legolas, anti_entropy_build_limit,
+                                    ?DEFAULT_BUILD_LIMIT),
+    erlang:send_after(Reset, self(), reset_build_tokens).
+
+%% ------------------------------ reset_build_tokens ------------------------------ 
+reset_build_tokens(State) ->
+    {Tokens, _} = app_helper:get_env(legolas, anti_entropy_build_limit,
+                                     ?DEFAULT_BUILD_LIMIT),
+    State#state{build_tokens=Tokens}.
+
+%% ------------------------------ settings ------------------------------ 
+-spec settings() -> {boolean(), proplists:proplist()}.
+settings() ->
+    case app_helper:get_env(legolas, anti_entropy, {off, []}) of
+        {on, Opts} ->
+            {true, Opts};
+        {off, Opts} ->
+            {false, Opts};
+        X ->
+            lager:warning("Invalid setting for legolas/anti_entropy: ~p", [X]),
+            application:set_env(legolas, anti_entropy, {off, []}),
+            {false, []}
     end.
 
--spec maybe_clear_registered_tree(pid(), state()) -> state().
-maybe_clear_registered_tree(Pid, State) when is_pid(Pid) ->
-    Trees = lists:keydelete(Pid, 2, State#state.trees),
-    State#state{trees=Trees};
-maybe_clear_registered_tree(_, State) ->
+%% ------------------------------ schedule_tick ------------------------------ 
+-spec schedule_tick() -> ok.
+schedule_tick() ->
+    %% Perform tick every 15 seconds
+    DefaultTick = 15000,
+    Tick = app_helper:get_env(legolas,
+                              anti_entropy_tick,
+                              DefaultTick),
+    erlang:send_after(Tick, ?MODULE, tick),
+    ok.
+
+%% ------------------------------ tick ------------------------------ 
+-spec tick(state()) -> state().
+tick(State) ->
+    {ok, Ring} = riak_core_ring_manager:get_my_ring(),
+    State2 = maybe_reload_hashtrees(Ring, State),
+    State3 = lists:foldl(fun(_,S) ->
+                                 maybe_poke_tree(S)
+                         end, State2, lists:seq(1,10)),
+    State4 = maybe_exchange(Ring, State3),
+    State4.
+
+%% ~~~~~~~~~~~~~~~~~~~~ maybe_reload_hashtrees ~~~~~~~~~~~~~~~~~~~~
+-spec maybe_reload_hashtrees(riak_core_ring(), state()) -> state().
+maybe_reload_hashtrees(Ring, State) ->
+    case lists:member(legolas, riak_core_node_watcher:services(node())) of
+        true ->
+            reload_hashtrees(Ring, State);
+        false ->
+            State
+    end.
+
+%% ~~~~~~~~~~~~~~~~~~~~ reload_hashtrees ~~~~~~~~~~~~~~~~~~~~
+%% Determine the index_hashtree pid for each running primary vnode. This
+%% function is called each tick to ensure that any newly spawned vnodes are
+%% queried.
+-spec reload_hashtrees(riak_core_ring(), state()) -> state().
+reload_hashtrees(Ring, State=#state{trees=Trees}) ->
+    Indices = riak_core_ring:my_indices(Ring),
+    Existing = dict:from_list(Trees),
+    MissingIdx = [Idx || Idx <- Indices,
+                         not dict:is_key(Idx, Existing)],
+    [legolas_vnode:request_hashtree_pid(Idx) || Idx <- MissingIdx],
     State.
 
+%% ~~~~~~~~~~~~~~~~~~~~ maybe_poke_tree ~~~~~~~~~~~~~~~~~~~~
+-spec maybe_poke_tree(state()) -> state().
+maybe_poke_tree(State=#state{trees=[]}) ->
+    State;
+maybe_poke_tree(State) ->
+    {Tree, State2} = next_tree(State),
+    legolas_index_hashtree:poke(Tree),
+    State2.
+
+%% ~~~~~~~~~~~~~~~~~~~~ next_tree ~~~~~~~~~~~~~~~~~~~~
 -spec next_tree(state()) -> {pid(), state()}.
 next_tree(#state{trees=[]}) ->
     throw(no_trees_registered);
@@ -410,57 +507,11 @@ next_tree(State=#state{tree_queue=Queue}) ->
     State2 = State#state{tree_queue=Rest},
     {Pid, State2}.
 
--spec schedule_tick() -> ok.
-schedule_tick() ->
-    %% Perform tick every 15 seconds
-    DefaultTick = 15000,
-    Tick = app_helper:get_env(legolas,
-                              anti_entropy_tick,
-                              DefaultTick),
-    erlang:send_after(Tick, ?MODULE, tick),
-    ok.
-
--spec maybe_tick(state()) -> state().
-maybe_tick(State) ->
-    case enabled() of
-        true ->
-            case riak_core_capability:get({legolas, anti_entropy}, disabled) of
-                disabled ->
-                    NextState = State;
-                enabled_v1 ->
-                    NextState = tick(State)
-            end;
-        false ->
-            %% Ensure we do not have any running index_hashtrees, which can
-            %% happen when disabling anti-entropy on a live system.
-            [riak_kv_index_hashtree:stop(T) || {_,T} <- State#state.trees],
-            NextState = State
-    end,
-    schedule_tick(),
-    NextState.
-
--spec tick(state()) -> state().
-tick(State) ->
-    {ok, Ring} = riak_core_ring_manager:get_my_ring(),
-    State2 = maybe_reload_hashtrees(Ring, State),
-    State3 = lists:foldl(fun(_,S) ->
-                                 maybe_poke_tree(S)
-                         end, State2, lists:seq(1,10)),
-    State4 = maybe_exchange(Ring, State3),
-    State4.
-
--spec maybe_poke_tree(state()) -> state().
-maybe_poke_tree(State=#state{trees=[]}) ->
-    State;
-maybe_poke_tree(State) ->
-    {Tree, State2} = next_tree(State),
-    riak_kv_index_hashtree:poke(Tree),
-    State2.
-
 %%%===================================================================
 %%% Exchanging
 %%%===================================================================
 
+%% ------------------------------ do_exchange_status ------------------------------ 
 -spec do_exchange_status(pid(), vnode(), vnode(), index_n(), any(), state()) -> state().
 do_exchange_status(_Pid, LocalVN, RemoteVN, IndexN, Reply, State) ->
     {LocalIdx, _} = LocalVN,
@@ -476,6 +527,12 @@ do_exchange_status(_Pid, LocalVN, RemoteVN, IndexN, Reply, State) ->
             State2
     end.
 
+-spec enqueue_exchanges([exchange()], state()) -> state().
+enqueue_exchanges(Exchanges, State) ->
+    EQ = prune_exchanges(State#state.exchange_queue ++ Exchanges),
+    State#state{exchange_queue=EQ}.
+
+%% ~~~~~~~~~~~~~~~~~~~~ enqueue_exchange ~~~~~~~~~~~~~~~~~~~~
 -spec enqueue_exchange(index() |
                        {index(), index_n()} |
                        {index(), index(), index_n()}, state()) -> state().
@@ -500,11 +557,7 @@ enqueue_exchange(Index, State) ->
     Exchanges = all_pairwise_exchanges(Index, Ring),
     enqueue_exchanges(Exchanges, State).
 
--spec enqueue_exchanges([exchange()], state()) -> state().
-enqueue_exchanges(Exchanges, State) ->
-    EQ = prune_exchanges(State#state.exchange_queue ++ Exchanges),
-    State#state{exchange_queue=EQ}.
-
+%% ~~~~~~~~~~~~~~~~~~~~ start_exchange ~~~~~~~~~~~~~~~~~~~~
 -spec start_exchange(vnode(),
                      {index(), index_n()},
                      riak_core_ring(),
@@ -516,13 +569,13 @@ start_exchange(LocalVN, {RemoteIdx, IndexN}, Ring, State) ->
     try riak_core_ring:index_owner(Ring, RemoteIdx) of
         Owner ->
             Nodes = lists:usort([node(), Owner]),
-            DownNodes = Nodes -- riak_core_node_watcher:nodes(riak_kv),
+            DownNodes = Nodes -- riak_core_node_watcher:nodes(legolas),
             case DownNodes of
                 [] ->
                     RemoteVN = {RemoteIdx, Owner},
                     start_exchange(LocalVN, RemoteVN, IndexN, Ring, State);
                 _ ->
-                    {{riak_kv_down, DownNodes}, State}
+                    {{legolas_down, DownNodes}, State}
             end
     catch
         error:{badmatch,_} ->
@@ -542,11 +595,11 @@ start_exchange(LocalVN, RemoteVN, IndexN, Ring, State) ->
                     %% be running (eg. after a crash).  Send request to
                     %% the vnode to trigger on-demand start and requeue
                     %% exchange.
-                    riak_kv_vnode:request_hashtree_pid(LocalIdx),
+                    legolas_vnode:request_hashtree_pid(LocalIdx),
                     State2 = requeue_exchange(LocalIdx, RemoteIdx, IndexN, State),
                     {not_built, State2};
                 {ok, Tree} ->
-                    case riak_kv_exchange_fsm:start(LocalVN, RemoteVN,
+                    case legolas_exchange_fsm:start(LocalVN, RemoteVN,
                                                     IndexN, Tree, self()) of
                         {ok, FsmPid} ->
                             Ref = monitor(process, FsmPid),
@@ -563,19 +616,21 @@ start_exchange(LocalVN, RemoteVN, IndexN, Ring, State) ->
             {not_responsible, State}
     end.
 
+%% ~~~~~~~~~~~~~~~~~~~~ all_pairwise_exchanges ~~~~~~~~~~~~~~~~~~~~
 -spec all_pairwise_exchanges(index(), riak_core_ring())
                             -> [exchange()].
 all_pairwise_exchanges(Index, Ring) ->
-    LocalIndexN = riak_kv_util:responsible_preflists(Index, Ring),
-    Sibs = riak_kv_util:preflist_siblings(Index),
+    LocalIndexN = legolas:responsible_preflists(Index, Ring),
+    Sibs = legolas:preflist_siblings(Index),
     lists:flatmap(
       fun(RemoteIdx) ->
-              RemoteIndexN = riak_kv_util:responsible_preflists(RemoteIdx, Ring),
+              RemoteIndexN = legolas:responsible_preflists(RemoteIdx, Ring),
               SharedIndexN = ordsets:intersection(ordsets:from_list(LocalIndexN),
                                                   ordsets:from_list(RemoteIndexN)),
               [{Index, RemoteIdx, IndexN} || IndexN <- SharedIndexN]
       end, Sibs).
 
+%% ~~~~~~~~~~~~~~~~~~~~ all_exchanges ~~~~~~~~~~~~~~~~~~~~
 -spec all_exchanges(node(), riak_core_ring(), state())
                    -> [exchange()].
 all_exchanges(_Node, Ring, #state{trees=Trees}) ->
@@ -584,6 +639,7 @@ all_exchanges(_Node, Ring, #state{trees=Trees}) ->
                           all_pairwise_exchanges(Index, Ring)
                   end, Indices).
 
+%% ~~~~~~~~~~~~~~~~~~~~ add_index_exchanges ~~~~~~~~~~~~~~~~~~~~
 -spec add_index_exchanges(index(), state()) -> state().
 add_index_exchanges(_Index, State) when State#state.mode == manual ->
     State;
@@ -594,6 +650,7 @@ add_index_exchanges(Index, State) ->
     EQ2 = prune_exchanges(EQ),
     State#state{exchange_queue=EQ2}.
 
+%% ~~~~~~~~~~~~~~~~~~~~ prune_exchanges ~~~~~~~~~~~~~~~~~~~~
 -spec prune_exchanges([exchange()])
                      -> [exchange()].
 prune_exchanges(Exchanges) ->
@@ -604,6 +661,7 @@ prune_exchanges(Exchanges) ->
          end || {A, B, IndexN} <- Exchanges],
     lists:usort(L).
 
+%% ~~~~~~~~~~~~~~~~~~~~ already_exchanging ~~~~~~~~~~~~~~~~~~~~
 -spec already_exchanging(index() ,state()) -> boolean().
 already_exchanging(Index, #state{exchanges=E}) ->
     case lists:keyfind(Index, 1, E) of
@@ -613,6 +671,7 @@ already_exchanging(Index, #state{exchanges=E}) ->
             true
     end.
 
+%% ~~~~~~~~~~~~~~~~~~~~ maybe_exchange ~~~~~~~~~~~~~~~~~~~~
 -spec maybe_exchange(riak_core_ring(), state()) -> state().
 maybe_exchange(Ring, State) ->
     case next_exchange(Ring, State) of
@@ -634,6 +693,7 @@ maybe_exchange(Ring, State) ->
             end
     end.
 
+%% ~~~~~~~~~~~~~~~~~~~~ next_exchange ~~~~~~~~~~~~~~~~~~~~
 -spec next_exchange(riak_core_ring(), state()) -> {'none' | exchange(), state()}.
 next_exchange(_Ring, State=#state{exchange_queue=[], trees=[]}) ->
     {none, State};
@@ -653,6 +713,7 @@ next_exchange(_Ring, State=#state{exchange_queue=Exchanges}) ->
     State2 = State#state{exchange_queue=Rest},
     {Exchange, State2}.
 
+%% ~~~~~~~~~~~~~~~~~~~~ requeue_poke ~~~~~~~~~~~~~~~~~~~~
 -spec requeue_poke(index(), state()) -> state().
 requeue_poke(Index, State=#state{trees=Trees}) ->
     case orddict:find(Index, Trees) of
@@ -663,6 +724,7 @@ requeue_poke(Index, State=#state{trees=Trees}) ->
             State
     end.
 
+%% ~~~~~~~~~~~~~~~~~~~~ requeue_exchange ~~~~~~~~~~~~~~~~~~~~
 -spec requeue_exchange(index(), index(), index_n(), state()) -> state().
 requeue_exchange(LocalIdx, RemoteIdx, IndexN, State) ->
     Exchange = {LocalIdx, RemoteIdx, IndexN},
@@ -674,3 +736,4 @@ requeue_exchange(LocalIdx, RemoteIdx, IndexN, State) ->
             Exchanges = State#state.exchange_queue ++ [Exchange],
             State#state{exchange_queue=Exchanges}
     end.
+

@@ -2,6 +2,7 @@
 %%% @author Jiangwen Su <uukuguy@gmail.com>
 %%% @copyright (C) 2013, lastz.org
 %%% @doc
+%%%     legolas写入数据有限状态机。
 %%%
 %%% @end
 %%% Created : 2013-11-07 14:30:12
@@ -11,15 +12,14 @@
 -behaviour(gen_fsm).
 -include("legolas.hrl").
 
-%% APIs
-
+%% ------------------------------ APIs ------------------------------ 
 -export([
          start_link/5,
          put_data/2,
          put_data/3
         ]).
 
-%% Callbacks
+%% ------------------------------ Callbacks ------------------------------ 
 -export([
          init/1,
          code_change/4,
@@ -29,13 +29,14 @@
          terminate/3
         ]).
 
-%% States
+%% ------------------------------ States ------------------------------ 
 -export([
          prepare/2,
          execute/2,
          waiting/2
         ]).
 
+%% ------------------------------ record ------------------------------ 
 -record(state, 
         {
          req_id :: pos_integer(),
@@ -51,8 +52,14 @@
          num_error = 0 :: non_neg_integer()
         }).
 
+%% ============================== APIs ==============================
+%%
+
 start_link(ReqId, From, Path, Data, PutOptions) ->
     gen_fsm:start_link(?MODULE, [ReqId, From, Path, Data, PutOptions], []).
+
+%% ------------------------------ put_data ------------------------------ 
+%% @doc 每次调用put_data，启动一个有限状态机。
 
 put_data(Path, Data) ->
     CHashArgs = legolas:get_chash_args(),
@@ -64,9 +71,12 @@ put_data(Path, Data, PutOptions) ->
     legolas_put_data_fsm_sup:start_put_data_fsm([ReqId, self(), Path, Data, PutOptions]),
     {ok, ReqId}.
 
-%%%------------------------------------------------------------ 
-%%% Callbacks
-%%%------------------------------------------------------------ 
+%% ============================== Callbacks ==============================
+%% @doc init -> prepare - >execute -> waiting
+
+%% ------------------------------ init ------------------------------ 
+%% @doc 初始化完参数记录#state，进入prepare状态。
+%%
 
 init([ReqId, From, Path, Data, Options])->
     N = proplists:get_value(n, Options, ?DEFAULT_CHASH_N),
@@ -85,6 +95,9 @@ init([ReqId, From, Path, Data, Options])->
               },
     {ok, prepare, State, 0}.
 
+%% ------------------------------ prepare state ------------------------------ 
+%% @doc 获取为路径Path提供存储服务的虚拟节点列表Preflist后，进入execute状态。
+           
 prepare(timeout, State0=#state{
                            path = Path,
                            chash_n = N
@@ -92,6 +105,9 @@ prepare(timeout, State0=#state{
     Preflist = legolas:get_storage_preflist(Path, N),
     State = State0#state{preflist=Preflist},
     {next_state, execute, State, 0}.
+
+%% ------------------------------ execute state ------------------------------ 
+%% @doc 实际异步调用存储后端写入接口后，进入waiting状态
 
 execute(timeout, State=#state{
                            req_id = ReqId,
@@ -101,6 +117,9 @@ execute(timeout, State=#state{
                           }) ->
     legolas_storage_vnode:put_data(Preflist, ReqId, Path, Data),
     {next_state, waiting, State}.
+
+%% ------------------------------ waiting state ------------------------------ 
+%% @doc 根据实际调用成功次数要求，返回相应的值。
 
 waiting({ok, ReqId, Result}, State0=#state{
                                        from = From, 
@@ -114,8 +133,9 @@ waiting({ok, ReqId, Result}, State0=#state{
             NumW = NumW0 + 1,
             State = State0#state{num_w = NumW},
             if 
+                %% 写入成功W(缺省2)次后，返回成功。
                 NumW =:= W ->
-                    ?NOTICE("legolas put_data success write ~p times. Reply to ~p", [NumW, From]),
+                    ?DEBUG("legolas put_data success write ~p times. Reply to ~p", [NumW, From]),
                     From ! {ReqId, ok},
                     {stop, normal, State};
                 true -> {next_state, waiting, State}

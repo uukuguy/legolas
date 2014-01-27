@@ -2,21 +2,26 @@
 %%% @author Jiangwen Su <uukuguy@gmail.com>
 %%% @copyright (C) 2013, lastz.org
 %%% @doc
+%%%     legolas熵
 %%%
 %%% @end
 %%% Created : 2013-11-30 09:21:35
 %%%------------------------------------------------------------ 
 -module(legolas_entropy_info).
 
--export([tree_built/2,
+%% ------------------------------ APIs ------------------------------ 
+-export([
+         tree_built/2,
          exchange_complete/4,
          create_table/0,
          dump/0,
          compute_exchange_info/0,
-         compute_tree_info/0]).
+         compute_tree_info/0
+        ]).
 
 -define(ETS, ets_legolas_entropy).
 
+%% ------------------------------ record ------------------------------ 
 -type index() :: non_neg_integer().
 -type index_n() :: {index(), pos_integer()}.
 -type exchange_id() :: {index(), index_n()}.
@@ -43,20 +48,22 @@
 
 -type index_info() :: #index_info{}.
 
-%%%===================================================================
-%%% API
-%%%===================================================================
+%% ============================== APIs ==============================
+%%
 
+%% ------------------------------ tree_built ------------------------------ 
 %% @doc Store AAE tree build time
 -spec tree_built(index(), t_now()) -> ok.
 tree_built(Index, Time) ->
     update_index_info(Index, {tree_built, Time}).
 
+%% ------------------------------ exchange_complete ------------------------------ 
 %% @doc Store information about a just-completed AAE exchange
 -spec exchange_complete(index(), index(), index_n(), pos_integer()) -> ok.
 exchange_complete(Index, RemoteIdx, IndexN, Repaired) ->
     update_index_info(Index, {exchange_complete, RemoteIdx, IndexN, Repaired}).
 
+%% ------------------------------ create_table ------------------------------ 
 %% @doc Called by {@link legolas_sup} to create public ETS table used for
 %%      holding AAE information for reporting. Table will be owned by
 %%      the `legolas_sup' to ensure longevity.
@@ -64,10 +71,12 @@ create_table() ->
     (ets:info(?ETS) /= undefined) orelse
         ets:new(?ETS, [named_table, public, set, {write_concurrency, true}]).
 
+%% ------------------------------ dump ------------------------------ 
 %% @doc Return state of ets_legolas_entropy table as a list
 dump() ->
     ets:tab2list(?ETS).
 
+%% ------------------------------ compute_exchange_info ------------------------------ 
 %% @doc
 %% Return a list containing information about exchanges for all locally owned
 %% indices. For each index, return a tuple containing time of most recent
@@ -83,6 +92,36 @@ compute_exchange_info() ->
     KnownInfo = [compute_exchange_info(Ring, Index, Info) || {Index, Info} <- all_index_info()],
     merge_to_first(KnownInfo, Defaults).
 
+compute_exchange_info(Ring, Index, #index_info{exchanges=Exchanges,
+                                               repaired=Repaired}) ->
+    {_, AllExchanges} = all_exchanges(Ring, Index),
+    Defaults = [{Exchange, undefined} || Exchange <- AllExchanges],
+    KnownTime = [{Exchange, EI#exchange_info.time} || {Exchange, EI} <- Exchanges],
+    AllTime = merge_to_first(KnownTime, Defaults),
+    %% Rely upon fact that undefined < tuple
+    AllTime2 = lists:keysort(2, AllTime),
+    {_, LastAll} = hd(AllTime2),
+    {_, Recent} = hd(lists:reverse(AllTime2)),
+    {Index, Recent, LastAll, stat_tuple(Repaired)}.
+
+%% ~~~~~~~~~~~~~~~~~~~~ all_exchanges ~~~~~~~~~~~~~~~~~~~~
+%% Return a list of all exchanges necessary to guarantee that `Index' is
+%% fully up-to-date.
+-spec all_exchanges(riak_core_ring(), index())
+                   -> {index(), [{index(), index_n()}]}.
+all_exchanges(Ring, Index) ->
+    L1 = legolas_entropy_manager:all_pairwise_exchanges(Index, Ring),
+    L2 = [{RemoteIdx, IndexN} || {_, RemoteIdx, IndexN} <- L1],
+    {Index, L2}.
+
+%% ~~~~~~~~~~~~~~~~~~~~ stat_tuple ~~~~~~~~~~~~~~~~~~~~
+stat_tuple(undefined) ->
+    undefined;
+stat_tuple(#simple_stat{last=Last, max=Max, min=Min, sum=Sum, count=Cnt}) ->
+    Mean = Sum div Cnt,
+    {Last, Min, Max, Mean}.
+
+%% ------------------------------ compute_tree_info ------------------------------ 
 %% @doc Return a list of AAE build times for each locally owned index.
 -spec compute_tree_info() -> [{index(), t_now()}].
 compute_tree_info() ->
@@ -93,10 +132,10 @@ compute_tree_info() ->
     KnownInfo = [{Index, Info#index_info.build_time} || {Index, Info} <- all_index_info()],
     merge_to_first(KnownInfo, Defaults).
 
-%%%===================================================================
-%%% Internal functions
-%%%===================================================================
+%% ============================== Internal functions ==============================
+%%
 
+%% ------------------------------ update_index_info ------------------------------ 
 %% Utility function to load stored information for a given index,
 %% invoke `handle_index_info' to update the information, and then
 %% store the new info back into the ETS table.
@@ -112,21 +151,7 @@ update_index_info(Index, Cmd) ->
     ets:insert(?ETS, {{index, Index}, Info2}),
     ok.
 
-%% Return a list of all stored index information.
--spec all_index_info() -> [{index(), index_info()}].
-all_index_info() ->
-    ets:select(?ETS, [{{{index, '$1'}, '$2'}, [], [{{'$1','$2'}}]}]).
-
-%% Remove information for indices that this node no longer owns.
-filter_index_info() ->
-    {ok, Ring} = riak_core_ring_manager:get_my_ring(),
-    Primaries = riak_core_ring:my_indices(Ring),
-    Indices = ets:select(?ETS, [{{{index, '$1'}, '$2'}, [], ['$1']}]),
-    Others = ordsets:subtract(ordsets:from_list(Indices),
-                              ordsets:from_list(Primaries)),
-    [ets:delete(?ETS, {index, Idx}) || Idx <- Others],
-    ok.
-
+%% ~~~~~~~~~~~~~~~~~~~~ handle_index_info ~~~~~~~~~~~~~~~~~~~~
 %% Update provided index info based on request.
 -spec handle_index_info(term(), index(), index_info()) -> index_info().
 handle_index_info({tree_built, Time}, _, Info) ->
@@ -142,32 +167,7 @@ handle_index_info({exchange_complete, RemoteIdx, IndexN, Repaired}, _, Info) ->
                     repaired=RepairStat,
                     last_exchange=ExId}.
 
-%% Return a list of all exchanges necessary to guarantee that `Index' is
-%% fully up-to-date.
--spec all_exchanges(riak_core_ring(), index())
-                   -> {index(), [{index(), index_n()}]}.
-all_exchanges(Ring, Index) ->
-    L1 = legolas_entropy_manager:all_pairwise_exchanges(Index, Ring),
-    L2 = [{RemoteIdx, IndexN} || {_, RemoteIdx, IndexN} <- L1],
-    {Index, L2}.
-
-compute_exchange_info(Ring, Index, #index_info{exchanges=Exchanges,
-                                               repaired=Repaired}) ->
-    {_, AllExchanges} = all_exchanges(Ring, Index),
-    Defaults = [{Exchange, undefined} || Exchange <- AllExchanges],
-    KnownTime = [{Exchange, EI#exchange_info.time} || {Exchange, EI} <- Exchanges],
-    AllTime = merge_to_first(KnownTime, Defaults),
-    %% Rely upon fact that undefined < tuple
-    AllTime2 = lists:keysort(2, AllTime),
-    {_, LastAll} = hd(AllTime2),
-    {_, Recent} = hd(lists:reverse(AllTime2)),
-    {Index, Recent, LastAll, stat_tuple(Repaired)}.
-
-%% Merge two lists together based on the key at position 1. When both lists
-%% contain the same key, the value associated with `L1' is kept.
-merge_to_first(L1, L2) ->
-    lists:ukeysort(1, L1 ++ L2).
-
+%% ~~~~~~~~~~~~~~~~~~~~ update_simple_stat ~~~~~~~~~~~~~~~~~~~~
 update_simple_stat(Value, undefined) ->
     #simple_stat{last=Value, min=Value, max=Value, sum=Value, count=1};
 update_simple_stat(Value, Stat=#simple_stat{max=Max, min=Min, sum=Sum, count=Cnt}) ->
@@ -177,9 +177,26 @@ update_simple_stat(Value, Stat=#simple_stat{max=Max, min=Min, sum=Sum, count=Cnt
                      sum=Sum+Value,
                      count=Cnt+1}.
 
-stat_tuple(undefined) ->
-    undefined;
-stat_tuple(#simple_stat{last=Last, max=Max, min=Min, sum=Sum, count=Cnt}) ->
-    Mean = Sum div Cnt,
-    {Last, Min, Max, Mean}.
+%% ------------------------------ all_index_info ------------------------------ 
+%% Return a list of all stored index information.
+-spec all_index_info() -> [{index(), index_info()}].
+all_index_info() ->
+    ets:select(?ETS, [{{{index, '$1'}, '$2'}, [], [{{'$1','$2'}}]}]).
+
+%% ------------------------------ filter_index_info ------------------------------ 
+%% Remove information for indices that this node no longer owns.
+filter_index_info() ->
+    {ok, Ring} = riak_core_ring_manager:get_my_ring(),
+    Primaries = riak_core_ring:my_indices(Ring),
+    Indices = ets:select(?ETS, [{{{index, '$1'}, '$2'}, [], ['$1']}]),
+    Others = ordsets:subtract(ordsets:from_list(Indices),
+                              ordsets:from_list(Primaries)),
+    [ets:delete(?ETS, {index, Idx}) || Idx <- Others],
+    ok.
+
+%% ------------------------------ merge_to_first ------------------------------ 
+%% Merge two lists together based on the key at position 1. When both lists
+%% contain the same key, the value associated with `L1' is kept.
+merge_to_first(L1, L2) ->
+    lists:ukeysort(1, L1 ++ L2).
 

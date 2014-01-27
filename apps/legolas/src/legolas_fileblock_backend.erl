@@ -102,7 +102,7 @@ get_full_filename_in_partition(Path, #state{partition_datadir=DataDir}) ->
 %% @doc Start this backend, yes, sir!
 -spec start(integer(), config()) -> {ok, state()} | {error, term()}.
 start(Partition, Config) ->
-    %?NOTICE("Starting fileblock backend. Partition: ~p", [integer_to_list(Partition, 16)]),
+    %?DEBUG("Starting fileblock backend. Partition: ~p", [integer_to_list(Partition, 16)]),
     DefaultLen = case app_helper:get_prop_or_env(
                         yessir_default_size, Config, yessir_backend) of
                      undefined -> 1024;
@@ -147,7 +147,7 @@ start(Partition, Config) ->
 %% @doc Stop this backend!
 -spec stop(state()) -> ok.
 stop(#state{partition_string=PartitionString} = State) ->
-    ?NOTICE("Backend stop! close eleveldb. Partition: ~p", [PartitionString]),
+    ?DEBUG("Backend stop! close eleveldb. Partition: ~p", [PartitionString]),
     case State#state.ref of
         undefined ->
             ok;
@@ -163,7 +163,7 @@ get(Bucket, Key, #state{
                     ref=Ref,
                     read_opts=ReadOpts
                    } = State) ->
-    ?NOTICE("Ref: ~p Bucket: ~p Key: ~p", [Ref, Bucket, Key]),
+    ?DEBUG("Ref: ~p Bucket: ~p Key: ~p", [Ref, Bucket, Key]),
     StorageKey = legolas:to_object_key(Bucket, Key),
     Result = case eleveldb:get(Ref, StorageKey, ReadOpts) of
                  {ok, _} ->
@@ -267,7 +267,7 @@ fold_buckets(_FoldBucketsFun, Acc, _Opts, _S) ->
                 [{atom(), term()}],
                 state()) -> {ok, term()}.
 fold_keys(FoldKeysFun, Accum, Opts, #state{partition_string=PartitionString}=State) ->
-    ?NOTICE("fold_keys/4 Partition: ~p", [PartitionString]),
+    ?DEBUG("fold_keys/4 Partition: ~p", [PartitionString]),
     KeyCount = State#state.key_count,
     BucketOpt = lists:keyfind(bucket, 1, Opts),
     Folder = case BucketOpt of
@@ -286,7 +286,7 @@ fold_keys(FoldKeysFun, Accum, Opts, #state{partition_string=PartitionString}=Sta
     end.
 
 %% @doc Fold over all the objects for one or all buckets.
--spec fold_objects(riak_kv_backend:fold_objects_fun(),
+-spec fold_objects(legolas_backend:fold_objects_fun(),
                    any(),
                    [{atom(), term()}],
                    state()) -> {ok, any()} | {async, fun()}.
@@ -325,7 +325,7 @@ get_object_folder(FoldFun, Acc, FoldOpts, #state{ref=Ref}) ->
     %end.
     fun() ->
             try
-                ?NOTICE("try eleveldb:fold/4 Ref: ~p FoldFun: ~p Acc: ~p", [Ref, FoldFun, Acc]),
+                ?DEBUG("try eleveldb:fold/4 Ref: ~p FoldFun: ~p Acc: ~p", [Ref, FoldFun, Acc]),
                 eleveldb:fold(Ref, FoldFun, Acc, FoldOpts)
             catch
                 {break, AccFinal} ->
@@ -335,7 +335,7 @@ get_object_folder(FoldFun, Acc, FoldOpts, #state{ref=Ref}) ->
     end.
 
 %fold_anything_fun(FoldFun, Acc, _FoldOpts, #state{partition_string=PartitionString} = _State) ->
-    %?NOTICE("Start to fold all objects. Partition: ~p", [PartitionString]),
+    %?DEBUG("Start to fold all objects. Partition: ~p", [PartitionString]),
     %Bucket = <<>>,
     %Key = "/a1/b1/c1",
     %StorageKey = legolas:to_object_key(Bucket, Key),
@@ -345,10 +345,10 @@ get_object_folder(FoldFun, Acc, FoldOpts, #state{ref=Ref}) ->
 
 fold_objects_fun(FoldObjectsFun, {bucket, FilterBucket}, State) ->
     fun({StorageKey, _Value}, Acc) ->
-            ?NOTICE("StorageKey: ~p", [StorageKey]),
+            ?DEBUG("StorageKey: ~p", [StorageKey]),
             case legolas:from_object_key(StorageKey) of
                 {Bucket, Key} when Bucket == FilterBucket ->
-                    ?NOTICE("Bucket: ~p Key: ~p", [Bucket, Key]),
+                    ?DEBUG("Bucket: ~p Key: ~p", [Bucket, Key]),
                     case do_get_data(Key, State) of
                         {ok, Data} ->
                             FoldObjectsFun(Bucket, Key, Data, Acc);
@@ -363,10 +363,10 @@ fold_objects_fun(FoldObjectsFun, {bucket, FilterBucket}, State) ->
     end;
 fold_objects_fun(FoldObjectsFun, undefined, State) ->
     fun({StorageKey, _Value}, Acc) ->
-            ?NOTICE("StorageKey: ~p", [StorageKey]),
+            ?DEBUG("StorageKey: ~p", [StorageKey]),
             case legolas:from_object_key(StorageKey) of
                 {Bucket, Key} ->
-                    ?NOTICE("Bucket: ~p Key: ~p", [Bucket, Key]),
+                    ?DEBUG("Bucket: ~p Key: ~p", [Bucket, Key]),
                     case do_get_data(Key, State) of
                         {ok, Data} ->
                             FoldObjectsFun(Bucket, Key, Data, Acc);
@@ -390,7 +390,7 @@ fold_objects_fun(FoldObjectsFun, undefined, State) ->
                                              %fold_opts=FoldOpts,
                                              %partition_string=PartitionString
                                             %}=State) ->
-    %?NOTICE("fold_objects/4 FoldObjectsFun: ~p Accum: ~p Partition: ~p", [FoldObjectsFun, Accum, PartitionString]),
+    %?DEBUG("fold_objects/4 FoldObjectsFun: ~p Accum: ~p Partition: ~p", [FoldObjectsFun, Accum, PartitionString]),
     %KeyCount = State#state.key_count,
     %ValueSize = State#state.default_size,
     %BucketOpt = lists:keyfind(bucket, 1, Opts),
@@ -604,7 +604,7 @@ open_db(State0, RetriesLeft, _) ->
             case lists:prefix("IO error: lock ", OpenErr) of
                 true ->
                     SleepFor = app_helper:get_env(legolas, eleveldb_open_retry_delay, 2000),
-                    ?NOTICE("Leveldb backend retrying ~p in ~p ms after error ~s\n",
+                    ?WARNING("Leveldb backend retrying ~p in ~p ms after error ~s\n",
                                 [State0#state.indexes_datadir, SleepFor, OpenErr]),
                     timer:sleep(SleepFor),
                     open_db(State0, RetriesLeft - 1, Reason);

@@ -27,7 +27,7 @@ init([]) ->
     {ok, #state{}}.
 
 handle_event({service_update, Services}, State) ->
-    ?NOTICE("service_update! Services = ~p State = ~p", [Services, State]),
+    ?DEBUG("service_update! Services = ~p State = ~p", [Services, State]),
     {ok, State}.
 
 handle_call(_Event, State) ->

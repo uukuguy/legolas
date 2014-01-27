@@ -2,6 +2,7 @@
 %%% @author Jiangwen Su <uukuguy@gmail.com>
 %%% @copyright (C) 2013, lastz.org
 %%% @doc
+%%%     legolas辅助虚拟节点。目前提供ping/0函数。
 %%%
 %%% @end
 %%% Created : 2013-11-04 21:44:12
@@ -11,7 +12,13 @@
 -behaviour(riak_core_vnode).
 -include("legolas.hrl").
 
--export([start_vnode/1,
+%% ------------------------------ APIs ------------------------------ 
+-export([
+         start_vnode/1
+        ]).
+
+%% ------------------------------ Callbacks ------------------------------ 
+-export([
          init/1,
          terminate/2,
          handle_command/3,
@@ -24,13 +31,21 @@
          handle_handoff_data/2,
          encode_handoff_item/2,
          handle_coverage/4,
-         handle_exit/3]).
+         handle_exit/3
+        ]).
 
+%% ------------------------------ record ------------------------------ 
 -record(state, {partition}).
 
-%% API
+%% ============================== APIs ==============================
+%%
+
 start_vnode(I) ->
     riak_core_vnode_master:get_vnode_pid(I, ?MODULE).
+
+
+%% ============================== Callbacks ==============================
+%%
 
 init([Partition]) ->
     {ok, #state { partition=Partition }}.
@@ -75,8 +90,4 @@ handle_exit(_Pid, _Reason, State) ->
 terminate(_Reason, _State) ->
     ok.
 
-
-%%%------------------------------------------------------------ 
-%%% Internal functions
-%%%------------------------------------------------------------ 
 
