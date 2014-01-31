@@ -9,7 +9,7 @@
 %%%------------------------------------------------------------ 
 
 -module(legolas_app).
--include("legolas.hrl").
+-include("global.hrl").
 
 -behaviour(application).
 
@@ -22,7 +22,7 @@
 
 start(_StartType, _StartArgs) ->
 
-    ok = riak_core_util:start_app_deps(legolas),
+    %ok = riak_core_util:start_app_deps(legolas),
 
     %% -------------------- lager --------------------
 
@@ -39,6 +39,7 @@ start(_StartType, _StartArgs) ->
     lager:trace_file("log/legolas_debug.log", [{module, legolas_ring_event_handler}], debug),
     lager:trace_file("log/legolas_debug.log", [{module, common_utils}], debug),
 
+    ?NOTICE("StartType: ~p StartArgs: ~p", [_StartType, _StartArgs]),
     % from legolas_entropy_manager:set_debug.
     %lager:trace_console([{module, legolas}], debug),
     %common_utils:enable_console_debug(false, [
@@ -48,29 +49,41 @@ start(_StartType, _StartArgs) ->
     %common_utils:enable_console_debug(true, []),
 
     %% -------------------- cowboy --------------------
-    ok = legolas_cowboy_app:start(_StartType, _StartArgs),
+    %ok = legolas_cowboy_app:start(_StartType, _StartArgs),
+
+
+
+    %% -------------------- riak_kv --------------------
+    case riak_kv_app:start(_StartType, _StartArgs) of
+        {ok, Riak_KV_Pid} ->
+            Result = {ok, Riak_KV_Pid};
+        {error, Reason} ->
+            Result = {error, Reason}
+    end,
 
     ?NOTICE("=== Legolas Start ===", []),
 
     %% -------------------- riak_core --------------------
     %% 注册legolas、legolas_storage两个服务。
     %%
-    case legolas_sup:start_link() of
-        {ok, Pid} ->
-            ok = riak_core:register(legolas, [{vnode_module, legolas_vnode}]),
-            ok = riak_core:register(legolas, [{vnode_module, legolas_storage_vnode}]),
+    %case legolas_sup:start_link() of
+        %{ok, Pid} ->
+            %ok = riak_core:register(legolas, [{vnode_module, legolas_vnode}]),
+            %ok = riak_core:register(legolas, [{vnode_module, legolas_storage_vnode}]),
 
-            ok = riak_core_ring_events:add_guarded_handler(legolas_ring_event_handler, []),
-            ok = riak_core_node_watcher_events:add_guarded_handler(legolas_node_event_handler, []),
+            %ok = riak_core_ring_events:add_guarded_handler(legolas_ring_event_handler, []),
+            %ok = riak_core_node_watcher_events:add_guarded_handler(legolas_node_event_handler, []),
 
-            ok = riak_core_node_watcher:service_up(legolas, self()),
-            ok = riak_core_node_watcher:service_up(legolas_storage, self()),
+            %ok = riak_core_node_watcher:service_up(legolas, self()),
+            %ok = riak_core_node_watcher:service_up(legolas_storage, self()),
 
-            {ok, Pid};
+            %Result = {ok, Pid};
 
-        {error, Reason} ->
-            {error, Reason}
-    end.
+        %{error, Reason} ->
+            %Result = {error, Reason}
+    %end.
+
+    Result.
 
 stop(_State) ->
     ?NOTICE("=== Legolas Stop ===", []),

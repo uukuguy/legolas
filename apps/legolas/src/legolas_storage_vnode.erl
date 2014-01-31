@@ -10,7 +10,7 @@
 
 -module(legolas_storage_vnode).
 -behaviour(riak_core_vnode).
--include("legolas.hrl").
+-include("global.hrl").
 -include("legolas_storage_vnode.hrl").
 
 %% ------------------------------ APIs ------------------------------ 
@@ -165,7 +165,9 @@ handle_command({put_data, ReqId, Path, Data}, _Sender,
     Bucket = <<>>,
     IndexSpecs = [],
     Result = case StorageBackend:put(Bucket, Path, IndexSpecs, Data, BackendState) of
-                 {ok, _PutState} -> ok;
+                 {ok, _PutState} -> 
+                    ?DEBUG("command: put_data, ReqId: ~p Data Size: ~p", [ReqId, size(Data)]),
+                    ok;
                  {error, Reason, _ErrorState} -> 
                      ?ERROR("command: get_data, ReqId: ~p Path: ~p Reason: ~p", [ReqId, Path, Reason]),
                      {error, Reason}
@@ -183,7 +185,7 @@ handle_command({get_data, ReqId, Path}, _Sender,
     Bucket = <<>>,
     Result = case StorageBackend:get(Bucket, Path, BackendState) of
                  {ok, Data, _GetState} -> 
-                     ?DEBUG("command: get_data, ReqId: ~p Data: ~p", [ReqId, Data]),
+                     ?DEBUG("command: get_data, ReqId: ~p Data Size: ~p", [ReqId, size(Data)]),
                      {ok, Data};
                  {error, Reason, _} -> 
                      ?ERROR("command: get_data, ReqId: ~p Path: ~p Reason: ~p", [ReqId, Path, Reason]),

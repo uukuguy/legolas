@@ -9,7 +9,7 @@
 %%%------------------------------------------------------------ 
 
 -module(legolas_index_hashtree).
--include("legolas.hrl").
+-include("global.hrl").
 -include("legolas_storage_vnode.hrl").
 -behaviour(gen_server).
 

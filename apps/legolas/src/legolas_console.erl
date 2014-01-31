@@ -1,6 +1,6 @@
 %% @doc Interface for legolas-admin commands.
 -module(legolas_console).
--include("legolas.hrl").
+-include("global.hrl").
 -export([join/1,
          leave/1,
          remove/1,

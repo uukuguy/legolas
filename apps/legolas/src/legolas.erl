@@ -15,7 +15,7 @@
 %%%------------------------------------------------------------ 
 
 -module(legolas).
--include("legolas.hrl").
+-include("global.hrl").
 -include_lib("riak_core/include/riak_core_vnode.hrl").
 -include_lib("riak_core/include/riak_core_ring.hrl").
 
@@ -78,7 +78,7 @@ put_data(Path, Data) ->
     put_data(Path, Data, []).
 
 -spec put_data(binary(), binary(), list() | integer()) -> ok | {error, term()}.
-put_data(Path, Data, Options) when is_list(Options) ->
+put_data(Path, Data, Options) when is_binary(Path), is_binary(Data), is_list(Options) ->
     ?NOTICE("call put_data/2", []),
     ?DEBUG("Enter put_data/2 Path = ~p ", [Path]),
     {ok, ReqId} = legolas_put_data_fsm:put_data(Path, Data),
@@ -94,7 +94,7 @@ put_data(Path, Data, W) ->
 get_data(Path) ->
     get_data(Path, []).
 
-get_data(Path, Options) when is_list(Options) ->
+get_data(Path, Options) when is_binary(Path), is_list(Options) ->
     ?NOTICE("call get_data/1", []),
     ?DEBUG("Enter get_data/1 Path = ~p", [Path]),
     {ok, ReqId} = legolas_get_data_fsm:get_data(Path, Options),
@@ -109,7 +109,7 @@ get_data(Path, R) ->
 delete_data(Path) ->
     delete_data(Path, []).
 
-delete_data(Path, Options) when is_list(Options) ->
+delete_data(Path, Options) when is_binary(Path), is_list(Options) ->
     ?NOTICE("call delete_data/1", []),
     ?DEBUG("Enter delete_data/1 Path = ~p", [Path]),
     {ok, ReqId} = legolas_delete_data_fsm:delete_data(Path),
@@ -204,7 +204,8 @@ get_resource_preflist(Service, Resource, N) ->
     ?DEBUG("UpNodes: ~p", [UpNodes]),
     Preflist2 = riak_core_apl:get_apl_ann(ResourceIdx, N, UpNodes),
     Preflist = [IndexNode || {IndexNode, _Type} <- Preflist2],
-    ?DEBUG("Preflist : ~p", [Preflist]),
+    %?DEBUG("Preflist : ~p", [Preflist]),
+    ?DEBUG("Preflist : ~p", [ [{integer_to_list(Partition, 16), Node} || {Partition, Node} <- Preflist] ]),
     Preflist.
 
 

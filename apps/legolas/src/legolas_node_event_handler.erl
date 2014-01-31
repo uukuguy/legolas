@@ -15,7 +15,7 @@
 %% Copyright (c) 2007-2011 Basho Technologies, Inc.  All Rights Reserved.
 
 -module(legolas_node_event_handler).
--include("legolas.hrl").
+-include("global.hrl").
 -behaviour(gen_event).
 
 %% gen_event callbacks

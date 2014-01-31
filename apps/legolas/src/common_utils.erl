@@ -8,7 +8,7 @@
 %%%------------------------------------------------------------ 
 
 -module(common_utils).
--include("legolas.hrl").
+-include("global.hrl").
 
 -export([
          enable_console_debug/2,
@@ -182,7 +182,8 @@ different(A) ->
 %%% random_id
 %%%------------------------------------------------------------ 
 random_id() ->
-    erlang:phash2(erlang:now()).
+    erlang:phash2({self(), os:timestamp()}). % only has to be unique per-pid
+    %erlang:phash2(erlang:now()).
 
 %%%------------------------------------------------------------ 
 %%% new id

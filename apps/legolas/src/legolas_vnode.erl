@@ -10,7 +10,7 @@
 
 -module(legolas_vnode).
 -behaviour(riak_core_vnode).
--include("legolas.hrl").
+-include("global.hrl").
 
 %% ------------------------------ APIs ------------------------------ 
 -export([

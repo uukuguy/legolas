@@ -9,7 +9,7 @@
 %%%------------------------------------------------------------ 
 
 -module(legolas_worker).
--include("legolas.hrl").
+-include("global.hrl").
 -include("legolas_storage_vnode.hrl").
 -behaviour(riak_core_vnode_worker).
 

@@ -10,7 +10,7 @@
 
 -module(legolas_put_data_fsm).
 -behaviour(gen_fsm).
--include("legolas.hrl").
+-include("global.hrl").
 
 %% ------------------------------ APIs ------------------------------ 
 -export([

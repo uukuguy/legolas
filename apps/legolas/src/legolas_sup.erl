@@ -9,7 +9,7 @@
 
 -module(legolas_sup).
 -behaviour(supervisor).
--include("legolas.hrl").
+-include("global.hrl").
 
 %% ------------------------------ APIs ------------------------------ 
 -export([start_link/0]).
@@ -57,10 +57,14 @@ init(_Args) ->
     % Figure out which processes we should run...
     HasStorageBackend = (app_helper:get_env(legolas, storage_backend) /= undefined),
 
+    %Riak_KV = {riak_kv_sup,
+               %{riak_kv_sup, start_link, []},
+               %permanent, infinity, supervisor, [riak_kv_sup]},
+
     Children = lists:flatten([
                 VMaster,
                 ?IF(HasStorageBackend, Storage, []),
-                Storage, 
+                %Riak_KV,
                 PutFSMs, 
                 GetFSMs, 
                 DeleteFSMs,

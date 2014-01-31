@@ -8,7 +8,7 @@
 %%%------------------------------------------------------------------------------------------------ 
 
 -module(legolas_fileblock_backend).
--include("legolas.hrl").
+-include("global.hrl").
 -behavior(legolas_backend).
 
 %% Legolas Storage Backend API
