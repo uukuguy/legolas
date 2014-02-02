@@ -86,7 +86,9 @@ init(_Args) ->
                permanent, infinity, supervisor, [legolas_delete_data_fsm_sup]},
 
     % Figure out which processes we should run...
-    HasStorageBackend = (app_helper:get_env(legolas, storage_backend) /= undefined),
+    LegolasStorageBackend = common_utils:get_env(legolas, storage_backend),
+    ?DEBUG("legolas storage_backend: ~p", [LegolasStorageBackend]),
+    HasStorageBackend = (LegolasStorageBackend /= undefined),
 
     %Riak_KV = {riak_kv_sup,
                %{riak_kv_sup, start_link, []},

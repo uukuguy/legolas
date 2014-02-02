@@ -60,7 +60,7 @@ start(LocalVN, RemoteVN, IndexN, Tree, Manager) ->
 
 %% ------------------------------ init ------------------------------ 
 init([LocalVN, RemoteVN, IndexN, LocalTree, Manager]) ->
-    Timeout = app_helper:get_env(legolas,
+    Timeout = common_utils:get_env(legolas,
                                  anti_entropy_timeout,
                                  ?DEFAULT_ACTION_TIMEOUT),
     monitor(process, Manager),

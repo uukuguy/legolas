@@ -116,10 +116,10 @@ fold_data(Preflist, Fun, Acc0) ->
 init([Partition]) ->
     ?DEBUG("Starting VNode. Partition: ~p", [integer_to_list(Partition, 16)]),
 
-    StorageBackend = app_helper:get_env(legolas, storage_backend),
-    Configuration = app_helper:get_env(legolas),
-    AsyncFolding = app_helper:get_env(legolas, async_folds, true) == true,
-    WorkerPoolSize = app_helper:get_env(legolas, worker_pool_size, 10),
+    StorageBackend = common_utils:get_env(legolas, storage_backend),
+    Configuration = common_utils:get_env(legolas),
+    AsyncFolding = common_utils:get_env(legolas, async_folds, true) == true,
+    WorkerPoolSize = common_utils:get_env(legolas, worker_pool_size, 10),
 
     Result = case catch StorageBackend:start(Partition, Configuration) of
                  {ok, BackendState} ->
@@ -537,7 +537,7 @@ get_hashtree_token() ->
 %% @private
 -spec max_hashtree_tokens() -> pos_integer().
 max_hashtree_tokens() ->
-    app_helper:get_env(legolas,
+    common_utils:get_env(legolas,
                        anti_entropy_max_async, 
                        ?DEFAULT_HASHTREE_TOKENS).
 

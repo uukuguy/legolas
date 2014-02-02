@@ -1,17 +1,17 @@
 %%%------------------------------------------------------------------------------------------------
 %%% @author Jiangwen Su <uukuguy@gmail.com>
 %%% @copyright (C) 2013, lastz.org
-%%% @doc legolas文件块后端。用leveldb保存索引信息，文件内容保存在64M大小的文件块中。
+%%% @doc 文件块存储后端。用leveldb保存索引信息，文件内容保存在64M大小的文件块中。
 %%%
 %%% @end
-%%% Created : 2013-11-24 20:12:24
+%%% Created : 2014-01-31 23:40:19
 %%%------------------------------------------------------------------------------------------------ 
 
--module(legolas_fileblock_backend).
+-module(riak_kv_echunk_backend).
+-behavior(riak_kv_backend).
 -include("global.hrl").
--behavior(legolas_backend).
 
-%% Legolas Storage Backend API
+%% Storage Backend API
 -export([api_version/0,
          get_partition_string/1,
          capabilities/1,
@@ -32,7 +32,7 @@
 
 -define(API_VERSION, 1).
 -define(CAPABILITIES, [
-                       async_fold, 
+                       %async_fold, 
                        size
                       ]).
 
@@ -56,6 +56,7 @@
          }).
 -type state() :: #state{}.
 -type config() :: [{atom(), term()}].
+
 
 %% ===================================================================
 %% Public API
@@ -82,15 +83,8 @@ make_partition_string(Partition) ->
     PartitionString.
 
 get_root_datadir() ->
-    %RootDataDir = code:priv_dir(legolas) ++ "/data",
-    RootDataDir = common_utils:get_env(legolas, storage_datadir),
+    RootDataDir = common_utils:get_env(legolas, echunk_data_root),
     RootDataDir.
-
-%get_partition_datadir(Partition) ->
-    %RootDataDir = get_root_datadir(),
-    %PartitionString = make_partition_string(Partition),
-    %DataDir =  RootDataDir ++ "/" ++ PartitionString,
-    %DataDir.
 
 get_partition_string(#state{partition_string=PartitionString}) ->
     PartitionString.
@@ -102,7 +96,7 @@ get_full_filename_in_partition(Path, #state{partition_datadir=DataDir}) ->
 %% @doc Start this backend, yes, sir!
 -spec start(integer(), config()) -> {ok, state()} | {error, term()}.
 start(Partition, Config) ->
-    %?DEBUG("Starting fileblock backend. Partition: ~p", [integer_to_list(Partition, 16)]),
+    %?DEBUG("Starting chunk backend. Partition: ~p", [integer_to_list(Partition, 16)]),
     DefaultLen = case common_utils:get_prop_or_env(
                         yessir_default_size, Config, yessir_backend) of
                      undefined -> 1024;
@@ -119,6 +113,7 @@ start(Partition, Config) ->
                      BPL       -> BPL
                  end,
     RootDataDir = get_root_datadir(),
+    ?DEBUG("RootDataDir : ~p ", [RootDataDir]),
     PartitionString = make_partition_string(Partition),
     DataDir = RootDataDir ++ "/" ++ PartitionString,
     Result = case filelib:ensure_dir(filename:join(DataDir, "dummy")) of

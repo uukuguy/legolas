@@ -278,7 +278,7 @@ handle_call(_Request, _From, State) ->
 -spec do_get_lock(any(),pid(),state())
                  -> {ok | max_concurrency | build_limit_reached, state()}.
 do_get_lock(Type, Pid, State=#state{locks=Locks}) ->
-    Concurrency = app_helper:get_env(legolas,
+    Concurrency = common_utils:get_env(legolas,
                                      anti_entropy_concurrency,
                                      ?DEFAULT_CONCURRENCY),
     case length(Locks) >= Concurrency of
@@ -417,20 +417,20 @@ code_change(_OldVsn, State, _Extra) ->
 
 %% ------------------------------ schedule_reset_build_tokens ------------------------------ 
 schedule_reset_build_tokens() ->
-    {_, Reset} = app_helper:get_env(legolas, anti_entropy_build_limit,
+    {_, Reset} = common_utils:get_env(legolas, anti_entropy_build_limit,
                                     ?DEFAULT_BUILD_LIMIT),
     erlang:send_after(Reset, self(), reset_build_tokens).
 
 %% ------------------------------ reset_build_tokens ------------------------------ 
 reset_build_tokens(State) ->
-    {Tokens, _} = app_helper:get_env(legolas, anti_entropy_build_limit,
+    {Tokens, _} = common_utils:get_env(legolas, anti_entropy_build_limit,
                                      ?DEFAULT_BUILD_LIMIT),
     State#state{build_tokens=Tokens}.
 
 %% ------------------------------ settings ------------------------------ 
 -spec settings() -> {boolean(), proplists:proplist()}.
 settings() ->
-    case app_helper:get_env(legolas, anti_entropy, {off, []}) of
+    case common_utils:get_env(legolas, anti_entropy, {off, []}) of
         {on, Opts} ->
             {true, Opts};
         {off, Opts} ->
@@ -446,7 +446,7 @@ settings() ->
 schedule_tick() ->
     %% Perform tick every 15 seconds
     DefaultTick = 15000,
-    Tick = app_helper:get_env(legolas,
+    Tick = common_utils:get_env(legolas,
                               anti_entropy_tick,
                               DefaultTick),
     erlang:send_after(Tick, ?MODULE, tick),

@@ -634,7 +634,7 @@ do_poke(State) ->
 -spec maybe_clear(state()) -> state().
 maybe_clear(State=#state{lock=undefined, built=true}) ->
     Diff = timer:now_diff(os:timestamp(), State#state.build_time),
-    Expire = app_helper:get_env(legolas,
+    Expire = common_utils:get_env(legolas,
                                 anti_entropy_expire,
                                 ?DEFAULT_EXPIRE),
     %% Need to convert from millsec to microsec

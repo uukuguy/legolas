@@ -30,16 +30,19 @@ start(_StartType, _StartArgs) ->
     lager:trace_file("log/legolas_debug.log", [{module, legolas}], debug),
     lager:trace_file("log/legolas_debug.log", [{module, legolas_app}], debug),
     lager:trace_file("log/legolas_debug.log", [{module, legolas_cowboy_handler}], debug),
+    lager:trace_file("log/legolas_debug.log", [{module, riak_kv_echunk_backend}], debug),
+
+    lager:trace_file("log/legolas_debug.log", [{module, legolas_sup}], debug),
+    lager:trace_file("log/legolas_debug.log", [{module, legolas_node_event_handler}], debug),
+    lager:trace_file("log/legolas_debug.log", [{module, legolas_ring_event_handler}], debug),
+    lager:trace_file("log/legolas_debug.log", [{module, common_utils}], debug),
+
     lager:trace_file("log/legolas_debug.log", [{module, legolas_storage_vnode}], debug),
     lager:trace_file("log/legolas_debug.log", [{module, legolas_fileblock_backend}], debug),
     lager:trace_file("log/legolas_debug.log", [{module, legolas_put_data_fsm}], debug),
     lager:trace_file("log/legolas_debug.log", [{module, legolas_get_data_fsm}], debug),
     lager:trace_file("log/legolas_debug.log", [{module, legolas_delete_data_fsm}], debug),
-    lager:trace_file("log/legolas_debug.log", [{module, legolas_node_event_handler}], debug),
-    lager:trace_file("log/legolas_debug.log", [{module, legolas_ring_event_handler}], debug),
-    lager:trace_file("log/legolas_debug.log", [{module, common_utils}], debug),
 
-    ?NOTICE("StartType: ~p StartArgs: ~p", [_StartType, _StartArgs]),
     % from legolas_entropy_manager:set_debug.
     %lager:trace_console([{module, legolas}], debug),
     %common_utils:enable_console_debug(false, [
@@ -48,23 +51,9 @@ start(_StartType, _StartArgs) ->
                                              %]),
     %common_utils:enable_console_debug(true, []),
 
-    %% -------------------- cowboy --------------------
-    %ok = legolas_cowboy_app:start(_StartType, _StartArgs),
-
-
-
-    %% -------------------- riak_kv --------------------
-    %case riak_kv_app:start(_StartType, _StartArgs) of
-        %{ok, Riak_KV_Pid} ->
-            %Result = {ok, Riak_KV_Pid};
-        %{error, Reason} ->
-            %Result = {error, Reason}
-    %end,
-
-    ?NOTICE("=== Legolas Start ===", []),
 
     %% -------------------- riak_core --------------------
-    %% 注册legolas、legolas_storage两个服务。
+    %% 注册legolas、legolas_storage两个虚拟节点服务。
     %%
     case legolas_sup:start_link() of
         {ok, Pid} ->
@@ -77,9 +66,12 @@ start(_StartType, _StartArgs) ->
             ok = riak_core_node_watcher:service_up(legolas, self()),
             ok = riak_core_node_watcher:service_up(legolas_storage, self()),
 
+            ?NOTICE("=== Legolas Start === Pid : ~p", [Pid]),
+
             Result = {ok, Pid};
 
         {error, Reason} ->
+            ?ERROR("=== Legolas Failure!!! === Reason : ~p", [Reason]),
             Result = {error, Reason}
     end,
 

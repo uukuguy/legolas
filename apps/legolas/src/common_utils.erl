@@ -15,6 +15,8 @@
          get_env/1,
          get_env/2,
          get_env/3,
+         get_prop_or_env/3,
+         get_prop_or_env/4,
          get_config_value/3,
          get_nested_config/3,
          binary_to_string/1,
@@ -69,6 +71,23 @@ get_env(App, Key, Default) ->
             Value;
         _ ->
             Default
+    end.
+
+%% @doc Retrieve value for Key from Properties if it exists, otherwise
+%%      return from the application's env.
+-spec get_prop_or_env(atom(), [{atom(), term()}], atom()) -> term().
+get_prop_or_env(Key, Properties, App) ->
+    get_prop_or_env(Key, Properties, App, undefined).
+
+%% @doc Return the value for Key in Properties if it exists, otherwise return
+%%      the value from the application's env, or Default.
+-spec get_prop_or_env(atom(), [{atom(), term()}], atom(), term()) -> term().
+get_prop_or_env(Key, Properties, App, Default) ->
+    case proplists:get_value(Key, Properties) of
+        undefined ->
+            get_env(App, Key, Default);
+        Value ->
+            Value
     end.
 
 %%%------------------------------------------------------------ 
