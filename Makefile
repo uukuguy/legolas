@@ -10,9 +10,8 @@ compile:
 	$(REBAR) compile
 
 deps:
-	$(REBAR) get-deps
-	#~/apps/frameworks/build_riak_core_deps.sh
-	#~/apps/frameworks/build_cowboy_deps.sh
+	test -d deps || tar zxvf deps.tar.gz
+	#$(REBAR) get-deps
 
 clean:
 	$(REBAR) clean
