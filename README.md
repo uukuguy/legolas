@@ -41,7 +41,9 @@ echunk使用文件块（chunk）实现数据存储，每个chunk最大64M（由e
 * 名字空间
 - legolas采用 {Bucket, Path} 名字空间规范，依靠一致性哈希算法自行定位实际存储节点，不需要名字服务器。
 - 存储节点缺省使用echunk存储引擎，每个chunk最大64M（由echunk_max_size参数决定）。
-- Bucket可以单独定义存储根路径，从而实现分级存储。
+- Bucket可以单独定义存储根路径，从而实现分级存储。不指定Bucket，缺省Bucket设为空串<<>>。
 - Path由用户自定义，可以采用类似文件全路径方式（如：/Documents/imgs/my.jpeg）。
+- Restful访问URL: /buckets/bucket/path/
 
+针对上传文件返回fileid方式的兼容问题：fileid被全路。
 

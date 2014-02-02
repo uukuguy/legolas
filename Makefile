@@ -1,6 +1,7 @@
 #REBAR = $(shell pwd)/rebar
 REBAR=rebar
 DEVS=dev1 dev2 dev3 dev4 #dev5 dev6 dev7 dev8
+DEPSFILE=deps-riak_kv-1.4.7.tar.gz
 
 .PHONY: deps rel stagedevrel
 
@@ -9,9 +10,12 @@ all: deps compile
 compile:
 	$(REBAR) compile
 
-deps:
-	test -d deps || tar zxvf deps.tar.gz
-	#$(REBAR) get-deps
+$(DEPSFILE):
+	@echo If file $(DEPSFILE) is not able to download, you can try '$(REBAR) get-deps'.
+	wget http://lastz.org/repo/legolas/$(DEPSFILE)
+
+deps: $(DEPSFILE)
+	@test -d deps || tar zxvf $(DEPSFILE)
 
 clean:
 	$(REBAR) clean

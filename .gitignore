@@ -6,3 +6,4 @@ apps/legolas/ebin
 dev/*
 doc/*
 rel/legolas
+deps-*.tar.gz
