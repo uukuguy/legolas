@@ -11,11 +11,20 @@ compile:
 	$(REBAR) compile
 
 $(DEPSFILE):
-	@echo If file $(DEPSFILE) is not able to download, you can try '$(REBAR) get-deps'.
+	@echo
+	@echo *** If file $(DEPSFILE) is not able to download, you can try '$(REBAR) get-deps'. ***
+	@echo
 	wget http://lastz.org/repo/legolas/$(DEPSFILE)
 
-deps: $(DEPSFILE)
-	@test -d deps || tar zxvf $(DEPSFILE)
+deps/riak_core: $(DEPSFILE)
+	tar zxvf $(DEPSFILE) && \
+		patch -p0 -d deps < patchs/patch-riak_kv-1.4.7.diff && \
+		patch -p0 -d deps < patchs/patch-riak_core-1.4.4.diff && \
+		patch -p0 -d deps < patchs/patch-eper-3280b736.diff
+
+check_deps: deps/riak_core
+
+deps: check_deps
 
 clean:
 	$(REBAR) clean

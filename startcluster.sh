@@ -12,7 +12,7 @@ APP=legolas
 #{"net.ipv4.tcp_fin_timeout",            15, gte},
 #{"net.ipv4.tcp_tw_reuse",                1, eq}
 
-ulimit -n 65536 # sysctl -n fs.file-max &  ulimit -n
+#ulimit -n 65536 # sysctl -n fs.file-max &  ulimit -n
 
 for d in dev/dev*; do $d/bin/${APP} start; done
 
