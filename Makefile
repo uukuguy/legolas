@@ -18,9 +18,9 @@ $(DEPSFILE):
 
 deps/riak_core: $(DEPSFILE)
 	tar zxvf $(DEPSFILE) && \
-		patch -p0 -d deps < patchs/patch-riak_kv-1.4.7.diff && \
-		patch -p0 -d deps < patchs/patch-riak_core-1.4.4.diff && \
-		patch -p0 -d deps < patchs/patch-eper-3280b736.diff
+		patch -p0 -d deps < patches/patch-riak_kv-1.4.7.diff && \
+		patch -p0 -d deps < patches/patch-riak_core-1.4.4.diff && \
+		patch -p0 -d deps < patches/patch-eper-3280b736.diff
 
 check_deps: deps/riak_core
 
