@@ -1,5 +1,5 @@
-#REBAR = $(shell pwd)/rebar
-REBAR=rebar
+REBAR = $(shell pwd)/rebar
+#REBAR=rebar
 DEVS=dev1 dev2 dev3 dev4 #dev5 dev6 dev7 dev8
 DEPSFILE=deps-riak_kv-1.4.7.tar.gz
 
