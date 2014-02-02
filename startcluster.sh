@@ -1,4 +1,5 @@
 #!/bin/sh
-for d in dev/dev*; do $d/bin/legolas start; done
-dev/dev1/bin/legolas-admin member_status
-dev/dev1/bin/legolas-admin ring_status
+APP=legolas
+for d in dev/dev*; do $d/bin/${APP} start; done
+dev/dev1/bin/${APP}-admin member_status
+dev/dev1/bin/${APP}-admin ring_status

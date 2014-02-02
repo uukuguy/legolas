@@ -8,7 +8,7 @@
   {applications, [
                   kernel,
                   stdlib,
-                  riak_core,
+                  riak_kv,
                   cowboy
                  ]},
   {mod, { legolas_app, []}},

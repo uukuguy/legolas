@@ -12,6 +12,8 @@
 
 -export([
          enable_console_debug/2,
+         get_env/1,
+         get_env/2,
          get_env/3,
          get_config_value/3,
          get_nested_config/3,
@@ -51,12 +53,23 @@ enable_console_debug(Enabled, Modules) ->
 %%%------------------------------------------------------------ 
 %%% environment
 %%%------------------------------------------------------------ 
-get_env(App, Par, Default) ->
-    case application:get_env(App, Par) of
-        {ok, Value} -> Value;
-         _ -> Default
-    end.
 
+%% @spec get_env(App :: atom()) -> [{Key :: atom(), Value :: term()}]
+get_env(App) ->
+    application:get_all_env(App).
+
+%% @spec get_env(App :: atom(), Key :: atom()) -> term()
+get_env(App, Key) ->
+    get_env(App, Key, undefined).
+
+%% @spec get_env(App :: atom(), Key :: atom(), Default :: term()) -> term()
+get_env(App, Key, Default) ->
+    case application:get_env(App, Key) of
+	{ok, Value} ->
+            Value;
+        _ ->
+            Default
+    end.
 
 %%%------------------------------------------------------------ 
 %%% Configure

@@ -1,2 +1,3 @@
 #!/bin/sh
-for d in dev/dev*; do $d/bin/legolas stop; done
+APP=legolas
+for d in dev/dev*; do $d/bin/${APP} stop; done
