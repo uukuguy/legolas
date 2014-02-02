@@ -32,7 +32,6 @@ $ curo -i -X DELETE http://localhost:19090/b1/f2/d3
 
 * deps.tar.gz
 打包了riak_kv-1.4.7 eleveldb-1.4.7 cowboy-0.9.0
-注意：riak_kv-1.4.7只能在erl/otp 15以下版本编译。
 
 * 存储设计
 legolas采用riak_kv存储框架，全新设计了echunk存储后端（riak_kv的自带存储后端包括bitcask和leveldb）。
