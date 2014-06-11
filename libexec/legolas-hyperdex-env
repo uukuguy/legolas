@@ -1,0 +1,15 @@
+#/bin/bash
+# legolas-hyperdex-env
+
+EXEC_DIR=$(cd ${0%/*} && pwd)
+source ${EXEC_DIR}/legolas-env
+
+# -------- hyperdex --------
+export HYPERDEX_DIR=${ROOT_DIR}/hyperdex
+export HYPERDEX_DATA_DIR=${DATA_DIR}/hyperdex
+
+export LD_LIBRARY_PATH=${HYPERDEX_DIR}/lib:${HYPERDEX_DIR}/libexec:${LD_LIBRARY_PATH}
+
+export HYPERDEX_EXEC_DIR=${HYPERDEX_DIR}/libexec/hyperdex-1.3.0 
+export REPLICANT_EXEC_DIR=${HYPERDEX_DIR}/libexec/replicant-0.6.0 
+

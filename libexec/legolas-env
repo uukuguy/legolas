@@ -1,0 +1,10 @@
+#/bin/bash
+# legolas-env
+
+export EXEC_DIR=$(cd ${0%/*} && pwd)
+export ROOT_DIR=${EXEC_DIR%/*}
+
+# -------- base --------
+export BIN_DIR=${ROOT_DIR}/bin
+export DATA_DIR=${ROOT_DIR}/data
+

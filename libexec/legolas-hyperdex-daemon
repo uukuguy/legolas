@@ -1,0 +1,9 @@
+#/bin/bash
+# legolas-hyperdex-daemon
+#
+EXEC_DIR=$(cd ${0%/*} && pwd)
+source ${EXEC_DIR}/legolas-hyperdex-env
+
+${HYPERDEX_DIR}/bin/hyperdex daemon --foreground --listen 127.0.0.1 --listen-port 2012 --coordinator 127.0.0.1 --coordinator-port 1982 --data ${HYPERDEX_DATA_DIR}/d0/data --log=${HYPERDEX_DATA_DIR}/d0/log
+
+
