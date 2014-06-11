@@ -29,12 +29,14 @@ UNUSED static void after_response_to_client(uv_write_t *write_rsp, int status)
 
     trace_log("fd(%d) Enter after_response_to_client().", session_fd(session_info));
 
-    zfree(write_rsp);
+    /*zfree(write_rsp);*/
 
-    pthread_mutex_lock(&session_info->after_response_lock);
-    session_info->is_sending = 0;
-    pthread_cond_signal(&session_info->after_response_cond);
-    pthread_mutex_unlock(&session_info->after_response_lock);
+    /*pthread_mutex_lock(&session_info->after_response_lock);*/
+    /*session_info->is_sending = 0;*/
+    /*pthread_mutex_unlock(&session_info->after_response_lock);*/
+    /*pthread_cond_signal(&session_info->after_response_cond);*/
+
+    /*session_rx_on(session_info);*/
 
     trace_log("fd(%d) after_response_to_client() done.", session_fd(session_info));
 }
@@ -42,7 +44,11 @@ UNUSED static void after_response_to_client(uv_write_t *write_rsp, int status)
 /* ==================== response_to_client() ==================== */ 
 UNUSED void response_to_client(struct session_info_t *session_info, enum MSG_RESULT result)
 {
-    notice_log("fd(%d) response_to_client", session_fd(session_info));
+    __sync_add_and_fetch(&session_info->finished_works, 1);
+    /*uv_async_send(&session_info->async_handle);*/
+
+    return;
+
 
     /* -------- response message -------- */
     struct msg_response_t *response = alloc_response(0, result);
@@ -54,32 +60,31 @@ UNUSED void response_to_client(struct session_info_t *session_info, enum MSG_RES
     write_rsp->data = session_info;
 
     /* -------- uv_write -------- */
+    /*session_rx_off(session_info);*/
     trace_log("fd(%d) Ready to call uv_write", session_fd(session_info));
-    session_info->is_sending = 1;
 
     /*uv_read_stop((uv_stream_t*)&session_stream(session_info));*/
+    /*pthread_mutex_lock(&session_info->after_response_lock);*/
+    /*session_info->is_sending = 1;*/
     int r = uv_write(write_rsp,
             &session_stream(session_info),
             &rbuf,
             1,
-            NULL);
-            /*after_response_to_client);*/
+            /*NULL);*/
+            after_response_to_client);
+    /*pthread_mutex_unlock(&session_info->after_response_lock);*/
+
     if ( r != 0 ) {
         error_log("response failed");
     }
-    /* XXX */
-    zfree(write_rsp);
+
     /*uv_read_start((uv_stream_t*)&session_stream(session_info), session_alloc, after_read);*/
 
-    pthread_mutex_lock(&session_info->after_response_lock);
-    while ( session_info->is_sending ){
-        /*trace_log("fd(%d) waiting for send response to client. io_watcher->events(%d)", session_fd(session_info), session_stream(session_info).io_watcher.pevents);*/
-
-        pthread_cond_wait(&session_info->after_response_cond, &session_info->after_response_lock);
-    }
-    pthread_mutex_unlock(&session_info->after_response_lock);
-
-    notice_log("fd(%d) response_to_client end.", session_fd(session_info));
+    /*pthread_mutex_lock(&session_info->after_response_lock);*/
+    /*while ( session_info->is_sending ){*/
+        /*pthread_cond_wait(&session_info->after_response_cond, &session_info->after_response_lock);*/
+    /*}*/
+    /*pthread_mutex_unlock(&session_info->after_response_lock);*/
 }
 
 /* ==================== session_tx_handler() ==================== */ 

@@ -29,19 +29,19 @@
 struct session_info_t;
 
 typedef struct server_info_t {
-  unsigned int idle_timeout;  /* Connection idle timeout in ms. */
-  uv_tcp_t tcp_handle;
+    unsigned int idle_timeout;  /* Connection idle timeout in ms. */
+    uv_tcp_t tcp_handle;
 
-  struct work_queue *recv_queue[RECV_THREADS];
-  struct work_queue *send_queue[SEND_THREADS];
-  /*lockfree_queue_t *recv_queue[RECV_THREADS];*/
-  /*lockfree_queue_t *send_queue[RECV_THREADS];*/
+    struct work_queue *recv_queue[RECV_THREADS];
+    struct work_queue *send_queue[SEND_THREADS];
+    /*lockfree_queue_t *recv_queue[RECV_THREADS];*/
+    /*lockfree_queue_t *send_queue[RECV_THREADS];*/
 
-  char root_dir[NAME_MAX];
+    char root_dir[NAME_MAX];
 
-  storage_info_t storage_info;
+    storage_info_t storage_info;
 
-  uint32_t cached_bytes;
+    uint32_t cached_bytes;
 
 } server_info_t;
 
@@ -131,6 +131,9 @@ typedef struct session_info_t{
     int stop; /* if true, the connection is not ready for read
                * operations because of too many requests */
 
+    uv_idle_t idle_handle;
+    uv_async_t async_handle;
+    uint32_t finished_works;
     
     uint32_t file_size;
     char key[NAME_MAX];

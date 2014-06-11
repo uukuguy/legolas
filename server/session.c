@@ -33,6 +33,62 @@ void empty_session_info(session_info_t *session_info);
 int create_session_coroutine(session_info_t *session_info);
 int destroy_session_coroutine(session_info_t *session_info);
 
+
+static UNUSED void session_idle_cb(uv_idle_t *idle_handle, int status) 
+{
+    struct session_info_t *session_info = (struct session_info_t*)idle_handle->data;
+    uint32_t finished_works = session_info->finished_works;
+
+    uint32_t n;
+    for ( n = 0 ; n < finished_works ; n++ ){
+        /* -------- response message -------- */
+        struct msg_response_t *response = alloc_response(0, RESULT_SUCCESS);
+        uv_buf_t rbuf = uv_buf_init((char *)response, sizeof(msg_response_t));
+
+        /* -------- write_rsp -------- */
+        uv_write_t *write_rsp;
+        write_rsp = zmalloc(sizeof(uv_write_t));
+        write_rsp->data = session_info;
+
+        /* -------- uv_write -------- */
+        /*session_rx_off(session_info);*/
+        trace_log("fd(%d) Ready to call uv_write. finished_works:%d", session_fd(session_info), finished_works);
+
+        /*uv_read_stop((uv_stream_t*)&session_stream(session_info));*/
+        /*pthread_mutex_lock(&session_info->after_response_lock);*/
+        /*session_info->is_sending = 1;*/
+
+        int r = uv_write(write_rsp,
+                &session_stream(session_info),
+                /*(uv_stream_t*)idle_handle,*/
+                &rbuf,
+                1,
+                NULL);
+            /*after_response_to_client);*/
+        /*pthread_mutex_unlock(&session_info->after_response_lock);*/
+
+        if ( r != 0 ) {
+            error_log("response failed");
+        }
+    }
+
+    __sync_sub_and_fetch(&session_info->finished_works, finished_works);
+
+}
+
+static UNUSED void session_async_cb(uv_async_t *async_handle, int status) 
+{
+    /*struct session_info_t *session_info = (struct session_info_t*)async_handle->data;*/
+    /*struct server_info_t *server_info = session_info->server_info;*/
+    /*uv_loop_t *loop = server_info->tcp_handle.loop;*/
+
+    /*uv_idle_t *idle_handle = (uv_idle_t *)zmalloc(sizeof(uv_idle_t));*/
+    /*idle_handle->data = session_info;*/
+
+    /*uv_idle_init(loop, idle_handle);*/
+    /*uv_idle_start(idle_handle, session_idle_cb);*/
+}
+
 /* =================== on_close() ==================== */ 
 /**
  * Try to destroy session_info after uv_close().
@@ -53,18 +109,6 @@ static void on_close(uv_handle_t *tcp_handle)
 /**
  * Called by after_read().
  */
-UNUSED static void __after_shutdown(uv_shutdown_t *shutdown_req, int status) 
-{
-    SESSION_INFO_FROM_UV_HANDLE(shutdown_req, session_info, server_info);
-
-    session_info->waiting_for_close = 0;
-
-    TRACE_SESSION_INFO("Do shutdown!");
-
-    uv_close((uv_handle_t*)shutdown_req->handle, on_close);
-
-    zfree(shutdown_req);
-}
 
 UNUSED static void after_shutdown(uv_shutdown_t *shutdown_req, int status) 
 {
@@ -82,6 +126,10 @@ UNUSED static void after_shutdown(uv_shutdown_t *shutdown_req, int status)
     session_info->waiting_for_close = 0;
 
     TRACE_SESSION_INFO("Do shutdown!");
+
+    /*uv_close((uv_handle_t *)&session_info->async_handle, NULL);*/
+    uv_idle_stop(&session_info->idle_handle);
+    /*uv_close((uv_handle_t *)&session_info->idle_handle, NULL);*/
 
     uv_close((uv_handle_t*)shutdown_req->handle, on_close);
 
@@ -445,6 +493,14 @@ session_info_t* create_session(server_info_t *server_info)
     /* -------- loop -------- */
     uv_loop_t *loop =  server_info->tcp_handle.loop;
 
+    /*session_info->async_handle.data = session_info;*/
+    /*uv_async_init(loop, &session_info->async_handle, session_async_cb);*/
+
+    uv_idle_t *idle_handle = &session_info->idle_handle;
+    idle_handle->data = session_info;
+    uv_idle_init(loop, idle_handle);
+    uv_idle_start(idle_handle, session_idle_cb);
+
     /* -------- tcp_handle -------- */
     uv_tcp_t *tcp_handle = &session_info->connection.handle.tcp;
     tcp_handle->data = session_info;
@@ -489,6 +545,7 @@ void destroy_session(session_info_t *session_info)
     assert(session_info != NULL);
 
     destroy_session_coroutine(session_info);
+
 
     pthread_mutex_destroy(&session_info->recv_pending_lock);
     pthread_cond_destroy(&session_info->recv_pending_cond);
@@ -571,6 +628,7 @@ void empty_session_info(session_info_t *session_info)
     session_info->connection.session_info = session_info;
     session_info->connection.total_bytes = 0;
     session_info->cached_bytes = 0;
+    session_info->finished_works = 0;
 
     /* Init conn_buf_t field in session_info->connection.*/
     session_info->connection.cob.session_info = session_info;

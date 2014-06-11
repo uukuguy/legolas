@@ -3,6 +3,7 @@
 deps/*
 apps/legolas/ebin
 *~
+*.o
 dev/*
 doc/*
 rel/legolas

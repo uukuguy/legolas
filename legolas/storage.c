@@ -110,13 +110,10 @@ storage_file_t *storage_open_file(storage_info_t *storage_info, const char *key,
 
 int storage_write_file(storage_info_t *storage_info, const char *buf, uint32_t buf_size, storage_file_t *storage_file)
 {
-    /*FILE *f = storage_file->f;*/
-    /*int r = fwrite(buf, 1, buf_size, f); */
     int f = storage_file->f;
     int r = 0;
     r = write(f, buf, buf_size);
     if ( r < buf_size ){
-        /*error_log("Write file failed. errno:%d ", ferror(f));*/
         error_log("Write file failed. errno:%d ", errno);
         return -1;
     }

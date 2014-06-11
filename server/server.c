@@ -22,6 +22,7 @@ int init_server(server_info_t *server_info);
 int init_server_work_queue(server_info_t *server_info);
 int exit_server_work_queue(server_info_t *server_info);
 
+
 /* ==================== on_connection() ==================== */ 
 static void on_connection(uv_stream_t *stream, int status)
 {
@@ -42,6 +43,7 @@ static void on_connection(uv_stream_t *stream, int status)
 void destroy_server_info(server_info_t *server_info)
 {
     exit_server_work_queue(server_info);
+
     zfree(server_info);
 }
 

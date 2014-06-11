@@ -134,15 +134,15 @@ void do_read_data(struct conn_buf_t *cob, void *buf, size_t count)
     /*TRACE_LOG_SESSION_COB("After do read data.");*/
 }
 
-int check_data_md5(int requestid, int blockid, struct msg_arg_t *argMd5, struct msg_arg_t *argData)
+int check_data_md5(int requestid, struct msg_arg_t *argMd5, struct msg_arg_t *argData)
 {
     struct md5_value_t *md5Keep = (struct md5_value_t*)argMd5->data;
     struct md5_value_t md5Data;
     md5(&md5Data, (uint8_t *)argData->data, argData->size);
 
-    /*notice_log("id(%d) block(%d) Data md5: h0:%X h1:%X h2:%X h3:%X", requestid, blockid, md5Data.h0, md5Data.h1, md5Data.h2, md5Data.h3);*/
+    /*notice_log("id(%d) block(%d) Data md5: h0:%X h1:%X h2:%X h3:%X", requestid, md5Data.h0, md5Data.h1, md5Data.h2, md5Data.h3);*/
     if ( check_md5(md5Keep, &md5Data) != 0 ) {
-        error_log("requestid(%d) block(%d) Data md5: h0:%X h1:%X h2:%X h3:%X", requestid, blockid,  md5Data.h0, md5Data.h1, md5Data.h2, md5Data.h3);
+        error_log("requestid(%d) Data md5: h0:%X h1:%X h2:%X h3:%X", requestid, md5Data.h0, md5Data.h1, md5Data.h2, md5Data.h3);
         return -1;
     }
 
@@ -218,201 +218,201 @@ int session_do_read(conn_buf_t *cob, msg_request_t **p_request)
  *              uint8_t data[];
  */
 
+typedef struct block_info_t {
+    uint32_t id;
+    uint32_t file_size;
+    char key[NAME_MAX];
+    char *data;
+    uint32_t data_size;
+} block_info_t;
+
+int parse_block(struct session_info_t *session_info, struct msg_request_t *request, struct block_info_t *block_info)
+{
+    /* -------- message args -------- */
+    struct msg_arg_t *arg = (struct msg_arg_t*)request->data;
+    struct msg_arg_t *argMd5 = NULL;
+    block_info->id = request->id;
+    if ( request->id == 0 ) {
+        /* -------- argKey -------- */
+        struct msg_arg_t *argKey = arg;
+        if ( argKey->size > 0 ) {
+            uint32_t keylen = argKey->size < NAME_MAX - 1 ? argKey->size : NAME_MAX - 1;
+            memcpy(block_info->key, argKey->data, keylen);
+            block_info->key[keylen] = '\0';
+        } else {
+            uuid_t uuid;
+            uuid_generate(uuid);
+            uuid_unparse(uuid, block_info->key);
+        }
+
+
+        /* -------- argFileSize -------- */
+        struct msg_arg_t *argFileSize = next_arg(argKey);
+        block_info->file_size = *((uint32_t*)argFileSize->data);
+
+        /*trace_log("\n~~~~~~~~ fd(%d) block(%d) ~~~~~~~~\n Try to open new file. \n key=%s file_size=%d\n", session_fd(session_info), cob->blockid, argKey->data, file_size);*/
+
+        /* -------- argMd5 -------- */
+        argMd5 = next_arg(argFileSize);
+    } else {
+        argMd5 = arg;
+    }
+
+    struct msg_arg_t *argData = next_arg(argMd5);
+
+    /*debug_log("fd(%d) block(%d) argData: size=%d", session_fd(session_info), cob->blockid, argData->size);*/
+    if ( argData->size > 0 ) {
+
+        /**
+         * Check data md5 value.
+         */
+
+        if ( check_data_md5(request->id, argMd5, argData) != 0 ){
+            error_log("fd(%d) request_id(%d) Check buffer md5 failed.", session_fd(session_info), request->id);
+            return -1;
+        }
+    } 
+
+    block_info->data = argData->data;
+    block_info->data_size = argData->size;
+
+    return 0;
+}
+
+int session_write_block(struct session_info_t *session_info, struct block_info_t *block_info)
+{
+    /*char aligned_buf[DEFAULT_CONN_BUF_SIZE] __attribute__((aligned(512)));*/
+
+    UNUSED int r = 0;
+    char *aligned_buf = NULL;
+    uint32_t write_bytes = block_info->data_size;
+
+    if ( block_info->data_size > 0 ) {
+        if ( session_info->f != NULL ){
+            uint32_t nowrited_bytes = block_info->file_size - session_info->total_writed; 
+            assert(block_info->data_size <= nowrited_bytes);
+
+            char *write_buf = block_info->data;
+
+            /* is lastest buffer. */
+            if ( write_bytes == nowrited_bytes ){
+                write_bytes = (block_info->data_size + 511) & ~(511);
+                assert(write_bytes >= block_info->data_size);
+            } else {
+                assert(block_info->data_size % 512 == 0);
+                write_bytes = block_info->data_size;
+            }
+            assert(write_bytes % 512 == 0);
+
+            r = posix_memalign((void**)&aligned_buf, 512, DEFAULT_CONN_BUF_SIZE);
+            if ( r != 0 ){
+                error_log("posix_memalign() return %d. msg: %s", r, strerror(r));
+                abort();
+            }
+
+            memset(aligned_buf, 0, write_bytes);
+
+            assert(write_bytes >= block_info->data_size);
+            memcpy(aligned_buf, block_info->data, block_info->data_size);
+            write_buf = aligned_buf;
+
+
+            assert(write_bytes > 0);
+
+            if ( storage_write_file(&session_info->server_info->storage_info, write_buf, write_bytes, session_info->f) < write_bytes ) {
+                zfree(aligned_buf);
+                return -1;
+            }
+            zfree(aligned_buf);
+
+            session_info->total_writed += write_bytes;
+            pthread_yield();
+
+        } else {
+            error_log("fd(%d) session_info->f == NULL", session_fd(session_info));
+            return -1;
+        }
+    } 
+
+    return 0;
+}
+
+#define FREE_REQUEST_YIELD_AND_CONTINUE \
+    zfree(request); \
+    request = NULL; \
+    cob = coroutine_self_data(); \
+    session_info = cob->session_info; \
+    YIELD_AND_CONTINUE;
+
 void* session_rx_handler(void *opaque)
 {
     UNUSED int ret;
-    uint32_t file_size = 0;
-    char key[NAME_MAX];
+    /*uint32_t file_size = 0;*/
+    block_info_t block_info;
+    /*char key[NAME_MAX];*/
 
-    /*struct session_info_t *session_info = (struct session_info_t*)opaque;*/
-    /*struct conn_buf_t *cob = pthread_getspecific(key_actived_cob);*/
+    msg_request_t *request = NULL;
     struct conn_buf_t *cob = (struct conn_buf_t*)opaque;
     struct session_info_t *session_info = cob->session_info;
 
     while ( 1 ){
-        /*cob = coroutine_self_data();*/
-        /*cob = co_get_data(co_current());*/
-        /*trace_log("co_get_data(). cob=%p", cob);*/
-        /*session_info = cob->session_info;*/
+        /** ----------------------------------------
+         *    Keep read data
+         *  ---------------------------------------- */
 
-
-        /*TRACE_LOG_SESSION_COB("Before session_do_read().");*/
-        msg_request_t *request = NULL;
         ret = session_do_read(cob, &request);
-
         cob = coroutine_self_data();
-        /*cob = co_get_data(co_current());*/
-        /*cob = pthread_getspecific(key_actived_cob);*/
         session_info = cob->session_info;
-
-
-        /* XXX */
-        if (0)
-        {
-    /* -------- do_read_data:header -------- */
-    TRACE_LOG_SESSION_COB("Call do_read_data() for header.");
-
-    struct msg_request_t request_header;
-
-    do_read_data(cob, &request_header, sizeof(request_header));
-
-    /*cob = coroutine_self_data();*/
-    /*cob = co_get_data(co_current());*/
-    /*session_info = cob->session_info;*/
-
-    /* -------- check message header -------- */
-    if ( !check_msg((msg_header_t*)&request_header) ) {
-        WARNING_LOG_SESSION_COB("Check magic_code in message request_header failed!");
-        /*TRACE_DATA_TO_FILE("result/header.dat", &request_header, sizeof(request_header));*/
-
-        abort();
-        /*session_info->stop = 1;   */
-            YIELD_AND_CONTINUE;
-    } else {
-        /*TRACE_LOG_SESSION_COB("Check magic_code in message request_header OK!");*/
-        /*trace_log("request_header.data_length=%d", request_header.data_length);*/
-    }
-
-    /* -------- do_read_data:data -------- */
-    TRACE_LOG_SESSION_COB("Call do_read_data() for data.");
-
-    request = (struct msg_request_t*)zmalloc(sizeof(request_header) + request_header.data_length);
-    memcpy(request, &request_header, sizeof(request_header));
-
-    do_read_data(cob, request->data, request->data_length);
-    /*cob = co_get_data(co_current());*/
-    /*session_info = cob->session_info;*/
-        }
-        /* XXX */
-
         if ( ret != 0 || request == NULL ) {
             YIELD_AND_CONTINUE;
         }
 
+        /** ----------------------------------------
+         *    Parse block
+         *  ---------------------------------------- */
 
-        /*trace_log("fd(%d) block(%d) request->id=%d, request->data_length=%d", session_fd(session_info), cob->blockid, request->id, request->data_length);*/
-        /*TRACE_DATA_TO_FILE("result/block.dat", request->data, request->data_length);*/
+        if ( parse_block(session_info, request, &block_info) != 0 ){
+            error_log("parse_block() failed. key:%s", block_info.key);
+            FREE_REQUEST_YIELD_AND_CONTINUE;
+        }
+        /*notice_log("block_info.file_size:%d", block_info.file_size);*/
 
-        if ( 1) {
+        /** ----------------------------------------
+         *    Open target file for write if possible.
+         *  ---------------------------------------- */
 
-        /* -------- message args -------- */
-        struct msg_arg_t *arg = (struct msg_arg_t*)request->data;
-        struct msg_arg_t *argMd5 = NULL;
-        if ( request->id == 0 ) {
+        if ( block_info.id == 0 ) {
 
             session_info->total_writed = 0;
 
-            /* -------- argKey -------- */
-            struct msg_arg_t *argKey = arg;
-
-            /* -------- argFileSize -------- */
-            struct msg_arg_t *argFileSize = next_arg(argKey);
-            file_size = *((uint32_t*)argFileSize->data);
-
-            /*trace_log("\n~~~~~~~~ fd(%d) block(%d) ~~~~~~~~\n Try to open new file. \n key=%s file_size=%d\n", session_fd(session_info), cob->blockid, argKey->data, file_size);*/
-
-            /* -------- argMd5 -------- */
-            argMd5 = next_arg(argFileSize);
-
-            /**
-             * Open target file for write.
-             */
-            {
-                /* -------- key or uuid for file name -------- */
-
-                if ( argKey->size > 0 ) {
-                    uint32_t keyLen = argKey->size < NAME_MAX - 1 ? argKey->size : NAME_MAX - 1;
-                    memcpy(key, argKey->data, keyLen);
-                    key[keyLen] = '\0';
-                } else {
-                    uuid_t uuid;
-                    uuid_generate(uuid);
-                    uuid_unparse(uuid, key);
-                }
-
-                /* -------- openfile -------- */
-                session_info->f = storage_open_file(&session_info->server_info->storage_info, key, "wb+");
-                if ( session_info->f == NULL ){
-                    error_log("storage_open_file() failed. key:%s", key);
-                    zfree(request);
-                    request = NULL;
-                    YIELD_AND_CONTINUE;
-                }
-
-                total_fopen++;
-                trace_log("fd(%d) block(%d) fopen %s.", session_fd(session_info), cob->blockid, key);
+            session_info->f = storage_open_file(&session_info->server_info->storage_info, block_info.key, "wb+");
+            if ( session_info->f == NULL ){
+                error_log("storage_open_file() failed. key:%s", block_info.key);
+                FREE_REQUEST_YIELD_AND_CONTINUE;
             }
 
-        } else {
-            /* -------- argMd5 -------- */
-            argMd5 = arg;
+            total_fopen++;
+            trace_log("fd(%d) block(%d) storage_file(%p) fopen %s.", session_fd(session_info), cob->blockid, session_info->f, block_info.key);
         }
 
-        struct msg_arg_t *argData = next_arg(argMd5);
+        /** ----------------------------------------
+         *    Write block!
+         *  ---------------------------------------- */
 
-        /*debug_log("fd(%d) block(%d) argData: size=%d", session_fd(session_info), cob->blockid, argData->size);*/
-        if ( argData->size > 0 ) {
+        /*trace_log("fd(%d) block(%d) argData: size=%d", session_fd(session_info), cob->blockid, argData->size);*/
+        if ( session_write_block(session_info, &block_info) != 0 ) {
+            error_log("session_write_block() failed.");
+            FREE_REQUEST_YIELD_AND_CONTINUE;
+        }
 
-            /**
-             * Check data md5 value.
-             */
 
-            if ( check_data_md5(request->id, cob->blockid, argMd5, argData) != 0 ){
-                error_log("fd(%d) block(%d) Check buffer md5 failed.", session_fd(session_info), cob->blockid);
-                /*abort();*/
-                zfree(request);
-                request = NULL;
-                YIELD_AND_CONTINUE;
-            }
+        /** ----------------------------------------
+         *    Close storage.
+         *  ---------------------------------------- */
 
-            /**
-             * Do write!
-             */
-
-            if ( session_info->f != NULL ){
-                uint32_t nowrited_bytes = file_size - session_info->total_writed; 
-                assert(argData->size <= nowrited_bytes);
-
-                char *write_buf = argData->data;
-                uint32_t write_bytes = argData->size;
-
-                /* is lastest buffer. */
-                if ( argData->size == nowrited_bytes ){
-                    write_bytes = (argData->size + 511) & ~(511);
-                    assert(write_bytes >= argData->size);
-                } else {
-                    assert(argData->size % 512 == 0);
-                    write_bytes = argData->size;
-                }
-                assert(write_bytes % 512 == 0);
-
-                char aligned_buf[write_bytes] __attribute__((aligned(512)));
-                /*posix_memalign((void**)&write_buf, write_bytes, 512);*/
-                memcpy(aligned_buf, argData->data, argData->size);
-                write_buf = aligned_buf;
-
-                if ( storage_write_file(&session_info->server_info->storage_info, write_buf, write_bytes, session_info->f) < write_bytes ) {
-                    error_log("storage_write_file() failed.");
-                    zfree(request);
-                    request = NULL;
-                    YIELD_AND_CONTINUE;
-                }
-
-                /*free(write_buf);*/
-                session_info->total_writed += write_bytes;
-                pthread_yield();
-
-            } else {
-                error_log("fd(%d) block(%d) session_info->f == NULL", session_fd(session_info), cob->blockid);
-            }
-        } 
-
-        zfree(request);
-        request = NULL;
-
-        if ( session_info->total_writed >= file_size ){
+        if ( session_info->total_writed >= block_info.file_size ){
             /* -------- fclose -------- */
-            trace_log("fd(%d) block(%d) fclose %s.", session_fd(session_info), cob->blockid, key);
+            trace_log("fd(%d) block(%d) storage_file(%p) fclose %s. total_writed:%d file_size:%d", session_fd(session_info), cob->blockid, session_info->f, block_info.key, session_info->total_writed, block_info.file_size);
             total_fclose++;
             storage_close_file(&session_info->server_info->storage_info, session_info->f);
             session_info->f = NULL;
@@ -422,11 +422,13 @@ void* session_rx_handler(void *opaque)
             /* -------- response -------- */
 
             /*session_rx_off(session_info);*/
-            /*response_to_client(session_info, RESULT_SUCCESS);*/
+            response_to_client(session_info, RESULT_SUCCESS);
             /*session_rx_on(session_info);*/
 
         }
-        }
+
+        zfree(request);
+        request = NULL;
 
     }
 

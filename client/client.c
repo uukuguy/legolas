@@ -219,14 +219,14 @@ static void after_write_block(uv_write_t *write_req, int status) {
         __sync_add_and_fetch(&client_info->total_send, 1);
         notice_log("========> End loop %d/%d. clientid:%d <========", client_info->total_send, client_info->total_files, client_info->clientid);
 
-        start_next_write_loop(client_info);
+        /*start_next_write_loop(client_info);*/
 
-        /*int ret = uv_read_start((uv_stream_t*)&client_info->connection.handle.handle, client_alloc, after_response);*/
-        /*if ( ret != 0 ) { */
-            /*destroy_client(client_info);*/
-            /*error_log("uv_read_start() failed. ret = %d", ret); */
-            /*return ; */
-        /*}*/
+        int ret = uv_read_start((uv_stream_t*)&client_info->connection.handle.handle, client_alloc, after_response);
+        if ( ret != 0 ) { 
+            destroy_client(client_info);
+            error_log("uv_read_start() failed. ret = %d", ret); 
+            return ; 
+        }
     }
     
 }
