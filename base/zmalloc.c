@@ -28,6 +28,10 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #include <stdio.h>
 #include <stdlib.h>
 
@@ -348,3 +352,4 @@ size_t zmalloc_get_private_dirty(void) {
     return 0;
 }
 #endif
+

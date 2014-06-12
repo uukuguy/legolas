@@ -46,6 +46,12 @@ void server_destroy(server_info_t *server_info)
 {
     exit_server_work_queue(server_info);
 
+    int i;
+    for ( i = 0 ; i < MAX_VNODES ; i++ ){
+        vnode_info_t *vnode = server_info->vnodes[i];
+        vnode_destroy(vnode);
+    }
+
     zfree(server_info);
 }
 

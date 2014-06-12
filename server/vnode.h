@@ -17,6 +17,7 @@
 #define MAX_DATAZONES 16
 
 struct datazone_t;
+struct kvdb_t;
 
 typedef struct vnode_info_t {
     uint32_t id;
@@ -25,9 +26,12 @@ typedef struct vnode_info_t {
     uint32_t n_datazones;
     datazone_info_t datazone_infos[MAX_DATAZONES];
 
+    struct kvdb_t *kvdb;
+
 } vnode_info_t;
 
 int vnode_init(vnode_info_t *vnode_info, char *root_dir, uint32_t id);
+void vnode_destroy(vnode_info_t *vnode_info);
 
 #endif /* __VNODE_H__ */
 

@@ -12,6 +12,7 @@
 #include "datazone.h"
 #include "filesystem.h"
 #include "logger.h"
+#include "kvdb.h"
 
 int vnode_init(vnode_info_t *vnode_info, char *root_dir, uint32_t id)
 {
@@ -26,10 +27,29 @@ int vnode_init(vnode_info_t *vnode_info, char *root_dir, uint32_t id)
                 return -1;
             }
         }
-        return 0;
+
+
+        /* Init Index DB */
+        char dbpath[NAME_MAX];
+        sprintf(dbpath, "%s/manifest.db", vnode_info->root_dir);
+        struct kvdb_t *kvdb = kvdb_open(dbpath); 
+        if ( kvdb != NULL ){
+            vnode_info->kvdb = kvdb;
+            return 0;
+        } else {
+            error_log("kvdb_init() failed. vnode(%d) dir:%s", id, vnode_info->root_dir);
+            return -1;
+        }
     } else {
         error_log("Cann't create vnode(%d) dir:%s", id, vnode_info->root_dir);
         return -1;
+    }
+}
+
+void vnode_destroy(vnode_info_t *vnode_info){
+    if ( vnode_info->kvdb != NULL ){
+        kvdb_close(vnode_info->kvdb);
+        vnode_info->kvdb = NULL;
     }
 }
 

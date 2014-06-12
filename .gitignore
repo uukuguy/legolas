@@ -4,6 +4,7 @@ deps/*
 apps/legolas/ebin
 *~
 *.o
+*.oo
 dev/*
 doc/*
 rel/legolas

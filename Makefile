@@ -5,7 +5,7 @@ LEGOLAS_OBJS = legolas/legolas.o legolas/protocol.o
 
 BASE_OBJS = base/logger.o base/daemon.o base/coroutine.o
 BASE_OBJS += base/zmalloc.o base/work.o base/md5.o base/filesystem.o
-BASE_OBJS += base/adlist.o
+BASE_OBJS += base/adlist.o base/kvdb.oo
 #BASE_OBJS += base/lockfree_queue.o
 #BASE_OBJS += base/lockfree_queue.o base/lockfree_reapd.o base/hazard_ptr.o
 
@@ -16,6 +16,7 @@ CLIENT_OBJS = client/main.o client/client.o
 
 LIBUV=libuv-v0.11.22
 JEMALLOC=jemalloc-3.6.0
+LEVELDB=leveldb-1.15.0
 PCL=pcl-1.12
 COLIB=colib-20140530
 LIBLFDS=liblfds-6.1.1
@@ -31,9 +32,9 @@ server: ${SERVER}
 client: ${CLIENT}
 
 # ---------------- deps ----------------
-.PHONY: jemalloc libuv liblfds pcl colib
+.PHONY: jemalloc libuv leveldb liblfds pcl colib
 
-deps: jemalloc libuv 
+deps: jemalloc libuv leveldb
 #pcl 
 #colib
 
@@ -72,6 +73,20 @@ deps/libuv:
 	make
 	#./gyp_uv.py -f make && \
 	#BUILDTYPE=Release make -C out
+
+# ................ leveldb ................
+
+CFLAGS_LEVELDB=-I./deps/leveldb/include
+LDFLAGS_LEVELDB=./deps/leveldb/libleveldb.a
+
+leveldb: deps/leveldb
+
+deps/leveldb:
+	cd deps && \
+	tar zxvf ${LEVELDB}.tar.gz && \
+	ln -sf ${LEVELDB} leveldb && \
+	cd ${LEVELDB} && \
+	make 
 
 # ................ liblfds ................
 
@@ -120,12 +135,16 @@ deps/colib:
 	
 #CFLAGS_UCONTEXT=-D_XOPEN_SOURCE # ucontext.h error: The deprecated ucontext routines require _XOPEN_SOURCE to be defined.
 
-FINAL_CFLAGS = -ggdb -fPIC -m64 -Wall -Wstrict-prototypes  -D_GNU_SOURCE -I./include -I./legolas ${CFLAGS_UCONTEXT} ${CFLAGS_LIBUV} ${CFLAGS_JEMALLOC} ${CFLAGS}
+COMMON_CFLAGS = -ggdb -fPIC -m64 -Wall -D_GNU_SOURCE -I./include -I./legolas ${CFLAGS_UCONTEXT} ${CFLAGS_LIBUV} ${CFLAGS_JEMALLOC} ${CFLAGS_LEVELDB} ${CFLAGS}
+FINAL_CFLAGS = -Wstrict-prototypes ${COMMON_CFLAGS} 
+
 #${CFLAGS_LIBLFDS} 
 #${CFLAGS_PCL} 
 #${CFLAGS_COLIB} 
 #-DUSE_PRCTL
-FINAL_LDFLAGS = ${LDFLAGS_LIBUV} ${LDFLAGS_JEMALLOC} ${LDFLAGS} -lpthread 
+FINAL_CXXFLAGS=${COMMON_CFLAGS} ${CXXFLAGS}
+
+FINAL_LDFLAGS = ${LDFLAGS_LIBUV} ${LDFLAGS_JEMALLOC} ${LDFLAGS_LEVELDB} ${LDFLAGS} -lpthread  -lstdc++
 #${LDFLAGS_LIBLFDS} 
 #${LDFLAGS_PCL} 
 #${LDFLAGS_COLIB} 
@@ -146,6 +165,9 @@ ${CLIENT}: deps ${BASE_OBJS} ${CLIENT_OBJS} ${LEGOLAS_OBJS} bin
 
 bin:
 	mkdir -p bin
+
+%.oo: %.cpp
+	${CC} ${FINAL_CXXFLAGS} -o $*.oo -c  $*.cpp
 
 %.o: %.c
 	${CC} ${FINAL_CFLAGS} -o $*.o -c  $*.c 
