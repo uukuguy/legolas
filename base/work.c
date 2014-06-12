@@ -22,7 +22,6 @@
 #include "work.h"
 #include "zmalloc.h"
 #include "logger.h"
-/*#include "lockfree_queue.h"*/
 #include "adlist.h"
 
 static LIST_HEAD(work_queue_list);
@@ -33,7 +32,6 @@ struct work_queue {
 	pthread_cond_t pending_cond;
 	pthread_mutex_t pending_lock;
 	struct list_head q;
-    /*struct lockfree_queue_t *queue;*/
     list *queue;
 
 	work_func_t fn;
@@ -69,13 +67,17 @@ void *dequeue_work(struct work_queue *wq)
 
 void enqueue_work(struct work_queue *wq, void *entry)
 {
-    /*lockfree_queue_enqueue(wq->queue, entry);*/
 
     pthread_mutex_lock(&wq->pending_lock);
     listAddNodeTail(wq->queue, entry);
     pthread_mutex_unlock(&wq->pending_lock);
 
 	pthread_cond_signal(&wq->pending_cond);
+}
+
+uint32_t get_work_queue_count(struct work_queue *wq)
+{
+    return wq->queue->len;
 }
 
 /*void enqueue_work(struct work_queue *wq, struct list_head *w_list)*/
@@ -110,7 +112,6 @@ retest:
             pthread_exit(NULL);
         }
 
-        /*if ( lockfree_queue_is_empty(wq->queue) ){*/
         if ( listLength(wq->queue) == 0 ) {
             pthread_cond_wait(&wq->pending_cond, &wq->pending_lock);
             goto retest;
@@ -119,11 +120,12 @@ retest:
         pthread_mutex_unlock(&wq->pending_lock);
 
         if ( wq->fn ){
-            /*wq->fn(wq->queue);*/
-            void *nodeData = NULL;
-            while ( (nodeData = dequeue_work(wq)) != NULL ){
-                wq->fn(nodeData);
-            }
+            wq->fn(wq);
+
+            /*void *nodeData = NULL;*/
+            /*while ( (nodeData = dequeue_work(wq)) != NULL ){*/
+                /*wq->fn(nodeData);*/
+            /*}*/
         }
     }
 
@@ -186,19 +188,6 @@ struct work_queue *init_work_queue(work_func_t fn, int interval)
 	INIT_LIST_HEAD(&wq->q);
 
     wq->queue = listCreate();
-    /*wq->queue = lockfree_queue_create();*/
-
-    /*int testval = 33;*/
-    /*lockfree_queue_enqueue(wq->queue, &testval);*/
-    /*int retval = 0;*/
-    /*int *pretval = lockfree_queue_dequeue(wq->queue);*/
-    /*retval = *pretval;*/
-
-    /*if ( lockfree_queue_is_empty(wq->queue) ){*/
-        /*trace_log("work queue is empty.");*/
-    /*} else {*/
-        /*trace_log("work queue is NOT empty.");*/
-    /*}*/
 
 	pthread_cond_init(&wq->pending_cond, NULL);
 
@@ -238,7 +227,6 @@ void exit_work_queue(struct work_queue *wq)
 	pthread_cond_destroy(&wq->pending_cond);
 	pthread_mutex_destroy(&wq->pending_lock);
 
-    /*lockfree_queue_delete(wq->queue);*/
     listRelease(wq->queue);
 
 	wq->stop = 0;

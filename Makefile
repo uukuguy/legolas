@@ -6,7 +6,7 @@ LEGOLAS_OBJS = legolas/legolas.o legolas/protocol.o legolas/storage.o
 BASE_OBJS = base/logger.o base/daemon.o base/coroutine.o
 BASE_OBJS += base/zmalloc.o base/work.o base/md5.o base/filesystem.o
 BASE_OBJS += base/adlist.o
-BASE_OBJS += base/lockfree_queue.o
+#BASE_OBJS += base/lockfree_queue.o
 #BASE_OBJS += base/lockfree_queue.o base/lockfree_reapd.o base/hazard_ptr.o
 
 SERVER_OBJS = server/main.o server/server.o server/session.o server/session_recv.o server/session_send.o server/operation.o server/vnode.o server/datazone.o
@@ -33,7 +33,7 @@ client: ${CLIENT}
 # ---------------- deps ----------------
 .PHONY: jemalloc libuv liblfds pcl colib
 
-deps: jemalloc libuv liblfds
+deps: jemalloc libuv 
 #pcl 
 #colib
 
@@ -120,11 +120,13 @@ deps/colib:
 	
 #CFLAGS_UCONTEXT=-D_XOPEN_SOURCE # ucontext.h error: The deprecated ucontext routines require _XOPEN_SOURCE to be defined.
 
-FINAL_CFLAGS = -ggdb -fPIC -m64 -Wall -Wstrict-prototypes  -D_GNU_SOURCE -I./include -I./legolas ${CFLAGS_UCONTEXT} ${CFLAGS_LIBUV} ${CFLAGS_JEMALLOC} ${CFLAGS_LIBLFDS} ${CFLAGS}
+FINAL_CFLAGS = -ggdb -fPIC -m64 -Wall -Wstrict-prototypes  -D_GNU_SOURCE -I./include -I./legolas ${CFLAGS_UCONTEXT} ${CFLAGS_LIBUV} ${CFLAGS_JEMALLOC} ${CFLAGS}
+#${CFLAGS_LIBLFDS} 
 #${CFLAGS_PCL} 
 #${CFLAGS_COLIB} 
 #-DUSE_PRCTL
-FINAL_LDFLAGS = ${LDFLAGS_LIBUV} ${LDFLAGS_JEMALLOC} ${LDFLAGS_LIBLFDS} ${LDFLAGS}   -lpthread 
+FINAL_LDFLAGS = ${LDFLAGS_LIBUV} ${LDFLAGS_JEMALLOC} ${LDFLAGS} -lpthread 
+#${LDFLAGS_LIBLFDS} 
 #${LDFLAGS_PCL} 
 #${LDFLAGS_COLIB} 
 ifeq (${UNAME}, Linux)

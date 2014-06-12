@@ -7,13 +7,9 @@
 #include "work.h"
 #include "logger.h"
 #include "storage.h"
-#include "protocol.h"
-/*#include "lockfree_queue.h"*/
-#include <time.h>
-
 #include "coroutine.h"
-/*#include "pcl.h"*/
-//#include "co_routine.h"
+#include "protocol.h"
+#include <time.h>
 
 #define DEFAULT_PORT 16076
 #define DEFAULT_CONN_BUF_SIZE 64 * 1024
@@ -34,8 +30,6 @@ typedef struct server_info_t {
 
     struct work_queue *recv_queue[RECV_THREADS];
     struct work_queue *send_queue[SEND_THREADS];
-    /*lockfree_queue_t *recv_queue[RECV_THREADS];*/
-    /*lockfree_queue_t *send_queue[RECV_THREADS];*/
 
     char root_dir[NAME_MAX];
 
@@ -140,12 +134,6 @@ typedef struct session_info_t{
 
     struct coroutine *rx_co;
     struct coroutine *tx_co; 
-
-    /*coroutine_t rx_co;
-    coroutine_t tx_co;*/
-
-    /*struct stCoRoutine_t *rx_co;
-    struct stCoRoutine_t *tx_co;*/
 
     int refcnt;
     int waiting_for_close;

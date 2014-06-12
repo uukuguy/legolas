@@ -21,8 +21,8 @@ extern void session_finish_saving_buffer(session_info_t *session_info);
 extern void init_cob(conn_buf_t *cob);
 extern void destroy_cob(conn_buf_t *cob);
 
-extern void queue_into_recv_queue(session_info_t *session_info, conn_buf_t *cob); 
-extern void remove_from_recv_queue(session_info_t *session_info, conn_buf_t *cob); 
+extern void enqueue_recv_queue(session_info_t *session_info, conn_buf_t *cob); 
+extern conn_buf_t *dequeue_recv_queue(session_info_t *session_info); 
 
 #define SESSION_INFO_FROM_UV_HANDLE(handle, session_iinfo, server_info) \
     UNUSED session_info_t *session_info = (struct session_info_t *)handle->data; \

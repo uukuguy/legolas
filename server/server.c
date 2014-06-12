@@ -128,10 +128,8 @@ int start_listen(int listen_port, const char *data_dir)
  *
  * ************************************************************/
 
-/*void recv_request(struct list_head *work_list);*/
-void recv_request(void *arg);
-/*void send_response(struct list_head *work_list);*/
-void send_response(void *arg);
+void recv_request(struct work_queue *wq);
+void send_response(struct work_queue *wq);
 
 void empty_server_info(server_info_t *server_info)
 {

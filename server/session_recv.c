@@ -18,10 +18,6 @@
 #include "uv.h"
 
 #include "coroutine.h"
-/*#include "pcl.h"*/
-/*#include "co_routine.h"*/
-
-#include "lockfree_queue.h"
 #include <pthread.h>
 #include <uuid/uuid.h>
 #include <stdlib.h>
@@ -32,7 +28,6 @@
 static uint32_t total_fopen = 0;
 static uint32_t total_fclose = 0;
 
-/*extern pthread_key_t key_actived_cob;*/
 extern UNUSED void response_to_client(struct session_info_t *session_info, enum MSG_RESULT result); /* in session_send.c */
 
 #define YIELD_AND_CONTINUE \
@@ -43,22 +38,6 @@ extern UNUSED void response_to_client(struct session_info_t *session_info, enum 
     session_info = cob->session_info; \
     continue; 
 
-/*#define YIELD_AND_CONTINUE \*/
-    /*trace_log("Ready to yield and continue."); \*/
-    /*co_resume(); \*/
-    /*cob = co_get_data(co_current()); \*/
-    /*trace_log("After YIELD co_get_data(). cob=%p", cob); \*/
-    /*session_info = cob->session_info; \*/
-    /*continue; */
-
-/*#define YIELD_AND_CONTINUE \*/
-    /*trace_log("Ready to yield and continue."); \*/
-    /*co_yield_ct(); \*/
-    /*cob = pthread_getspecific(key_actived_cob); \*/
-    /*trace_log("After YIELD . cob=%p", cob); \*/
-    /*session_info = cob->session_info; \*/
-    /*continue; */
-
 /* ==================== do_read_data() ==================== */ 
 /*
  * Keep read data into buf from cob. If there is no more data in cob,
@@ -66,11 +45,7 @@ extern UNUSED void response_to_client(struct session_info_t *session_info, enum 
  */
 void do_read_data(struct conn_buf_t *cob, void *buf, size_t count)
 {
-    /*struct session_info_t *session_info = cob->session_info;*/
-    /*TRACE_LOG_SESSION_COB("Before do read data.");*/
-    /*trace_log("Try to read %zu bytes data.", count);*/
-
-    UNUSED session_info_t *session_info = NULL;
+    session_info_t *session_info = cob->session_info;
 
     assert(cob != NULL);
     assert(buf != NULL);
@@ -81,12 +56,7 @@ void do_read_data(struct conn_buf_t *cob, void *buf, size_t count)
      */
 	uint32_t done = 0;
     while ( count > 0 ) {
-        /*cob = coroutine_self_data();*/
-        /*cob = co_get_data(co_current());*/
-        /*session_info = cob->session_info;*/
-
         uint32_t len = cob->write_head - cob->read_head;
-        /*TRACE_LOG_SESSION_COB("Next to while ( count > 0 )");*/
         /*trace_log("Next to ...: blockid(%d), len(%d), count(%zu)", cob->blockid, len, count);*/
 
         /**
@@ -98,9 +68,6 @@ void do_read_data(struct conn_buf_t *cob, void *buf, size_t count)
             done += count; 
             cob->read_head += count; 
             __sync_sub_and_fetch(&cob->remain_bytes, count);
-
-            /*trace_log("1. Copy out %zu bytes. count remain 0 bytes.", count);*/
-            /*TRACE_LOG_SESSION_COB("1. Copy out");*/
 
             count = 0; 
 
@@ -118,22 +85,17 @@ void do_read_data(struct conn_buf_t *cob, void *buf, size_t count)
             cob->read_head += len; 
             __sync_sub_and_fetch(&cob->remain_bytes, len);
 
-            /*trace_log("2. Copy out %d bytes. count remain %zu bytes.", len, count - len);*/
-            /*TRACE_LOG_SESSION_COB("2. Copy out");*/
-
             count -= len; 
         }
 
         /**
          * coroutine swap to parent. (coroutine_enter in recv_request())
          */ 
-        /*coroutine_yield();*/
         YIELD_AND_CONTINUE;
     }
-
-    /*TRACE_LOG_SESSION_COB("After do read data.");*/
 }
 
+/* ==================== check_data_md5() ==================== */ 
 int check_data_md5(int requestid, struct msg_arg_t *argMd5, struct msg_arg_t *argData)
 {
     struct md5_value_t *md5Keep = (struct md5_value_t*)argMd5->data;
@@ -149,6 +111,7 @@ int check_data_md5(int requestid, struct msg_arg_t *argMd5, struct msg_arg_t *ar
     return 0;
 }
 
+/* ==================== session_do_read() ==================== */ 
 int session_do_read(conn_buf_t *cob, msg_request_t **p_request)
 {
     session_info_t *session_info = cob->session_info;
@@ -161,8 +124,6 @@ int session_do_read(conn_buf_t *cob, msg_request_t **p_request)
     do_read_data(cob, &request_header, sizeof(request_header));
 
     cob = coroutine_self_data();
-    /*cob = co_get_data(co_current());*/
-    /*cob = pthread_getspecific(key_actived_cob);*/
     session_info = cob->session_info;
 
     /* -------- check message request_header -------- */
@@ -186,37 +147,12 @@ int session_do_read(conn_buf_t *cob, msg_request_t **p_request)
     do_read_data(cob, request->data, request->data_length);
 
     cob = coroutine_self_data();
-    /*cob = co_get_data(co_current());*/
-    /*cob = pthread_getspecific(key_actived_cob);*/
     session_info = cob->session_info;
 
     *p_request = request;
 
     return 0;
 }
-
-/* ==================== session_rx_handler() ==================== */ 
-/**
- * Hnadling received buffer coroutine.
- * Called by recv_request().
- *
- * COMMON_HEADER_FIELDS:
- *      uint8_t         magic_code[8]; 
- *      uint32_t        id; 
- *      uint8_t         msg_type; 
- *      uint8_t         msg_version; 
- *      uint16_t        reserved; 
- *      uint32_t        data_length 
- *
- *      uint8_t         data[];
- *          When id == 0 
- *              uint8_t key[<=128];
- *              uint32_t file_size;
- *
- *          COMMON_TAIL_FIELD:
- *              uint8_t md5[];
- *              uint8_t data[];
- */
 
 typedef struct block_info_t {
     uint32_t id;
@@ -226,6 +162,7 @@ typedef struct block_info_t {
     uint32_t data_size;
 } block_info_t;
 
+/* ==================== parse_block() ==================== */ 
 int parse_block(struct session_info_t *session_info, struct msg_request_t *request, struct block_info_t *block_info)
 {
     /* -------- message args -------- */
@@ -244,7 +181,6 @@ int parse_block(struct session_info_t *session_info, struct msg_request_t *reque
             uuid_generate(uuid);
             uuid_unparse(uuid, block_info->key);
         }
-
 
         /* -------- argFileSize -------- */
         struct msg_arg_t *argFileSize = next_arg(argKey);
@@ -279,10 +215,9 @@ int parse_block(struct session_info_t *session_info, struct msg_request_t *reque
     return 0;
 }
 
+/* ==================== session_write_block() ==================== */ 
 int session_write_block(struct session_info_t *session_info, struct block_info_t *block_info)
 {
-    /*char aligned_buf[DEFAULT_CONN_BUF_SIZE] __attribute__((aligned(512)));*/
-
     UNUSED int r = 0;
     char *aligned_buf = NULL;
     uint32_t write_bytes = block_info->data_size;
@@ -316,9 +251,6 @@ int session_write_block(struct session_info_t *session_info, struct block_info_t
             memcpy(aligned_buf, block_info->data, block_info->data_size);
             write_buf = aligned_buf;
 
-
-            assert(write_bytes > 0);
-
             if ( storage_write_file(&session_info->server_info->storage_info, write_buf, write_bytes, session_info->f) < write_bytes ) {
                 zfree(aligned_buf);
                 return -1;
@@ -337,6 +269,29 @@ int session_write_block(struct session_info_t *session_info, struct block_info_t
     return 0;
 }
 
+/* ==================== session_rx_handler() ==================== */ 
+/**
+ * Hnadling received buffer coroutine.
+ * Called by recv_request().
+ *
+ * COMMON_HEADER_FIELDS:
+ *      uint8_t         magic_code[8]; 
+ *      uint32_t        id; 
+ *      uint8_t         msg_type; 
+ *      uint8_t         msg_version; 
+ *      uint16_t        reserved; 
+ *      uint32_t        data_length 
+ *
+ *      uint8_t         data[];
+ *          When id == 0 
+ *              uint8_t key[<=128];
+ *              uint32_t file_size;
+ *
+ *          COMMON_TAIL_FIELD:
+ *              uint8_t md5[];
+ *              uint8_t data[];
+ */
+
 #define FREE_REQUEST_YIELD_AND_CONTINUE \
     zfree(request); \
     request = NULL; \
@@ -344,12 +299,10 @@ int session_write_block(struct session_info_t *session_info, struct block_info_t
     session_info = cob->session_info; \
     YIELD_AND_CONTINUE;
 
-void* session_rx_handler(void *opaque)
+void *session_rx_handler(void *opaque)
 {
     UNUSED int ret;
-    /*uint32_t file_size = 0;*/
     block_info_t block_info;
-    /*char key[NAME_MAX];*/
 
     msg_request_t *request = NULL;
     struct conn_buf_t *cob = (struct conn_buf_t*)opaque;
@@ -435,85 +388,60 @@ void* session_rx_handler(void *opaque)
     return NULL;
 }
 
+/* ==================== recv_cob_in_queue() ==================== */ 
+void recv_cob_in_queue(struct conn_buf_t *cob)
+{
+    session_info_t *session_info = cob->session_info;
+
+    if ( likely( cob->remain_bytes > 0 ) ) {
+
+        /**
+         * coroutine enter session_rx_handler() 
+         */
+        coroutine_enter(session_info->rx_co, cob);
+
+        trace_log("return from co_call.");
+
+        /**
+         * too many requests or not ?
+         */
+
+        if ( too_many_requests(session_info) ) {
+            session_info->stop = 1;
+        } else {
+            session_rx_on(session_info);
+        }
+
+    } else {
+        /* -------- remain bytes == 0 -------- */
+    }
+
+    destroy_cob(cob);
+
+    /*if ( session_info->f == NULL )*/
+    /*response_to_client(session_info, RESULT_SUCCESS);*/
+
+    session_finish_saving_buffer(session_info);
+
+    if ( session_is_waiting(session_info) ){
+        if ( session_info->waiting_for_close == 1 ) { 
+            pthread_cond_signal(&session_info->recv_pending_cond);
+        }
+    }
+    pthread_yield();
+
+}
+
 /* ==================== recv_request() ==================== */ 
 /**
  * Running in a thread in recv_queue.
  * One thread per session and many sessions per thread.
  */
-/*void recv_request(struct list_head *work_list)*/
-void recv_request(void *arg)
+void recv_request(struct work_queue *wq)
 {
-    /*struct lockfree_queue_t *queue = (struct lockfree_queue_t*)arg;*/
-    /*list *queue;*/
-
-    struct conn_buf_t *cob = (struct conn_buf_t*)arg;
-    /*UNUSED struct conn_buf_t *n;*/
-
-    
-    /* FIXME thread is no safe! */
-    /*while ( (cob = lockfree_queue_dequeue(queue)) != NULL ) {*/
-    /*list_for_each_entry_safe(cob, n, work_list, rx_block_list) {*/
-    /*while (1) {*/
-        /*cob = list_entry((work_list)->next, conn_buf_t, rx_block_list);*/
-        /*if ( &cob->rx_block_list == work_list ) break;*/
-
-        session_info_t *session_info = cob->session_info;
-        server_info_t *server_info = session_info->server_info;
-
-        /*TRACE_LOG_SESSION_COB("Receive request. ");*/
-
-        /*remove_from_recv_queue(session_info, cob); */
-
-        if ( likely( cob->remain_bytes > 0 ) ) {
-
-            /**
-             * coroutine enter session_rx_handler() 
-             */
-
-
-            trace_log("co_set_data(). cob=%p", cob);
-
-            coroutine_enter(session_info->rx_co, cob);
-
-            /*co_set_data(session_info->rx_co, cob);*/
-            /*co_call(session_info->rx_co);*/
-
-            /*co_setspecific(key_actived_cob, cob);*/
-            /*co_resume(session_info->rx_co);*/
-
-
-            trace_log("return from co_call.");
-
-            /**
-             * too many requests or not ?
-             */
-
-            if ( too_many_requests(session_info) ) {
-                session_info->stop = 1;
-            } else {
-                session_rx_on(session_info);
-            }
-
-        } else {
-            /* -------- remain bytes == 0 -------- */
-        }
-
-        destroy_cob(cob);
-
-        /*if ( session_info->f == NULL )*/
-            /*response_to_client(session_info, RESULT_SUCCESS);*/
-
-        session_finish_saving_buffer(session_info);
-
-        TRACE_SESSION_INFO("Finish saving a buffer.");
-        if ( session_is_waiting(session_info) ){
-            TRACE_SESSION_INFO("After session_is_waiting(). ");
-            if ( session_info->waiting_for_close == 1 ) { 
-                pthread_cond_signal(&session_info->recv_pending_cond);
-            }
-        }
-        pthread_yield();
-
-    /*}*/
+    void *nodeData = NULL;
+    while ( (nodeData = dequeue_work(wq)) != NULL ){
+       recv_cob_in_queue((struct conn_buf_t*)nodeData);
+    }
 }
 
