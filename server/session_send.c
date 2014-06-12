@@ -8,6 +8,7 @@
  * 
  */
 
+#include "server.h"
 #include "session.h"
 #include "protocol.h"
 #include "md5.h"
@@ -93,7 +94,7 @@ void send_cob_in_queue(struct conn_buf_t *cob)
         /* -------- remain bytes == 0 -------- */
     }
 
-    destroy_cob(cob);
+    delete_cob(cob);
 
     /*session_finish_saving_buffer(session_info);*/
 

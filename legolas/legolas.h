@@ -6,38 +6,18 @@
 #include "uv.h"
 #include "work.h"
 #include "logger.h"
-#include "storage.h"
 #include "coroutine.h"
 #include "protocol.h"
+//#include "../server/vnode.h"
 #include <time.h>
 
 #define DEFAULT_PORT 16076
+
 #define DEFAULT_CONN_BUF_SIZE 64 * 1024
-#define REMAIN_RECV_BUF_SIZE 1 * 1024
 
-#define RECV_THREADS 4
-#define SEND_THREADS 4
-#define RECV_INTERVAL 1 /* ms */
-#define SEND_INTERVAL 1 /* ms */
-
-#define MAX_CACHED_BYTES 1024 * 1024 * 1024
-
+struct server_info_t;
 struct session_info_t;
-
-typedef struct server_info_t {
-    unsigned int idle_timeout;  /* Connection idle timeout in ms. */
-    uv_tcp_t tcp_handle;
-
-    struct work_queue *recv_queue[RECV_THREADS];
-    struct work_queue *send_queue[SEND_THREADS];
-
-    char root_dir[NAME_MAX];
-
-    storage_info_t storage_info;
-
-    uint32_t cached_bytes;
-
-} server_info_t;
+struct storage_file_t;
 
 typedef struct conn_buf_t {
     char base[DEFAULT_CONN_BUF_SIZE + 1024];
@@ -115,7 +95,7 @@ struct co_buffer {
 typedef struct session_info_t{
     struct session_id sid;
     enum session_status session_status;
-    server_info_t *server_info;  /* Backlink to owning server context. */
+    struct server_info_t *server_info;  /* Backlink to owning server context. */
     conn_t connection;  /* Connection with the SOCKS client. */
 
     uint32_t total_received_buffers;
@@ -150,7 +130,7 @@ typedef struct session_info_t{
     int is_sending;
 
     /* FILE* f; */
-    storage_file_t *f;
+    struct storage_file_t *f;
 
     uint32_t total_writed;
 

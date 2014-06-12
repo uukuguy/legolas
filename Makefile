@@ -1,7 +1,7 @@
 SERVER = bin/legolasd
 CLIENT = bin/legolas
 
-LEGOLAS_OBJS = legolas/legolas.o legolas/protocol.o legolas/storage.o
+LEGOLAS_OBJS = legolas/legolas.o legolas/protocol.o 
 
 BASE_OBJS = base/logger.o base/daemon.o base/coroutine.o
 BASE_OBJS += base/zmalloc.o base/work.o base/md5.o base/filesystem.o
@@ -9,7 +9,7 @@ BASE_OBJS += base/adlist.o
 #BASE_OBJS += base/lockfree_queue.o
 #BASE_OBJS += base/lockfree_queue.o base/lockfree_reapd.o base/hazard_ptr.o
 
-SERVER_OBJS = server/main.o server/server.o server/session.o server/session_recv.o server/session_send.o server/operation.o server/vnode.o server/datazone.o
+SERVER_OBJS = server/main.o server/server.o server/session.o server/session_recv.o server/session_send.o server/operation.o server/storage.o server/vnode.o server/datazone.o
 
 CLIENT_OBJS = client/main.o client/client.o
 

@@ -12,6 +12,7 @@
  * 
  */
 
+#include "server.h"
 #include "session.h"
 #include "protocol.h"
 #include "md5.h"
@@ -45,7 +46,7 @@ extern UNUSED void response_to_client(struct session_info_t *session_info, enum 
  */
 void do_read_data(struct conn_buf_t *cob, void *buf, size_t count)
 {
-    session_info_t *session_info = cob->session_info;
+    UNUSED session_info_t *session_info = cob->session_info;
 
     assert(cob != NULL);
     assert(buf != NULL);
@@ -416,7 +417,7 @@ void recv_cob_in_queue(struct conn_buf_t *cob)
         /* -------- remain bytes == 0 -------- */
     }
 
-    destroy_cob(cob);
+    delete_cob(cob);
 
     /*if ( session_info->f == NULL )*/
     /*response_to_client(session_info, RESULT_SUCCESS);*/

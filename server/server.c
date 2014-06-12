@@ -9,6 +9,8 @@
  */
 
 #include "legolas.h"
+#include "server.h"
+#include "vnode.h"
 #include "session.h"
 #include "list.h"
 #include "work.h"
@@ -18,7 +20,7 @@
 #include "lockfree_queue.h"
 
 void empty_server_info(server_info_t *server_info);
-int init_server(server_info_t *server_info);
+int server_init(server_info_t *server_info);
 int init_server_work_queue(server_info_t *server_info);
 int exit_server_work_queue(server_info_t *server_info);
 
@@ -39,8 +41,8 @@ static void on_connection(uv_stream_t *stream, int status)
 
 }
 
-/* ==================== destroy_server_info() ==================== */ 
-void destroy_server_info(server_info_t *server_info)
+/* ==================== server_destroy() ==================== */ 
+void server_destroy(server_info_t *server_info)
 {
     exit_server_work_queue(server_info);
 
@@ -69,7 +71,10 @@ int start_listen(int listen_port, const char *data_dir)
     server_info_t *server_info = (server_info_t*)zmalloc(sizeof(server_info_t));
     empty_server_info(server_info);
 
-    init_server(server_info);
+    if ( server_init(server_info) != 0 ){
+        error_log("server_init() failed.");
+        return -1;
+    }
 
     /* -------- tcp_handle -------- */
     uv_tcp_t *tcp_handle = &server_info->tcp_handle;
@@ -78,7 +83,7 @@ int start_listen(int listen_port, const char *data_dir)
     r = uv_tcp_init(loop, tcp_handle);
     if ( r ) {
         error_log("uv_tcp_init() failed.");
-        destroy_server_info(server_info);
+        server_destroy(server_info);
         return -1;
     }
     tcp_handle->data = server_info;
@@ -87,7 +92,7 @@ int start_listen(int listen_port, const char *data_dir)
     r = uv_tcp_bind(tcp_handle, (const struct sockaddr*)&server_addr, 0);
     if ( r ) {
         error_log("uv_tcp_bind() failed.");
-        destroy_server_info(server_info);
+        server_destroy(server_info);
         return -1;
     }
 
@@ -95,7 +100,7 @@ int start_listen(int listen_port, const char *data_dir)
     r = uv_listen((uv_stream_t*)tcp_handle, SOMAXCONN, on_connection);
     if ( r ) {
         error_log("uv_listen() failed.");
-        destroy_server_info(server_info);
+        server_destroy(server_info);
         return -1;
     }
 
@@ -105,7 +110,7 @@ int start_listen(int listen_port, const char *data_dir)
     r = uv_run(loop, UV_RUN_DEFAULT);
     if ( r ) {
         error_log("uv_run() failed.");
-        destroy_server_info(server_info);
+        server_destroy(server_info);
         return -1;
     }
 
@@ -115,7 +120,7 @@ int start_listen(int listen_port, const char *data_dir)
     /*close_loop(loop);      */
     /*uv_loop_delete(loop);  */
 
-    destroy_server_info(server_info);
+    server_destroy(server_info);
 
     notice_log("Server exit.");
 
@@ -137,7 +142,7 @@ void empty_server_info(server_info_t *server_info)
     server_info->cached_bytes = 0;
 }
 
-int init_server(server_info_t *server_info)
+int server_init(server_info_t *server_info)
 {
     assert(server_info != NULL);
 
@@ -145,11 +150,20 @@ int init_server(server_info_t *server_info)
 
     get_instance_parent_full_path(server_info->root_dir, NAME_MAX);
     sprintf(server_info->storage_info.storage_dir, "%s/data/storage", server_info->root_dir);
-
-    r = storage_init(&server_info->storage_info);
-    if ( r != 0 ){
-        error_log("storage_init() failed.");
+    if ( mkdir_if_not_exist(server_info->storage_info.storage_dir) != 0 ){
+        error_log("mkdir %s failed.", server_info->storage_info.storage_dir);
         return -1;
+    }
+
+    /*r = storage_init(&server_info->storage_info);*/
+    int i;
+    for ( i = 0 ; i < MAX_VNODES ; i++ ){
+        server_info->vnodes[i] = (vnode_info_t*)zmalloc(sizeof(vnode_info_t));
+        r = vnode_init(server_info->vnodes[i], server_info->storage_info.storage_dir, i);
+        if ( r != 0 ){
+            error_log("vnode_init() failed. id:%d", i);
+            return -1;
+        }
     }
 
     r = init_server_work_queue(server_info);

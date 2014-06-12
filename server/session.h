@@ -3,6 +3,8 @@
 
 #include "legolas.h"
 
+#define MAX_CACHED_BYTES 1024 * 1024 * 1024
+
 extern session_info_t* create_session(server_info_t* server_info);
 extern void close_session(session_info_t *session_info);
 
@@ -19,7 +21,7 @@ extern int session_is_waiting(session_info_t *session_info);
 extern void session_finish_saving_buffer(session_info_t *session_info);
 
 extern void init_cob(conn_buf_t *cob);
-extern void destroy_cob(conn_buf_t *cob);
+extern void delete_cob(conn_buf_t *cob);
 
 extern void enqueue_recv_queue(session_info_t *session_info, conn_buf_t *cob); 
 extern conn_buf_t *dequeue_recv_queue(session_info_t *session_info); 

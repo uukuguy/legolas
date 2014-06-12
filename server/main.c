@@ -11,7 +11,7 @@
 #include "logger.h"
 #include "daemon.h"
 #include "legolas.h"
-#include "lockfree_queue.h"
+#include "server.h"
 #include <stdlib.h>
 #include <stdio.h>
 #include <signal.h>
@@ -79,8 +79,6 @@ int runserver(program_options_t *program_options)
     notice_log("==> Start Legolas Server.");
 
     int ret = start_listen(port, data_dir);
-
-    /*lockfree_reapd_cleanup();*/
 
     notice_log("~~> End Legolas Server.");
 

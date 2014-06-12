@@ -10,6 +10,7 @@
 
 #include "datazone.h"
 #include "vnode.h"
+#include "filesystem.h"
 #include "logger.h"
 
 int datazone_init(datazone_info_t *datazone_info, struct vnode_info_t *vnode_info, int id)

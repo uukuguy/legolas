@@ -8,6 +8,7 @@
  * 
  */
 
+#include "server.h"
 #include "session.h"
 #include "protocol.h"
 #include "uv.h"
@@ -161,7 +162,7 @@ UNUSED static void after_read(uv_stream_t *handle, ssize_t nread, const uv_buf_t
         /* -------------------------------------------------------------------- */
         /* Error or EOF. Must shutdown. */
 
-        destroy_cob(cob);
+        delete_cob(cob);
 
         /* -------- UV__ENOBUFS -------- */
         if ( nread == UV__ENOBUFS ) {
@@ -187,7 +188,7 @@ UNUSED static void after_read(uv_stream_t *handle, ssize_t nread, const uv_buf_t
         /* -------------------------------------------------------------------- */
         /* nread == 0 Everything OK, but nothing read. */
 
-        destroy_cob(cob);
+        delete_cob(cob);
         return;
     }
 
@@ -350,8 +351,8 @@ void init_cob(conn_buf_t *cob)
     INIT_LIST_HEAD(&cob->rx_block_list);
 }
 
-/* ==================== destroy_cob() ==================== */ 
-void destroy_cob(conn_buf_t *cob)
+/* ==================== delete_cob() ==================== */ 
+void delete_cob(conn_buf_t *cob)
 {
     session_info_t *session_info = cob->session_info;
     server_info_t *server_info = session_info->server_info;
