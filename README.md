@@ -65,6 +65,21 @@ check /proc/sys/net/ipv4/ip_local_port_range
 
 * network speed larger than disk wirte speed!! 
 
+dependences:
+    jemalloc 
+        Copyright (C) 2002-2014 Jason Evans <jasone@canonware.com>.
+        All rights reserved.
+        Copyright (C) 2007-2012 Mozilla Foundation.  All rights reserved.
+        Copyright (C) 2009-2014 Facebook, Inc.  All rights reserved.
+    libuv  
+        Node's license
+    leveldb 
+        Copyright (c) 2011 The LevelDB Authors. All rights reserved.
+    zeromq 
+        GPL3
+    czmq
+
+
 
 HyperDex
 

@@ -218,31 +218,9 @@ static struct option const long_options[] = {
 };
 static const char *short_options = "s:p:wrek:n:u:dvth";
 
-/*#include <../src/queue.h>*/
-/*void* write_completed_queue[2];                                             */
-/*void *q1[2];*/
 /* ==================== main() ==================== */ 
 int main(int argc, char *argv[])
 {
-
-    /*QUEUE_INIT(&write_completed_queue);*/
-    /*QUEUE_INIT(&q1);*/
-    /*QUEUE_INSERT_TAIL(&write_completed_queue, &q1);*/
-    /*QUEUE_REMOVE(&q1);*/
-
-  /*return 0;*/
-
-    /*const char *dirname = "/Users/jwsu/sandbox/geek/legolas/data/storage";*/
-
-    /*if ( access(dirname, F_OK) == -1 ){*/
-        /*printf("dirname:%s not exist\n", dirname);*/
-        /*int ret = mkdir(dirname, 0750);*/
-        /*printf("mkdir %s ret:%d\n", dirname, ret);*/
-    /*} else {*/
-        /*printf("dirname:%s already exist\n", dirname);*/
-    /*}*/
-    /*return 0;*/
-
     program_options_t program_options;
 
     program_options.server = "127.0.0.1";
