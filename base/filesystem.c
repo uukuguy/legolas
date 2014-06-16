@@ -20,6 +20,15 @@ int mkdir_if_not_exist(const char *dirname)
     return 0;
 }
 
+int file_exist(const char *filename)
+{
+    if ( access(filename, F_OK) == 0 ){
+        return 1;
+    } else {
+        return 0;
+    }
+}
+
 int get_file_parent_full_path(const char *filename, char *apath, int size)
 {
     int cnt = strlen(filename);

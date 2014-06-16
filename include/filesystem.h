@@ -11,6 +11,7 @@
 #ifndef __FILESYSTEM_H__
 #define __FILESYSTEM_H__
 
+extern int file_exist(const char *filename);
 extern int mkdir_if_not_exist(const char *dirname);
 extern int get_instance_parent_full_path(char* apath, int size);
 extern int get_file_parent_full_path(const char *filename, char *apath, int size);

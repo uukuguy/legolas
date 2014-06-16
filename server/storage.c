@@ -126,7 +126,7 @@ int storage_read_file(storage_info_t *storage_info, char *buf, uint32_t buf_size
     /*int r = fread(buf, 1, buf_size, f); */
     int f = storage_file->f;
     int r = read(f, buf, buf_size);
-    if ( r < buf_size ) {
+    if ( r < 0 ) {
         /*if ( !feof(f) ){*/
             /*error_log("Read file failed. errno:%d ", ferror(f));*/
             /*return -1;*/

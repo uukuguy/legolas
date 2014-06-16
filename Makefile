@@ -9,7 +9,7 @@ BASE_OBJS += base/skiplist.o base/adlist.o base/kvdb.oo base/crc32.o
 #BASE_OBJS += base/lockfree_queue.o
 #BASE_OBJS += base/lockfree_queue.o base/lockfree_reapd.o base/hazard_ptr.o
 
-SERVER_OBJS = server/main.o server/server.o server/session.o server/session_recv.o server/session_send.o server/operation.o server/storage.o server/vnode.o server/datazone.o
+SERVER_OBJS = server/main.o server/server.o server/session.o server/session_recv.o server/session_send.o server/operation.o server/storage.o server/vnode.o server/datazone.o server/logfile.o
 
 CLIENT_OBJS = client/main.o client/client.o
 
