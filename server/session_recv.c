@@ -17,6 +17,8 @@
 #include "protocol.h"
 #include "md5.h"
 #include "uv.h"
+#include "adlist.h"
+#include "skiplist.h"
 
 #include "coroutine.h"
 #include <pthread.h>
@@ -28,6 +30,69 @@
 
 static uint32_t total_fopen = 0;
 static uint32_t total_fclose = 0;
+
+/* -------------------- slice_t -------------------- */
+typedef struct slice_t {
+    uint32_t seq_num;
+    char *buf;
+    uint32_t buf_size;
+} slice_t;
+
+/* -------------------- object_t -------------------- */
+typedef struct object_t {
+    char key[NAME_MAX];
+    list *slices;
+    uint32_t object_size;
+} object_t;
+
+void init_object(object_t *object)
+{
+    memset(object, 0, sizeof(object_t));
+    object->slices = listCreate();
+}
+
+void clean_object(object_t *object)
+{
+    if ( object->slices != NULL ) {
+        listRelease(object->slices);
+        object->slices = NULL;
+    }
+    object->object_size = 0;
+}
+
+int object_compare_func(void *first, void *second)
+{
+    object_t *object_first = (object_t*)first;
+    object_t *object_second = (object_t*)second;
+
+    return strcmp(object_first->key, object_second->key);
+}
+
+/* -------------------- object_queue_t -------------------- */
+typedef struct object_queue_t {
+    skiplist *objects;
+
+	pthread_mutex_t queue_lock;
+
+} object_queue_t;
+
+int init_object_queue(object_queue_t *oq)
+{
+   oq->objects = skiplist_new(16, 0.5, 0, 0, object_compare_func);
+   pthread_mutex_init(&oq->queue_lock, NULL);
+   return 0;
+}
+
+void clean_object_queue(object_queue_t *oq)
+{
+    if ( oq->objects != NULL ){
+        skiplist_free(&oq->objects);
+        oq->objects = NULL;
+    }
+
+    pthread_mutex_destroy(&oq->queue_lock);
+}
+
 
 extern UNUSED void response_to_client(struct session_info_t *session_info, enum MSG_RESULT result); /* in session_send.c */
 
@@ -94,6 +159,20 @@ void do_read_data(struct conn_buf_t *cob, void *buf, size_t count)
          */ 
         YIELD_AND_CONTINUE;
     }
+}
+
+/* ==================== check_data_crc32() ==================== */ 
+int check_data_crc32(int requestid, struct msg_arg_t *argCRC32, struct msg_arg_t *argData)
+{
+    uint32_t crc = *((uint32_t*)argCRC32->data);
+    uint32_t crc1 = crc32(0, argData->data, argData->size);
+
+    if ( crc != crc1 ) {
+        error_log("requestid(%d) upload crc32: %d, Data crc32: %d", requestid, crc, crc1);
+        return -1;
+    }
+
+    return 0;
 }
 
 /* ==================== check_data_md5() ==================== */ 
@@ -168,7 +247,7 @@ int parse_block(struct session_info_t *session_info, struct msg_request_t *reque
 {
     /* -------- message args -------- */
     struct msg_arg_t *arg = (struct msg_arg_t*)request->data;
-    struct msg_arg_t *argMd5 = NULL;
+    struct msg_arg_t *argCRC32 = NULL;
     block_info->id = request->id;
     if ( request->id == 0 ) {
         /* -------- argKey -------- */
@@ -189,23 +268,22 @@ int parse_block(struct session_info_t *session_info, struct msg_request_t *reque
 
         /*trace_log("\n~~~~~~~~ fd(%d) block(%d) ~~~~~~~~\n Try to open new file. \n key=%s file_size=%d\n", session_fd(session_info), cob->blockid, argKey->data, file_size);*/
 
-        /* -------- argMd5 -------- */
-        argMd5 = next_arg(argFileSize);
+        /* -------- argCRC32 -------- */
+        argCRC32 = next_arg(argFileSize);
     } else {
-        argMd5 = arg;
+        argCRC32 = arg;
     }
 
-    struct msg_arg_t *argData = next_arg(argMd5);
+    struct msg_arg_t *argData = next_arg(argCRC32);
 
     /*debug_log("fd(%d) block(%d) argData: size=%d", session_fd(session_info), cob->blockid, argData->size);*/
     if ( argData->size > 0 ) {
-
         /**
          * Check data md5 value.
          */
 
-        if ( check_data_md5(request->id, argMd5, argData) != 0 ){
-            error_log("fd(%d) request_id(%d) Check buffer md5 failed.", session_fd(session_info), request->id);
+        if ( check_data_crc32(request->id, argCRC32, argData) != 0 ){
+            error_log("fd(%d) request_id(%d) Check buffer crc32 failed.", session_fd(session_info), request->id);
             return -1;
         }
     } 

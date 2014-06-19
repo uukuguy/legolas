@@ -100,9 +100,13 @@ static int do_write_block(struct client_info_t *client_info)
     client_info->total_readed += readed;
 
     /* -------- md5 -------- */
-    struct md5_value_t md5_value;
-    md5(&md5_value, (uint8_t *)buf, readed);
-    write_request = add_request_arg(write_request, &md5_value, sizeof(md5_value_t));
+    /*struct md5_value_t md5_value;*/
+    /*md5(&md5_value, (uint8_t *)buf, readed);*/
+    /*write_request = add_request_arg(write_request, &md5_value, sizeof(md5_value_t));*/
+
+    /* -------- CRC32 -------- */
+    uint32_t crc = crc32(0, buf, readed);
+    write_request = add_request_arg(write_request, &crc, sizeof(crc));
 
     /* -------- data -------- */
     write_request = add_request_arg(write_request, (uint8_t *)buf, readed);
