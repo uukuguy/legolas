@@ -1,0 +1,14 @@
+diff -rupN busybee-0.5.0/configure.ac busybee-0.5.0-new/configure.ac
+--- busybee-0.5.0/configure.ac	2014-05-20 18:27:23.000000000 +0800
++++ busybee-0.5.0-new/configure.ac	2014-06-01 00:38:55.182901875 +0800
+@@ -19,8 +19,8 @@ AC_LANG(C++)
+ ANAL_WARNINGS
+ 
+ # Checks for libraries.
+-PKG_CHECK_MODULES([PO6], [libpo6 >= 0.5])
+-PKG_CHECK_MODULES([E], [libe >= 0.7])
++#PKG_CHECK_MODULES([PO6], [libpo6 >= 0.5])
++#PKG_CHECK_MODULES([E], [libe >= 0.7])
+ 
+ # Checks for header files.
+ AC_CHECK_HEADERS([netinet/in.h stdint.h stdlib.h sys/socket.h unistd.h])

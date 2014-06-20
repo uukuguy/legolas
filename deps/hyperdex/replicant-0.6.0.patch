@@ -1,0 +1,53 @@
+diff -rupN replicant-0.6.0/configure.ac replicant-0.6.0-new/configure.ac
+--- replicant-0.6.0/configure.ac	2014-05-20 20:01:35.000000000 +0800
++++ replicant-0.6.0-new/configure.ac	2014-06-01 23:51:57.064205599 +0800
+@@ -58,10 +58,10 @@ else
+     AC_SUBST([LRT_LIBS], [""])
+ fi
+ 
+-PKG_CHECK_MODULES([PO6], [libpo6 >= 0.5])
+-PKG_CHECK_MODULES([E], [libe >= 0.7])
+-PKG_CHECK_MODULES([BUSYBEE], [busybee >= 0.5])
+-PKG_CHECK_MODULES([HYPERLEVELDB], [libhyperleveldb >= 1.0])
++#PKG_CHECK_MODULES([PO6], [libpo6 >= 0.5])
++#PKG_CHECK_MODULES([E], [libe >= 0.7])
++#PKG_CHECK_MODULES([BUSYBEE], [busybee >= 0.5])
++#PKG_CHECK_MODULES([HYPERLEVELDB], [libhyperleveldb >= 1.0])
+ 
+ # Checks for header files.
+ AC_CHECK_HEADER([popt.h],,[AC_MSG_ERROR([
+diff -rupN replicant-0.6.0/replicant.cc replicant-0.6.0-new/replicant.cc
+--- replicant-0.6.0/replicant.cc	2014-01-26 09:31:15.000000000 +0800
++++ replicant-0.6.0-new/replicant.cc	2014-06-01 23:52:15.032205155 +0800
+@@ -35,6 +35,15 @@
+ // e
+ #include <e/subcommand.h>
+ 
++std::string get_replicant_exec_dir(void){
++    std::string exec_dir(REPLICANT_EXEC_DIR);
++    const char* sz_exec_dir = getenv("REPLICANT_EXEC_DIR");
++    if (sz_exec_dir){
++        exec_dir = std::string(sz_exec_dir);
++    }
++    return exec_dir;
++}
++
+ int
+ main(int argc, const char* argv[])
+ {
+@@ -45,10 +54,14 @@ main(int argc, const char* argv[])
+     cmds.push_back(e::subcommand("backup-object",     "Create a backup of a replicated object"));
+     cmds.push_back(e::subcommand("restore-object",    "Restore a replicated object from backup"));
+     cmds.push_back(e::subcommand("integrity-check",   "Repair a Relicant daemon's data directory"));
++
++
++    std::string replicant_exec_dir = get_replicant_exec_dir();
++
+     return dispatch_to_subcommands(argc, argv,
+                                    "replicant", "Replicant",
+                                    PACKAGE_VERSION,
+                                    "replicant-",
+-                                   "REPLICANT_EXEC_PATH", REPLICANT_EXEC_DIR,
++                                   "REPLICANT_EXEC_PATH", replicant_exec_dir.c_str(),
+                                    &cmds.front(), cmds.size());
+ }
