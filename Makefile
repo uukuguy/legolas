@@ -15,6 +15,7 @@ CLIENT_OBJS = client/main.o client/client.o
 LIBUV=libuv-v0.11.22
 JEMALLOC=jemalloc-3.6.0
 LEVELDB=leveldb-1.15.0
+LIBLMDB=liblmdb-0.9.13
 ZEROMQ=zeromq-4.0.4
 CZMQ=czmq-2.2.0
 ZYRE=zyre-1.0.0
@@ -34,9 +35,9 @@ server: ${SERVER}
 client: ${CLIENT}
 
 # ---------------- deps ----------------
-.PHONY: jemalloc libuv leveldb zeromq czmq zyre liblfds pcl colib
+.PHONY: jemalloc libuv leveldb liblmdb zeromq czmq zyre liblfds pcl colib
 
-deps: jemalloc libuv leveldb zeromq czmq zyre
+deps: jemalloc libuv leveldb liblmdb zeromq czmq zyre
 #pcl 
 #colib
 
@@ -88,6 +89,20 @@ deps/leveldb:
 	tar zxvf ${LEVELDB}.tar.gz && \
 	ln -sf ${LEVELDB} leveldb && \
 	cd ${LEVELDB} && \
+	make 
+
+# ................ liblmdb ................
+
+CFLAGS_LIBLMDB=-I./deps/liblmdb
+LDFLAGS_LIBLMDB=./deps/liblmdb/liblmdb.a
+
+liblmdb: deps/liblmdb
+
+deps/liblmdb:
+	cd deps && \
+	tar zxvf ${LIBLMDB}.tar.gz && \
+	ln -sf ${LIBLMDB} liblmdb && \
+	cd ${LIBLMDB} && \
 	make 
 
 # ................ zeromq ................
@@ -186,7 +201,7 @@ deps/colib:
 	
 #CFLAGS_UCONTEXT=-D_XOPEN_SOURCE # ucontext.h error: The deprecated ucontext routines require _XOPEN_SOURCE to be defined.
 
-COMMON_CFLAGS = -ggdb -fPIC -m64 -Wall -D_GNU_SOURCE -I./include -I./legolas ${CFLAGS_UCONTEXT} ${CFLAGS_LIBUV} ${CFLAGS_JEMALLOC} ${CFLAGS_LEVELDB} ${CFLAGS_ZYRE} ${CFLAGS_CZMQ} ${CFLAGS_ZEROMQ} ${CFLAGS}
+COMMON_CFLAGS = -ggdb -fPIC -m64 -Wall -D_GNU_SOURCE -I./include -I./legolas ${CFLAGS_UCONTEXT} ${CFLAGS_LIBUV} ${CFLAGS_JEMALLOC} ${CFLAGS_LEVELDB}  ${CFLAGS_LIBLMDB} ${CFLAGS_ZYRE} ${CFLAGS_CZMQ} ${CFLAGS_ZEROMQ} ${CFLAGS}
 FINAL_CFLAGS = -Wstrict-prototypes ${COMMON_CFLAGS} 
 
 #${CFLAGS_LIBLFDS} 
@@ -195,7 +210,7 @@ FINAL_CFLAGS = -Wstrict-prototypes ${COMMON_CFLAGS}
 #-DUSE_PRCTL
 FINAL_CXXFLAGS=${COMMON_CFLAGS} ${CXXFLAGS}
 
-FINAL_LDFLAGS = ${LDFLAGS_LIBUV} ${LDFLAGS_JEMALLOC} ${LDFLAGS_LEVELDB} ${LDFLAGS_ZYRE} ${LDFLAGS_CZMQ} ${LDFLAGS_ZEROMQ} ${LDFLAGS} -lpthread  -lstdc++
+FINAL_LDFLAGS = ${LDFLAGS_LIBUV} ${LDFLAGS_JEMALLOC} ${LDFLAGS_LEVELDB} ${LDFLAGS_LIBLMDB} ${LDFLAGS_ZYRE} ${LDFLAGS_CZMQ} ${LDFLAGS_ZEROMQ} ${LDFLAGS} -lpthread  -lstdc++
 
 #${LDFLAGS_LIBLFDS} 
 #${LDFLAGS_PCL} 
@@ -232,7 +247,7 @@ clean:
 	rm -fr ${SERVER} ${CLIENT} ${BASE_OBJS} ${SERVER_OBJS} ${CLIENT_OBJS} ${LEGOLAS_OBJS} 
 
 clean-deps:
-	rm -fr deps/${LIBUV} deps/libuv deps/${JEMALLOC} deps/jemalloc deps/${PCL} deps/pcl
+	rm -fr deps/${LIBUV} deps/libuv deps/${JEMALLOC} deps/jemalloc deps/${LEVELDB} deps/leveldb deps/${LIBLMDB} deps/liblmdb deps/${ZEROMQ} deps/zeromq deps/${CZMQ} deps/czmq deps/${ZYRE} deps/zyre  
 
 cleanall: clean clean-deps
 
