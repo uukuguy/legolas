@@ -13,25 +13,36 @@
 
 #include "common.h"
 #include "datazone.h"
+#include "object.h"
 
 #define MAX_DATAZONES 16
 
-struct datazone_t;
-struct kvdb_t;
+typedef struct kvdb_t kvdb_t;
 
-typedef struct vnode_info_t {
+typedef struct datazone_t datazone_t;
+
+typedef struct vnode_t {
     uint32_t id;
     char root_dir[NAME_MAX];
 
     uint32_t n_datazones;
-    datazone_info_t datazone_infos[MAX_DATAZONES];
+    datazone_t *datazones[MAX_DATAZONES];
 
-    struct kvdb_t *kvdb;
+    kvdb_t *kvdb;
 
-} vnode_info_t;
+    object_queue_t *caching_objects;
 
-int vnode_init(vnode_info_t *vnode_info, char *root_dir, uint32_t id);
-void vnode_destroy(vnode_info_t *vnode_info);
+    list *received_objects; 
+    uint32_t received_object_size;
+    list *standby_objects; /* objects waiting for write */
+    uint32_t standby_object_size;
+
+} vnode_t;
+
+vnode_t *vnode_new(char *root_dir, uint32_t id);
+void vnode_free(vnode_t *vnode);
+
+datazone_t *get_datazone_by_object(vnode_t *vnode, object_t *object);
 
 #endif /* __VNODE_H__ */
 

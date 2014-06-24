@@ -21,21 +21,21 @@ typedef struct storage_file_t {
     int f;
 } storage_file_t;
 
-typedef struct storage_info_t {
+typedef struct storage_t {
 
   char storage_dir[NAME_MAX];
 
-} storage_info_t;
+} storage_t;
 
-int storage_init(storage_info_t *storage_info);
+int storage_init(storage_t *storage);
 
-storage_file_t *storage_open_file(storage_info_t *storage_info, const char *key, const char *fmode);
+storage_file_t *storage_open_file(storage_t *storage, const char *key, const char *fmode);
 
-int storage_write_file(storage_info_t *storage_info, const char *buf, uint32_t buf_size, storage_file_t *storage_file);
+int storage_write_file(storage_t *storage, const char *buf, uint32_t buf_size, storage_file_t *storage_file);
 
-int storage_read_file(storage_info_t *storage_info, char *buf, uint32_t buf_size, storage_file_t *storage_file);
+int storage_read_file(storage_t *storage, char *buf, uint32_t buf_size, storage_file_t *storage_file);
 
-void storage_close_file(storage_info_t *storage_info, storage_file_t *storage_file);
+void storage_close_file(storage_t *storage, storage_file_t *storage_file);
 
 #endif /* __STORAGE_H__ */
 

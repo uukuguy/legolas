@@ -18,7 +18,7 @@ typedef struct kvdb_t {
     leveldb::DB *db;
 } kvdb_t;
 
-struct kvdb_t *kvdb_open(const char *dbpath)
+kvdb_t *kvdb_open(const char *dbpath)
 {
     kvdb_t *kvdb = (kvdb_t *)zmalloc(sizeof(struct kvdb_t));
 
@@ -32,13 +32,13 @@ struct kvdb_t *kvdb_open(const char *dbpath)
     }
 }
 
-void kvdb_close(struct kvdb_t *kvdb)
+void kvdb_close(kvdb_t *kvdb)
 {
     delete kvdb->db;
     kvdb->db = NULL;
 }
 
-int kvdb_put(struct kvdb_t *kvdb, const char *key, const char *value)
+int kvdb_put(kvdb_t *kvdb, const char *key, const char *value)
 {
     leveldb::Status status = kvdb->db->Put(leveldb::WriteOptions(), key, value);
     if ( status.ok() ){
@@ -48,7 +48,7 @@ int kvdb_put(struct kvdb_t *kvdb, const char *key, const char *value)
     }
 }
 
-const char *kvdb_get(struct kvdb_t *kvdb, const char *key)
+const char *kvdb_get(kvdb_t *kvdb, const char *key)
 {
     std::string value;
     leveldb::Status status = kvdb->db->Get(leveldb::ReadOptions(), key, &value);
@@ -59,7 +59,7 @@ const char *kvdb_get(struct kvdb_t *kvdb, const char *key)
     }
 }
 
-int kvdb_delete(struct kvdb_t *kvdb, const char *key)
+int kvdb_delete(kvdb_t *kvdb, const char *key)
 {
     leveldb::Status status = kvdb->db->Delete(leveldb::WriteOptions(), key);
     if ( status.ok() ){

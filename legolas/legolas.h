@@ -6,7 +6,6 @@
 #include "uv.h"
 #include "work.h"
 #include "logger.h"
-#include "coroutine.h"
 #include "protocol.h"
 //#include "../server/vnode.h"
 #include <time.h>
@@ -15,9 +14,10 @@
 
 #define DEFAULT_CONN_BUF_SIZE 64 * 1024
 
-struct server_info_t;
-struct session_info_t;
-struct storage_file_t;
+typedef struct server_t server_t;
+typedef struct session_t session_t;
+typedef struct storage_file_t storage_file_t;
+typedef struct coroutine_t coroutine_t;
 
 typedef struct conn_buf_t {
     char base[DEFAULT_CONN_BUF_SIZE + 1024];
@@ -28,7 +28,7 @@ typedef struct conn_buf_t {
     uint32_t write_tail;
     uint32_t len;
     uint32_t remain_bytes;
-    struct session_info_t *session_info;
+    session_t *session;
 
     struct list_head rx_block_list;
 
@@ -38,7 +38,7 @@ typedef struct conn_buf_t {
 } conn_buf_t;
 
 typedef struct conn_t {
-  struct session_info_t *session_info;  /* Backlink to owning client context. */
+  session_t *session;  /* Backlink to owning client context. */
   union {
     uv_handle_t handle;
     uv_stream_t stream;
@@ -90,12 +90,10 @@ struct co_buffer {
 	char *buf;
 };
 
-/* struct coroutine; */
-
-typedef struct session_info_t{
-    struct session_id sid;
+typedef struct session_t{
+    session_id sid;
     enum session_status session_status;
-    struct server_info_t *server_info;  /* Backlink to owning server context. */
+    server_t *server;  /* Backlink to owning server context. */
     conn_t connection;  /* Connection with the SOCKS client. */
 
     uint32_t total_received_buffers;
@@ -112,8 +110,8 @@ typedef struct session_info_t{
     uint32_t file_size;
     char key[NAME_MAX];
 
-    struct coroutine *rx_co;
-    struct coroutine *tx_co; 
+    coroutine_t *rx_co;
+    coroutine_t *tx_co; 
 
     int refcnt;
     int waiting_for_close;
@@ -158,32 +156,32 @@ typedef struct session_info_t{
 
     int outstanding_reqs;
 
-} session_info_t;
+} session_t;
 
-#define session_handle(session_info) \
-    session_info->connection.handle.tcp
+#define session_handle(session) \
+    session->connection.handle.tcp
 
-#define session_stream(session_info) \
-    session_info->connection.handle.stream
+#define session_stream(session) \
+    session->connection.handle.stream
 
-#define session_tcp(session_info) \
-    session_info->connection.handle.tcp
+#define session_tcp(session) \
+    session->connection.handle.tcp
 
-#define session_udp(session_info) \
-    session_info->connection.handle.udp
+#define session_udp(session) \
+    session->connection.handle.udp
 
 typedef struct response_t{
 	/* struct mtrd_req *rq;
 	struct mtrd_common_hdr *msg;*/
 
-	struct session_info_t *session_info;
+	session_t *session;
 
 	struct list_head siblings;
 
 	struct list_head w_list;
 } response_t;
 
-typedef struct client_info_t {
+typedef struct client_t {
     uv_connect_t connect_req;
     conn_t connection;
     const char *server;
@@ -204,27 +202,27 @@ typedef struct client_info_t {
 
     void *write_request;
 
-} client_info_t;
+} client_t;
 
 /* Get file descripter in uv_stream_t. */
 #define stream_fd(stream) \
     stream->io_watcher.fd
 
-/* Get file descripter in server_info_t. */
-#define server_fd(server_info) \
-    server_info->tcp_handle.io_watcher.fd
+/* Get file descripter in server_t. */
+#define server_fd(server) \
+    server->tcp_handle.io_watcher.fd
 
-/* Get file descripter in session_info_t. */
-#define session_fd(session_info) \
-    session_info->connection.handle.stream.io_watcher.fd
+/* Get file descripter in session_t. */
+#define session_fd(session) \
+    session->connection.handle.stream.io_watcher.fd
 
-/* Get file descripter in session_info_t. */
-#define client_fd(client_info) \
-    client_info->connect_req.handle->io_watcher.fd
+/* Get file descripter in session_t. */
+#define client_fd(client) \
+    client->connect_req.handle->io_watcher.fd
 
-/* Get file descripter in session_info_t. */
-#define client_fd1(client_info) \
-    client_info->connection.handle.stream.io_watcher.fd
+/* Get file descripter in session_t. */
+#define client_fd1(client) \
+    client->connection.handle.stream.io_watcher.fd
 
 /* Fully close a loop */
 

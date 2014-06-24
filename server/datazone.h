@@ -13,16 +13,17 @@
 
 #include "common.h"
 
-struct vnode_t;
+typedef struct vnode_t vnode_t;
 
-typedef struct datazone_info_t{
+typedef struct datazone_t{
     uint32_t id;
     char storage_dir[NAME_MAX];
-    struct vnode_info_t *vnode_info;
+    vnode_t *vnode;
 
-} datazone_info_t;
+} datazone_t;
 
-int datazone_init(datazone_info_t *datazone_info, struct vnode_info_t *vnode_info, int id);
+int datazone_init(datazone_t *datazone, struct vnode_t *vnode, int id);
+void datazone_destroy(datazone_t *datazone);
 
 #endif /* __DATAZONE_H__ */
 

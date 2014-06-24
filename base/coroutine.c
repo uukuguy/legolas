@@ -50,39 +50,39 @@ enum co_action {
 
 #define STACK_MAX_SIZE (1 << 16)  /* 64 KB */
 
-struct coroutine {
+typedef struct coroutine_t {
 	coroutine_entry_func_t *entry;
 	void *entry_arg;
-	struct coroutine *caller;
+	coroutine_t *caller;
 	struct list_head pool_next;
 	struct list_head co_queue_next;
-};
+} coroutine_t;
 
-struct co_ucontext {
-	struct coroutine base;
+typedef struct co_ucontext_t {
+	coroutine_t base;
 	void *stack;
 	jmp_buf env;
-};
+} co_ucontext_t;
 
 /**
  * Per-thread coroutine bookkeeping
  */
-struct co_thread_state{
+typedef struct co_thread_state_t{
 	/** Currently executing coroutine */
-	struct coroutine *current;
+	coroutine_t *current;
 
 	/** Free list to speed up creation */
 	struct list_head pool;
 	unsigned int pool_size;
 
 	/** The default coroutine */
-	struct co_ucontext leader;
-};
+	co_ucontext_t leader;
+} co_thread_state_t;
 
 static pthread_key_t thread_state_key;
 
-static enum co_action coroutine_switch(struct coroutine *from,
-				       struct coroutine *to,
+static enum co_action coroutine_switch(coroutine_t *from,
+				       coroutine_t *to,
 				       enum co_action action);
 
 /*
@@ -95,12 +95,12 @@ union cc_arg {
 	int i[2];
 };
 
-static struct co_thread_state *coroutine_get_thread_state(void)
+static co_thread_state_t *coroutine_get_thread_state(void)
 {
-	struct co_thread_state *s = (struct co_thread_state*)pthread_getspecific(thread_state_key);
+	co_thread_state_t *s = (co_thread_state_t*)pthread_getspecific(thread_state_key);
 
 	if (!s) {
-		s = (struct co_thread_state*)zmalloc(sizeof(*s));
+		s = (co_thread_state_t*)zmalloc(sizeof(*s));
 		if (!s)
 			abort();
 		s->current = &s->leader.base;
@@ -112,12 +112,12 @@ static struct co_thread_state *coroutine_get_thread_state(void)
 
 static void coroutine_thread_cleanup(void *opaque)
 {
-	struct co_thread_state *s = (struct co_thread_state*)opaque;
-	struct coroutine *co;
-	struct coroutine *tmp;
+	co_thread_state_t *s = (co_thread_state_t*)opaque;
+	coroutine_t *co;
+	coroutine_t *tmp;
 
 	list_for_each_entry_safe(co, tmp, &s->pool, pool_next) {
-		free(container_of(co, struct co_ucontext, base)->stack);
+		free(container_of(co, co_ucontext_t, base)->stack);
 		free(co);
 	}
 	free(s);
@@ -137,8 +137,8 @@ static void __attribute__((constructor)) coroutine_init(void)
 static void coroutine_trampoline(int i0, int i1)
 {
 	union cc_arg arg;
-	struct co_ucontext *self;
-	struct coroutine *co;
+	co_ucontext_t *self;
+	coroutine_t *co;
 
 	arg.i[0] = i0;
 	arg.i[1] = i1;
@@ -159,7 +159,7 @@ static void coroutine_trampoline(int i0, int i1)
 
 #define MAGIC_NUMBER 0x1234567890123456
 
-static void init_stack(struct co_ucontext *co)
+static void init_stack(co_ucontext_t *co)
 {
 	uint64_t *stack = co->stack;
 	int i;
@@ -168,7 +168,7 @@ static void init_stack(struct co_ucontext *co)
 		stack[i] = MAGIC_NUMBER;
 }
 
-static int get_stack_size(struct co_ucontext *co)
+static int get_stack_size(co_ucontext_t *co)
 {
 	uint64_t *stack = co->stack;
 	int i;
@@ -188,10 +188,10 @@ static int get_stack_size(struct co_ucontext *co)
 
 #endif
 
-static struct coroutine *__coroutine_new(void)
+static coroutine_t *__coroutine_new(void)
 {
 	const size_t stack_size = STACK_MAX_SIZE;
-	struct co_ucontext *co;
+	co_ucontext_t *co;
 	ucontext_t old_uc, uc;
 	jmp_buf old_env;
 	union cc_arg arg = {0};
@@ -235,13 +235,13 @@ static struct coroutine *__coroutine_new(void)
 	return &co->base;
 }
 
-static struct coroutine *coroutine_new(void)
+static coroutine_t *coroutine_new(void)
 {
-	struct co_thread_state *s = coroutine_get_thread_state();
-	struct coroutine *co;
+	co_thread_state_t *s = coroutine_get_thread_state();
+	coroutine_t *co;
 
 	if (!list_empty(&s->pool)) {
-		co = list_first_entry(&s->pool, struct coroutine, pool_next);
+		co = list_first_entry(&s->pool, coroutine_t, pool_next);
 		list_del(&co->pool_next);
 		s->pool_size--;
 	} else
@@ -250,10 +250,10 @@ static struct coroutine *coroutine_new(void)
 	return co;
 }
 
-void coroutine_delete(struct coroutine *co_)
+void coroutine_delete(coroutine_t *co_)
 {
-	struct co_thread_state *s = coroutine_get_thread_state();
-	struct co_ucontext *co = container_of(co_, struct co_ucontext, base);
+	co_thread_state_t *s = coroutine_get_thread_state();
+	co_ucontext_t *co = container_of(co_, co_ucontext_t, base);
 
 #ifdef COROUTINE_DEBUG
 	fprintf(stdout, "%d bytes are consumed\n", get_stack_size(co));
@@ -270,13 +270,13 @@ void coroutine_delete(struct coroutine *co_)
 	zfree(co);
 }
 
-static enum co_action coroutine_switch(struct coroutine *from_,
-				       struct coroutine *to_,
+static enum co_action coroutine_switch(coroutine_t *from_,
+				       coroutine_t *to_,
 				       enum co_action action)
 {
-	struct co_ucontext *from = container_of(from_, struct co_ucontext, base);
-	struct co_ucontext *to = container_of(to_, struct co_ucontext, base);
-	struct co_thread_state *s = coroutine_get_thread_state();
+	co_ucontext_t *from = container_of(from_, co_ucontext_t, base);
+	co_ucontext_t *to = container_of(to_, co_ucontext_t, base);
+	co_thread_state_t *s = coroutine_get_thread_state();
 	int ret;
 
 	s->current = to_;
@@ -293,29 +293,29 @@ void* coroutine_self_data(void)
     return coroutine_self()->entry_arg;
 }
 
-struct coroutine *coroutine_self(void)
+coroutine_t *coroutine_self(void)
 {
-	struct co_thread_state *s = coroutine_get_thread_state();
+	co_thread_state_t *s = coroutine_get_thread_state();
 
 	return s->current;
 }
 
 int in_coroutine(void)
 {
-	struct co_thread_state *s = pthread_getspecific(thread_state_key);
+	co_thread_state_t *s = pthread_getspecific(thread_state_key);
 
 	return s && s->current->caller;
 }
 
 
-struct coroutine *coroutine_create(coroutine_entry_func_t *entry)
+coroutine_t *coroutine_create(coroutine_entry_func_t *entry)
 {
-	struct coroutine *co = coroutine_new();
+	coroutine_t *co = coroutine_new();
 	co->entry = entry;
 	return co;
 }
 
-static void coroutine_swap(struct coroutine *from, struct coroutine *to)
+static void coroutine_swap(coroutine_t *from, coroutine_t *to)
 {
 	enum co_action ret;
 
@@ -332,9 +332,9 @@ static void coroutine_swap(struct coroutine *from, struct coroutine *to)
 	}
 }
 
-void coroutine_enter(struct coroutine *co, void *opaque)
+void coroutine_enter(coroutine_t *co, void *opaque)
 {
-	struct coroutine *self = coroutine_self();
+	coroutine_t *self = coroutine_self();
 
 	if (unlikely(co->caller)) {
 		fprintf(stderr, "Co-routine re-entered recursively\n");
@@ -348,8 +348,8 @@ void coroutine_enter(struct coroutine *co, void *opaque)
 
 void coroutine_yield(void)
 {
-	struct coroutine *self = coroutine_self();
-	struct coroutine *to = self->caller;
+	coroutine_t *self = coroutine_self();
+	coroutine_t *to = self->caller;
 
 	if (unlikely(!to)) {
 		fprintf(stderr, "Co-routine is yielding to no one\n");

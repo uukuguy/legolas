@@ -5,9 +5,15 @@ LEGOLAS_OBJS = legolas/legolas.o legolas/protocol.o
 
 BASE_OBJS = base/logger.o base/daemon.o base/coroutine.o
 BASE_OBJS += base/zmalloc.o base/work.o base/md5.o base/filesystem.o
-BASE_OBJS += base/skiplist.o base/adlist.o base/kvdb.oo base/crc32.o
+BASE_OBJS += base/skiplist.o base/adlist.o base/crc32.o
 
-SERVER_OBJS = server/main.o server/server.o server/session.o server/session_recv.o server/session_send.o server/operation.o server/storage.o server/vnode.o server/datazone.o server/logfile.o
+LEVELDB_OBJS = base/kvdb_leveldb.oo 
+KVDB_OBJS = ${LEVELDB_OBJS}
+
+#LMDB_OBJS = base/kvdb_lmdb.o
+#KVDB_OBJS = ${LMDB_OBJS}
+
+SERVER_OBJS = server/main.o server/server.o server/session.o server/session_recv.o server/session_send.o server/operation.o server/storage.o server/vnode.o server/datazone.o server/logfile.o server/object.o
 
 CLIENT_OBJS = client/main.o client/client.o
 
@@ -225,8 +231,8 @@ ifeq (${UNAME}, Darwin)
 endif
 
 #${SERVER}: deps ${BASE_OBJS} ${SERVER_OBJS} ${LEGOLAS_OBJS} bin
-${SERVER}: ${BASE_OBJS} ${SERVER_OBJS} ${LEGOLAS_OBJS} 
-	${CC} -o ${SERVER} ${BASE_OBJS} ${SERVER_OBJS} ${LEGOLAS_OBJS} ${FINAL_LDFLAGS}
+${SERVER}: ${BASE_OBJS} ${SERVER_OBJS} ${LEGOLAS_OBJS} ${KVDB_OBJS} 
+	${CC} -o ${SERVER} ${BASE_OBJS} ${SERVER_OBJS} ${LEGOLAS_OBJS} ${KVDB_OBJS} ${FINAL_LDFLAGS}
 
 
 ${CLIENT}: ${BASE_OBJS} ${CLIENT_OBJS} ${LEGOLAS_OBJS} 

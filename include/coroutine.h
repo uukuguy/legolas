@@ -11,15 +11,15 @@
 extern "C" {
 #endif
 
-struct coroutine;
+typedef struct coroutine_t coroutine_t;
 
 typedef void* coroutine_entry_func_t(void *opaque);
 
-struct coroutine *coroutine_create(coroutine_entry_func_t *entry);
-void coroutine_delete(struct coroutine *co_);
-void coroutine_enter(struct coroutine *coroutine, void *opaque);
+coroutine_t *coroutine_create(coroutine_entry_func_t *entry);
+void coroutine_delete(coroutine_t *co_);
+void coroutine_enter(coroutine_t *coroutine, void *opaque);
 void coroutine_yield(void);
-struct coroutine *coroutine_self(void);
+coroutine_t *coroutine_self(void);
 int in_coroutine(void);
 void* coroutine_self_data(void);
 

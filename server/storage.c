@@ -48,9 +48,9 @@ int storage_init_directories(const char* rootDir)
     return 0;
 }
 
-int storage_init(storage_info_t *storage_info)
+int storage_init(storage_t *storage)
 {
-    const char *storage_dir = storage_info->storage_dir;
+    const char *storage_dir = storage->storage_dir;
     debug_log("storage_dir:%s\n", storage_dir);
 
     storage_init_directories(storage_dir);
@@ -58,27 +58,27 @@ int storage_init(storage_info_t *storage_info)
 
 }
 
-int storage_get_filename_by_key(storage_info_t *storage_info, const char *key, char *filename)
+int storage_get_filename_by_key(storage_t *storage, const char *key, char *filename)
 {
-    struct md5_value_t md5Key;
+    md5_value_t md5Key;
     md5(&md5Key, (uint8_t *)key, strlen(key));
 
     int d1 = md5Key.h1 % STORAGE_MAX_VNODES;
 
     int d2 = md5Key.h2 % STORAGE_MAX_SECTIONS;
-    sprintf(filename, "%s/%04d/%02d/%s.dat", storage_info->storage_dir, d1, d2, key);
+    sprintf(filename, "%s/%04d/%02d/%s.dat", storage->storage_dir, d1, d2, key);
 
     /*int d2 = md5Key.h2 % 100;*/
     /*int d3 = md5Key.h3 % 100;*/
-    /*sprintf(filename, "%s/%04d/%02d/%02d/%s", storage_info->storage_dir, d1, d2, d3, key);*/
+    /*sprintf(filename, "%s/%04d/%02d/%02d/%s", storage->storage_dir, d1, d2, d3, key);*/
 
     return 0;
 }
 
-storage_file_t *storage_open_file(storage_info_t *storage_info, const char *key, const char *fmode)
+storage_file_t *storage_open_file(storage_t *storage, const char *key, const char *fmode)
 {
     char filename[NAME_MAX];
-    storage_get_filename_by_key(storage_info, key, filename); 
+    storage_get_filename_by_key(storage, key, filename); 
     trace_log("NAME_MAX:%d filename(%zu):%s", NAME_MAX, strlen(filename), filename);
 
     /* FIXME */
@@ -108,7 +108,7 @@ storage_file_t *storage_open_file(storage_info_t *storage_info, const char *key,
     return storage_file;
 }
 
-int storage_write_file(storage_info_t *storage_info, const char *buf, uint32_t buf_size, storage_file_t *storage_file)
+int storage_write_file(storage_t *storage, const char *buf, uint32_t buf_size, storage_file_t *storage_file)
 {
     int f = storage_file->f;
     int r = 0;
@@ -120,7 +120,7 @@ int storage_write_file(storage_info_t *storage_info, const char *buf, uint32_t b
     return r;
 }
 
-int storage_read_file(storage_info_t *storage_info, char *buf, uint32_t buf_size, storage_file_t *storage_file)
+int storage_read_file(storage_t *storage, char *buf, uint32_t buf_size, storage_file_t *storage_file)
 {
     /*FILE *f = storage_file->f;*/
     /*int r = fread(buf, 1, buf_size, f); */
@@ -136,7 +136,7 @@ int storage_read_file(storage_info_t *storage_info, char *buf, uint32_t buf_size
     return r;
 }
 
-void storage_close_file(storage_info_t *storage_info, storage_file_t *storage_file)
+void storage_close_file(storage_t *storage, storage_file_t *storage_file)
 {
     if ( storage_file != NULL ) {
         /*FILE *f = storage_file->f;*/

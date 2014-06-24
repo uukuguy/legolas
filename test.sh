@@ -28,7 +28,7 @@ fi
 start=$(date "+%s")
 for (( i = 0; i < $num ; i++ ))
 do
-    bin/legolas --threads $threads --count $count --server $server data/$file.dat 
+    bin/legolas --threads $threads --count $count --server $server data/samples/$file.dat 
     echo ++++++++ $i ++++++++++
 done
 

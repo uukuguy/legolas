@@ -52,7 +52,7 @@ static const char *short_options = "p:dvth";
 
 extern int start_listen(int port, const char *data_dir); /* in server.c */
 
-typedef struct{
+typedef struct program_options_t {
     int port;
     const char *data_dir;
     const char *log_dir;

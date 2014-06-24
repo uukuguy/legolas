@@ -3,7 +3,7 @@ k=$1
 if [ -z $k ]; then
     k=32K
 fi
-o=data/$k.dat
+o=data/samples/$k.dat
 n="0"
 
 for f in data/storage/*/*/*.dat ;

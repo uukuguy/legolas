@@ -17,14 +17,14 @@
 extern "C" {
 #endif
 
-    struct kvdb_t;
+    typedef struct kvdb_t kvdb_t;
 
-    struct kvdb_t *kvdb_open(const char *dbpath);
-    void kvdb_close(struct kvdb_t *kvdb);
+    kvdb_t *kvdb_open(const char *dbpath);
+    void kvdb_close(kvdb_t *kvdb);
 
-    int kvdb_put(struct kvdb_t *kvdb, const char *key, uint32_t keylen, const char *value, uint32_t valuelen);
-    const char *kvdb_get(struct kvdb_t *kvdb, const char *key, uint32_t keylen);
-    int kvdb_delete(struct kvdb_t *kvdb, const char *key, uint32_t keylen);
+    int kvdb_put(kvdb_t *kvdb, const char *key, uint32_t keylen, const char *value, uint32_t valuelen);
+    const char *kvdb_get(kvdb_t *kvdb, const char *key, uint32_t keylen);
+    int kvdb_delete(kvdb_t *kvdb, const char *key, uint32_t keylen);
 
 
 #ifdef __cplusplus

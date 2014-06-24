@@ -26,7 +26,7 @@
 
 static LIST_HEAD(work_queue_list);
 
-struct work_queue {
+typedef struct work_queue_t {
 	struct list_head worker_queue_siblings;
 
 	pthread_cond_t pending_cond;
@@ -40,15 +40,15 @@ struct work_queue {
 	int stop;
 
 	pthread_t worker_thread;
-};
+} work_queue_t;
 
-void remove_work(struct work_queue *wq, struct list_head *w_list){
+void remove_work(work_queue_t *wq, struct list_head *w_list){
     pthread_mutex_lock(&wq->pending_lock);
     list_del(w_list);
     pthread_mutex_unlock(&wq->pending_lock);
 }
 
-void *dequeue_work(struct work_queue *wq)
+void *dequeue_work(work_queue_t *wq)
 {
     void *nodeData = NULL;
 
@@ -65,7 +65,7 @@ void *dequeue_work(struct work_queue *wq)
     return nodeData;
 }
 
-void enqueue_work(struct work_queue *wq, void *entry)
+void enqueue_work(work_queue_t *wq, void *entry)
 {
 
     pthread_mutex_lock(&wq->pending_lock);
@@ -75,12 +75,12 @@ void enqueue_work(struct work_queue *wq, void *entry)
 	pthread_cond_signal(&wq->pending_cond);
 }
 
-uint32_t get_work_queue_count(struct work_queue *wq)
+uint32_t get_work_queue_count(work_queue_t *wq)
 {
     return wq->queue->len;
 }
 
-/*void enqueue_work(struct work_queue *wq, struct list_head *w_list)*/
+/*void enqueue_work(work_queue_t *wq, struct list_head *w_list)*/
 /*{*/
 
     /*pthread_mutex_lock(&wq->pending_lock);*/
@@ -94,7 +94,7 @@ uint32_t get_work_queue_count(struct work_queue *wq)
 
 static void *worker_routine(void *arg)
 {
-	struct work_queue *wq = (struct work_queue*)arg;
+	work_queue_t *wq = (work_queue_t*)arg;
 
     /*if ( co_thread_init() != 0 ){*/
         /*error_log("Call co_thread_init() failed.");*/
@@ -136,7 +136,7 @@ retest:
 
 /*static void *worker_routine(void *arg)*/
 /*{*/
-	/*struct work_queue *wq = (struct work_queue*)arg;*/
+	/*work_queue_t *wq = (work_queue_t*)arg;*/
 	/*struct list_head list;*/
 
     /*if ( co_thread_init() != 0 ){*/
@@ -174,12 +174,12 @@ retest:
 	/*pthread_exit(NULL);*/
 /*}*/
 
-struct work_queue *init_work_queue(work_func_t fn, int interval)
+work_queue_t *init_work_queue(work_func_t fn, int interval)
 {
 	int ret;
-	struct work_queue *wq;
+	work_queue_t *wq;
 
-	wq = (struct work_queue*)zmalloc(sizeof(*wq));
+	wq = (work_queue_t*)zmalloc(sizeof(*wq));
 	if (!wq)
 		return NULL;
 
@@ -215,7 +215,7 @@ destroy_threads:
 	return NULL;
 }
 
-void exit_work_queue(struct work_queue *wq)
+void exit_work_queue(work_queue_t *wq)
 {
 	pthread_mutex_lock(&wq->pending_lock);
 	wq->stop = 1;

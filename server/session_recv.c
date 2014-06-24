@@ -1,8 +1,4 @@
 /**
-    listIter *iter = listGetIterator(queue, AL_START_HEAD);
-    listNode *node = NULL;
-    while ( (node = listNext(iter)) != NULL ) { 
-        cob = (struct conn_buf_t *)listNodeValue(iter);
  * @file   session_recv.c
  * @author Jiangwen Su <uukuguy@gmail.com>
  * @date   2014-05-05 13:23:11
@@ -15,7 +11,8 @@
 #include "server.h"
 #include "session.h"
 #include "protocol.h"
-#include "md5.h"
+#include "crc32.h"
+/*#include "md5.h"*/
 #include "uv.h"
 #include "adlist.h"
 #include "skiplist.h"
@@ -31,77 +28,14 @@
 static uint32_t total_fopen = 0;
 static uint32_t total_fclose = 0;
 
-/* -------------------- slice_t -------------------- */
-typedef struct slice_t {
-    uint32_t seq_num;
-    char *buf;
-    uint32_t buf_size;
-} slice_t;
-
-/* -------------------- object_t -------------------- */
-typedef struct object_t {
-    char key[NAME_MAX];
-    list *slices;
-    uint32_t object_size;
-} object_t;
-
-void init_object(object_t *object)
-{
-    memset(object, 0, sizeof(object_t));
-    object->slices = listCreate();
-}
-
-void clean_object(object_t *object)
-{
-    if ( object->slices != NULL ) {
-        listRelease(object->slices);
-        object->slices = NULL;
-    }
-    object->object_size = 0;
-}
-
-int object_compare_func(void *first, void *second)
-{
-    object_t *object_first = (object_t*)first;
-    object_t *object_second = (object_t*)second;
-
-    return strcmp(object_first->key, object_second->key);
-}
-
-/* -------------------- object_queue_t -------------------- */
-typedef struct object_queue_t {
-    skiplist *objects;
-
-	pthread_mutex_t queue_lock;
-
-} object_queue_t;
-
-int init_object_queue(object_queue_t *oq)
-{
-   oq->objects = skiplist_new(16, 0.5, 0, 0, object_compare_func);
-   pthread_mutex_init(&oq->queue_lock, NULL);
-   return 0;
-}
-
-void clean_object_queue(object_queue_t *oq)
-{
-    if ( oq->objects != NULL ){
-        skiplist_free(&oq->objects);
-        oq->objects = NULL;
-    }
-
-    pthread_mutex_destroy(&oq->queue_lock);
-}
-
-
-extern UNUSED void response_to_client(struct session_info_t *session_info, enum MSG_RESULT result); /* in session_send.c */
+extern UNUSED void response_to_client(session_t *session, enum MSG_RESULT result); /* in session_send.c */
 
 #define YIELD_AND_CONTINUE \
     trace_log("Ready to yield and continue."); \
     coroutine_yield(); \
     cob = coroutine_self_data(); \
     trace_log("After YIELD coroutine_self_data(). cob=%p", cob); \
-    session_info = cob->session_info; \
+    session = cob->session; \
     continue; 
 
 /* ==================== do_read_data() ==================== */ 
@@ -109,9 +43,9 @@ extern UNUSED void response_to_client(struct session_info_t *session_info, enum 
  * Keep read data into buf from cob. If there is no more data in cob,
  * return control to parent thread by call coroutine_yield().
  */
-void do_read_data(struct conn_buf_t *cob, void *buf, size_t count)
+void do_read_data(conn_buf_t *cob, void *buf, size_t count)
 {
-    UNUSED session_info_t *session_info = cob->session_info;
+    UNUSED session_t *session = cob->session;
 
     assert(cob != NULL);
     assert(buf != NULL);
@@ -162,7 +96,7 @@ void do_read_data(struct conn_buf_t *cob, void *buf, size_t count)
 }
 
 /* ==================== check_data_crc32() ==================== */ 
-int check_data_crc32(int requestid, struct msg_arg_t *argCRC32, struct msg_arg_t *argData)
+int check_data_crc32(int requestid, msg_arg_t *argCRC32, msg_arg_t *argData)
 {
     uint32_t crc = *((uint32_t*)argCRC32->data);
     uint32_t crc1 = crc32(0, argData->data, argData->size);
@@ -175,43 +109,27 @@ int check_data_crc32(int requestid, struct msg_arg_t *argCRC32, struct msg_arg_t
     return 0;
 }
 
-/* ==================== check_data_md5() ==================== */ 
-int check_data_md5(int requestid, struct msg_arg_t *argMd5, struct msg_arg_t *argData)
-{
-    struct md5_value_t *md5Keep = (struct md5_value_t*)argMd5->data;
-    struct md5_value_t md5Data;
-    md5(&md5Data, (uint8_t *)argData->data, argData->size);
-
-    /*notice_log("id(%d) block(%d) Data md5: h0:%X h1:%X h2:%X h3:%X", requestid, md5Data.h0, md5Data.h1, md5Data.h2, md5Data.h3);*/
-    if ( check_md5(md5Keep, &md5Data) != 0 ) {
-        error_log("requestid(%d) Data md5: h0:%X h1:%X h2:%X h3:%X", requestid, md5Data.h0, md5Data.h1, md5Data.h2, md5Data.h3);
-        return -1;
-    }
-
-    return 0;
-}
-
 /* ==================== session_do_read() ==================== */ 
 int session_do_read(conn_buf_t *cob, msg_request_t **p_request)
 {
-    session_info_t *session_info = cob->session_info;
+    session_t *session = cob->session;
 
     /* -------- do_read_data:request_header -------- */
     TRACE_LOG_SESSION_COB("Call do_read_data() for request_header.");
 
-    struct msg_request_t request_header;
+    msg_request_t request_header;
 
     do_read_data(cob, &request_header, sizeof(request_header));
 
     cob = coroutine_self_data();
-    session_info = cob->session_info;
+    session = cob->session;
 
     /* -------- check message request_header -------- */
     if ( !check_msg((msg_header_t*)&request_header) ) {
         WARNING_LOG_SESSION_COB("Check magic_code in message request_header failed!");
         /*TRACE_DATA_TO_FILE("result/request_header.dat", &request_header, sizeof(request_header));*/
 
-        /*session_info->stop = 1;   */
+        /*session->stop = 1;   */
         return -1;
     } else {
         /*TRACE_LOG_SESSION_COB("Check magic_code in message request_header OK!");*/
@@ -221,52 +139,52 @@ int session_do_read(conn_buf_t *cob, msg_request_t **p_request)
     /* -------- do_read_data:data -------- */
     TRACE_LOG_SESSION_COB("Call do_read_data() for data.");
 
-    struct msg_request_t *request = (struct msg_request_t*)zmalloc(sizeof(request_header) + request_header.data_length);
+    msg_request_t *request = (msg_request_t*)zmalloc(sizeof(request_header) + request_header.data_length);
     memcpy(request, &request_header, sizeof(request_header));
 
     do_read_data(cob, request->data, request->data_length);
 
     cob = coroutine_self_data();
-    session_info = cob->session_info;
+    session = cob->session;
 
     *p_request = request;
 
     return 0;
 }
 
-typedef struct block_info_t {
+typedef struct block_t {
     uint32_t id;
     uint32_t file_size;
     char key[NAME_MAX];
     char *data;
     uint32_t data_size;
-} block_info_t;
+} block_t;
 
 /* ==================== parse_block() ==================== */ 
-int parse_block(struct session_info_t *session_info, struct msg_request_t *request, struct block_info_t *block_info)
+int parse_block(session_t *session, msg_request_t *request, block_t *block)
 {
     /* -------- message args -------- */
-    struct msg_arg_t *arg = (struct msg_arg_t*)request->data;
-    struct msg_arg_t *argCRC32 = NULL;
-    block_info->id = request->id;
+    msg_arg_t *arg = (msg_arg_t*)request->data;
+    msg_arg_t *argCRC32 = NULL;
+    block->id = request->id;
     if ( request->id == 0 ) {
         /* -------- argKey -------- */
-        struct msg_arg_t *argKey = arg;
+        msg_arg_t *argKey = arg;
         if ( argKey->size > 0 ) {
             uint32_t keylen = argKey->size < NAME_MAX - 1 ? argKey->size : NAME_MAX - 1;
-            memcpy(block_info->key, argKey->data, keylen);
-            block_info->key[keylen] = '\0';
+            memcpy(block->key, argKey->data, keylen);
+            block->key[keylen] = '\0';
         } else {
             uuid_t uuid;
             uuid_generate(uuid);
-            uuid_unparse(uuid, block_info->key);
+            uuid_unparse(uuid, block->key);
         }
 
         /* -------- argFileSize -------- */
-        struct msg_arg_t *argFileSize = next_arg(argKey);
-        block_info->file_size = *((uint32_t*)argFileSize->data);
+        msg_arg_t *argFileSize = next_arg(argKey);
+        block->file_size = *((uint32_t*)argFileSize->data);
 
-        /*trace_log("\n~~~~~~~~ fd(%d) block(%d) ~~~~~~~~\n Try to open new file. \n key=%s file_size=%d\n", session_fd(session_info), cob->blockid, argKey->data, file_size);*/
+        /*trace_log("\n~~~~~~~~ fd(%d) block(%d) ~~~~~~~~\n Try to open new file. \n key=%s file_size=%d\n", session_fd(session), cob->blockid, argKey->data, file_size);*/
 
         /* -------- argCRC32 -------- */
         argCRC32 = next_arg(argFileSize);
@@ -274,47 +192,47 @@ int parse_block(struct session_info_t *session_info, struct msg_request_t *reque
         argCRC32 = arg;
     }
 
-    struct msg_arg_t *argData = next_arg(argCRC32);
+    msg_arg_t *argData = next_arg(argCRC32);
 
-    /*debug_log("fd(%d) block(%d) argData: size=%d", session_fd(session_info), cob->blockid, argData->size);*/
+    /*debug_log("fd(%d) block(%d) argData: size=%d", session_fd(session), cob->blockid, argData->size);*/
     if ( argData->size > 0 ) {
         /**
          * Check data md5 value.
          */
 
         if ( check_data_crc32(request->id, argCRC32, argData) != 0 ){
-            error_log("fd(%d) request_id(%d) Check buffer crc32 failed.", session_fd(session_info), request->id);
+            error_log("fd(%d) request_id(%d) Check buffer crc32 failed.", session_fd(session), request->id);
             return -1;
         }
     } 
 
-    block_info->data = argData->data;
-    block_info->data_size = argData->size;
+    block->data = argData->data;
+    block->data_size = argData->size;
 
     return 0;
 }
 
 /* ==================== session_write_block() ==================== */ 
-int session_write_block(struct session_info_t *session_info, struct block_info_t *block_info)
+int session_write_block(session_t *session, block_t *block)
 {
     UNUSED int r = 0;
     char *aligned_buf = NULL;
-    uint32_t write_bytes = block_info->data_size;
+    uint32_t write_bytes = block->data_size;
 
-    if ( block_info->data_size > 0 ) {
-        if ( session_info->f != NULL ){
-            uint32_t nowrited_bytes = block_info->file_size - session_info->total_writed; 
-            assert(block_info->data_size <= nowrited_bytes);
+    if ( block->data_size > 0 ) {
+        if ( session->f != NULL ){
+            uint32_t nowrited_bytes = block->file_size - session->total_writed; 
+            assert(block->data_size <= nowrited_bytes);
 
-            char *write_buf = block_info->data;
+            char *write_buf = block->data;
 
             /* is lastest buffer. */
             if ( write_bytes == nowrited_bytes ){
-                write_bytes = (block_info->data_size + 511) & ~(511);
-                assert(write_bytes >= block_info->data_size);
+                write_bytes = (block->data_size + 511) & ~(511);
+                assert(write_bytes >= block->data_size);
             } else {
-                assert(block_info->data_size % 512 == 0);
-                write_bytes = block_info->data_size;
+                assert(block->data_size % 512 == 0);
+                write_bytes = block->data_size;
             }
             assert(write_bytes % 512 == 0);
 
@@ -326,21 +244,21 @@ int session_write_block(struct session_info_t *session_info, struct block_info_t
 
             memset(aligned_buf, 0, write_bytes);
 
-            assert(write_bytes >= block_info->data_size);
-            memcpy(aligned_buf, block_info->data, block_info->data_size);
+            assert(write_bytes >= block->data_size);
+            memcpy(aligned_buf, block->data, block->data_size);
             write_buf = aligned_buf;
 
-            if ( storage_write_file(&session_info->server_info->storage_info, write_buf, write_bytes, session_info->f) < write_bytes ) {
+            if ( storage_write_file(&session->server->storage, write_buf, write_bytes, session->f) < write_bytes ) {
                 zfree(aligned_buf);
                 return -1;
             }
             zfree(aligned_buf);
 
-            session_info->total_writed += write_bytes;
+            session->total_writed += write_bytes;
             pthread_yield();
 
         } else {
-            error_log("fd(%d) session_info->f == NULL", session_fd(session_info));
+            error_log("fd(%d) session->f == NULL", session_fd(session));
             return -1;
         }
     } 
@@ -375,17 +293,17 @@ int session_write_block(struct session_info_t *session_info, struct block_info_t
     zfree(request); \
     request = NULL; \
     cob = coroutine_self_data(); \
-    session_info = cob->session_info; \
+    session = cob->session; \
     YIELD_AND_CONTINUE;
 
 void *session_rx_handler(void *opaque)
 {
     UNUSED int ret;
-    block_info_t block_info;
+    block_t block;
 
     msg_request_t *request = NULL;
-    struct conn_buf_t *cob = (struct conn_buf_t*)opaque;
-    struct session_info_t *session_info = cob->session_info;
+    conn_buf_t *cob = (conn_buf_t*)opaque;
+    session_t *session = cob->session;
 
     while ( 1 ){
         /** ----------------------------------------
@@ -394,7 +312,7 @@ void *session_rx_handler(void *opaque)
 
         ret = session_do_read(cob, &request);
         cob = coroutine_self_data();
-        session_info = cob->session_info;
+        session = cob->session;
         if ( ret != 0 || request == NULL ) {
             YIELD_AND_CONTINUE;
         }
@@ -403,36 +321,36 @@ void *session_rx_handler(void *opaque)
          *    Parse block
          *  ---------------------------------------- */
 
-        if ( parse_block(session_info, request, &block_info) != 0 ){
-            error_log("parse_block() failed. key:%s", block_info.key);
+        if ( parse_block(session, request, &block) != 0 ){
+            error_log("parse_block() failed. key:%s", block.key);
             FREE_REQUEST_YIELD_AND_CONTINUE;
         }
-        /*notice_log("block_info.file_size:%d", block_info.file_size);*/
+        /*notice_log("block.file_size:%d", block.file_size);*/
 
         /** ----------------------------------------
          *    Open target file for write if possible.
          *  ---------------------------------------- */
 
-        if ( block_info.id == 0 ) {
+        if ( block.id == 0 ) {
 
-            session_info->total_writed = 0;
+            session->total_writed = 0;
 
-            session_info->f = storage_open_file(&session_info->server_info->storage_info, block_info.key, "wb+");
-            if ( session_info->f == NULL ){
-                error_log("storage_open_file() failed. key:%s", block_info.key);
+            session->f = storage_open_file(&session->server->storage, block.key, "wb+");
+            if ( session->f == NULL ){
+                error_log("storage_open_file() failed. key:%s", block.key);
                 FREE_REQUEST_YIELD_AND_CONTINUE;
             }
 
             total_fopen++;
-            trace_log("fd(%d) block(%d) storage_file(%p) fopen %s.", session_fd(session_info), cob->blockid, session_info->f, block_info.key);
+            trace_log("fd(%d) block(%d) storage_file(%p) fopen %s.", session_fd(session), cob->blockid, session->f, block.key);
         }
 
         /** ----------------------------------------
          *    Write block!
          *  ---------------------------------------- */
 
-        /*trace_log("fd(%d) block(%d) argData: size=%d", session_fd(session_info), cob->blockid, argData->size);*/
-        if ( session_write_block(session_info, &block_info) != 0 ) {
+        /*trace_log("fd(%d) block(%d) argData: size=%d", session_fd(session), cob->blockid, argData->size);*/
+        if ( session_write_block(session, &block) != 0 ) {
             error_log("session_write_block() failed.");
             FREE_REQUEST_YIELD_AND_CONTINUE;
         }
@@ -442,20 +360,20 @@ void *session_rx_handler(void *opaque)
          *    Close storage.
          *  ---------------------------------------- */
 
-        if ( session_info->total_writed >= block_info.file_size ){
+        if ( session->total_writed >= block.file_size ){
             /* -------- fclose -------- */
-            trace_log("fd(%d) block(%d) storage_file(%p) fclose %s. total_writed:%d file_size:%d", session_fd(session_info), cob->blockid, session_info->f, block_info.key, session_info->total_writed, block_info.file_size);
+            trace_log("fd(%d) block(%d) storage_file(%p) fclose %s. total_writed:%d file_size:%d", session_fd(session), cob->blockid, session->f, block.key, session->total_writed, block.file_size);
             total_fclose++;
-            storage_close_file(&session_info->server_info->storage_info, session_info->f);
-            session_info->f = NULL;
-            session_info->total_writed = 0;
+            storage_close_file(&session->server->storage, session->f);
+            session->f = NULL;
+            session->total_writed = 0;
             pthread_yield();
 
             /* -------- response -------- */
 
-            /*session_rx_off(session_info);*/
-            response_to_client(session_info, RESULT_SUCCESS);
-            /*session_rx_on(session_info);*/
+            /*session_rx_off(session);*/
+            response_to_client(session, RESULT_SUCCESS);
+            /*session_rx_on(session);*/
 
         }
 
@@ -468,16 +386,16 @@ void *session_rx_handler(void *opaque)
 }
 
 /* ==================== recv_cob_in_queue() ==================== */ 
-void recv_cob_in_queue(struct conn_buf_t *cob)
+void recv_cob_in_queue(conn_buf_t *cob)
 {
-    session_info_t *session_info = cob->session_info;
+    session_t *session = cob->session;
 
     if ( likely( cob->remain_bytes > 0 ) ) {
 
         /**
          * coroutine enter session_rx_handler() 
          */
-        coroutine_enter(session_info->rx_co, cob);
+        coroutine_enter(session->rx_co, cob);
 
         trace_log("return from co_call.");
 
@@ -485,10 +403,10 @@ void recv_cob_in_queue(struct conn_buf_t *cob)
          * too many requests or not ?
          */
 
-        if ( too_many_requests(session_info) ) {
-            session_info->stop = 1;
+        if ( too_many_requests(session) ) {
+            session->stop = 1;
         } else {
-            session_rx_on(session_info);
+            session_rx_on(session);
         }
 
     } else {
@@ -497,14 +415,14 @@ void recv_cob_in_queue(struct conn_buf_t *cob)
 
     delete_cob(cob);
 
-    /*if ( session_info->f == NULL )*/
-    /*response_to_client(session_info, RESULT_SUCCESS);*/
+    /*if ( session->f == NULL )*/
+    /*response_to_client(session, RESULT_SUCCESS);*/
 
-    session_finish_saving_buffer(session_info);
+    session_finish_saving_buffer(session);
 
-    if ( session_is_waiting(session_info) ){
-        if ( session_info->waiting_for_close == 1 ) { 
-            pthread_cond_signal(&session_info->recv_pending_cond);
+    if ( session_is_waiting(session) ){
+        if ( session->waiting_for_close == 1 ) { 
+            pthread_cond_signal(&session->recv_pending_cond);
         }
     }
     pthread_yield();
@@ -516,11 +434,11 @@ void recv_cob_in_queue(struct conn_buf_t *cob)
  * Running in a thread in recv_queue.
  * One thread per session and many sessions per thread.
  */
-void recv_request(struct work_queue *wq)
+void recv_request(work_queue_t *wq)
 {
     void *nodeData = NULL;
     while ( (nodeData = dequeue_work(wq)) != NULL ){
-       recv_cob_in_queue((struct conn_buf_t*)nodeData);
+       recv_cob_in_queue((conn_buf_t*)nodeData);
     }
 }
 

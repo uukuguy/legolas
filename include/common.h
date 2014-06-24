@@ -11,22 +11,22 @@
 #ifndef __COMMON_COMMON_H__
 #define __COMMON_COMMON_H__
 
-#include <sys/stat.h>
+#include <sys/stat.h> /* mkdir() */
 #include <sys/types.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <stdint.h>
-#include <fcntl.h>
+#include <stdint.h> /* uint32_t */
+#include <fcntl.h> /* O_DIRECT */
 #include <unistd.h>
 #include <errno.h>
 #include <syslog.h>
 #include <string.h>
 #include <signal.h>
-#include <sys/time.h>
-#include <time.h>
+#include <sys/time.h> /* gettimeofday() struct timezone */
+#include <time.h> /* struct tm, localtime() */
 #include <pthread.h>
-#include <sched.h>
-#include <limits.h>
+#include <sched.h> /* sched_yield() */
+#include <limits.h> /* NAME_MAX */
 #include <getopt.h>
 #include <assert.h>
 

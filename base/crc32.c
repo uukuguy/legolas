@@ -45,8 +45,8 @@
 #  define BYFOUR
 
 #ifdef BYFOUR
-   static unsigned long crc32_little(unsigned long, const unsigned char  *, unsigned);
-   static unsigned long crc32_big(unsigned long, const unsigned char  *, unsigned);
+   static unsigned long crc32_little(unsigned long, const char *, unsigned);
+   static unsigned long crc32_big(unsigned long, const char *, unsigned);
 #  define TBLS 8
 #else
 #  define TBLS 1
@@ -206,7 +206,7 @@ const z_crc_t *get_crc_table(void)
 #define DO8 DO1; DO1; DO1; DO1; DO1; DO1; DO1; DO1
 
 /* ========================================================================= */
-z_crc_t crc32(z_crc_t crc, const unsigned char  *buf, uint32_t len)
+z_crc_t crc32(z_crc_t crc, const char  *buf, uint32_t len)
 {
     if (buf == NULL) return 0UL;
 
@@ -248,7 +248,7 @@ z_crc_t crc32(z_crc_t crc, const unsigned char  *buf, uint32_t len)
 /* ========================================================================= */
 static unsigned long crc32_little(crc, buf, len)
     unsigned long crc;
-    const unsigned char  *buf;
+    const char  *buf;
     unsigned len;
 {
     register z_crc_t c;
@@ -270,7 +270,7 @@ static unsigned long crc32_little(crc, buf, len)
         DOLIT4;
         len -= 4;
     }
-    buf = (const unsigned char  *)buf4;
+    buf = (const char *)buf4;
 
     if (len) do {
         c = crc_table[0][(c ^ *buf++) & 0xff] ^ (c >> 8);
@@ -320,7 +320,7 @@ static unsigned long crc32_little(crc, buf, len)
 /* ========================================================================= */
 static unsigned long crc32_big(crc, buf, len)
     unsigned long crc;
-    const unsigned char  *buf;
+    const char  *buf;
     unsigned len;
 {
     register z_crc_t c;
@@ -344,7 +344,7 @@ static unsigned long crc32_big(crc, buf, len)
         len -= 4;
     }
     buf4++;
-    buf = (const unsigned char  *)buf4;
+    buf = (const char *)buf4;
 
     if (len) do {
         c = crc_table[4][(c >> 24) ^ *buf++] ^ (c << 8);
@@ -453,15 +453,15 @@ void test(void)
     /*z_crc_t c0 = crc32(0, NULL, 0);*/
     z_crc_t c0 = 0;
     printf("c0=%X\n", c0);
-    z_crc_t c = crc32(c0, (unsigned char*)buf, sizeof(buf));
+    z_crc_t c = crc32(c0, buf, sizeof(buf));
     printf("c0=%X c=%X\n", c0, c);
 
-    z_crc_t c1 = crc32(c0, (unsigned char*)buf, 4);
-    z_crc_t c2 = crc32(c1, (unsigned char*)&buf[4], sizeof(buf) - 4);
+    z_crc_t c1 = crc32(c0, buf, 4);
+    z_crc_t c2 = crc32(c1, &buf[4], sizeof(buf) - 4);
     printf("c1=%X c2=%X\n", c1, c2);
     assert(c == c2);
 
-    z_crc_t c12 = crc32(c0, (unsigned char*)&buf[4], sizeof(buf) - 4);
+    z_crc_t c12 = crc32(c0, &buf[4], sizeof(buf) - 4);
     printf("c12=%X\n", c12);
     z_crc_t c3 = crc32_combine(c1, c12, sizeof(buf) - 4);
     printf("c3=%X \n", c3);
