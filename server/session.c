@@ -31,6 +31,66 @@ void empty_session(session_t *session);
 int create_session_coroutine(session_t *session);
 int destroy_session_coroutine(session_t *session);
 
+int session_handle_write(session_t *session, msg_request_t *request);
+int session_handle_read(session_t *session, msg_request_t *request);
+int session_handle_delete(session_t *session, msg_request_t *request);
+
+static int session_handle_request(session_t *session, msg_request_t *request)
+{
+    int ret = 0;
+
+    switch ( request->op_code ){
+        case MSG_OP_WRITE:
+            {
+                trace_log("MSG_OP_WRITE");
+                ret = session_handle_write(session, request);
+            } break;
+        case MSG_OP_READ:
+            {
+                trace_log("MSG_OP_READ");
+                ret = session_handle_read(session, request);
+            } break;
+        case MSG_OP_DEL:
+            {
+                trace_log("MSG_OP_DEL");
+                ret = session_handle_delete(session, request);
+            } break;
+    };
+
+    return ret;
+}
+
+static void after_response_to_client(uv_write_t *write_rsp, int status) 
+{
+    zfree(write_rsp);
+}
+
+int session_send_data(session_t *session, char *buf, uint32_t buf_size, uv_write_cb after_write)
+{
+    int ret = 0;
+
+    /* -------- response message -------- */
+    uv_buf_t rbuf = uv_buf_init(buf, buf_size);
+
+    /* -------- write_rsp -------- */
+    uv_write_t *write_rsp;
+    write_rsp = zmalloc(sizeof(uv_write_t));
+    write_rsp->data = session;
+
+    /* -------- uv_write -------- */
+    ret = uv_write(write_rsp,
+            &session_stream(session),
+            &rbuf,
+            1,
+            after_write);
+
+
+    if ( ret != 0 ) {
+        error_log("response failed");
+    }
+
+    return ret;
+}
 
 static UNUSED void session_idle_cb(uv_idle_t *idle_handle, int status) 
 {
@@ -39,28 +99,35 @@ static UNUSED void session_idle_cb(uv_idle_t *idle_handle, int status)
 
     uint32_t n;
     for ( n = 0 ; n < finished_works ; n++ ){
-        /* -------- response message -------- */
         msg_response_t *response = alloc_response(0, RESULT_SUCCESS);
-        uv_buf_t rbuf = uv_buf_init((char *)response, sizeof(msg_response_t));
+        notice_log("session_send_data() %d/%d", n, finished_works);
+        session_send_data(session, (char *)response, sizeof(*response), after_response_to_client);
+        zfree(response);
+
+        /* -------- response message -------- */
+        /*msg_response_t *response = alloc_response(0, RESULT_SUCCESS);*/
+        /*uv_buf_t rbuf = uv_buf_init((char *)response, sizeof(msg_response_t));*/
 
         /* -------- write_rsp -------- */
-        uv_write_t *write_rsp;
-        write_rsp = zmalloc(sizeof(uv_write_t));
-        write_rsp->data = session;
+        /*uv_write_t *write_rsp;*/
+        /*write_rsp = zmalloc(sizeof(uv_write_t));*/
+        /*write_rsp->data = session;*/
 
         /* -------- uv_write -------- */
-        trace_log("fd(%d) Ready to call uv_write. finished_works:%d", session_fd(session), finished_works);
+        /*trace_log("fd(%d) Ready to call uv_write. finished_works:%d", session_fd(session), finished_works);*/
 
-        int r = uv_write(write_rsp,
-                &session_stream(session),
-                &rbuf,
-                1,
-                NULL);
-            /*after_response_to_client);*/
+        /*int r = uv_write(write_rsp,*/
+                /*&session_stream(session),*/
+                /*&rbuf,*/
+                /*1,*/
+                /*[>NULL);<]*/
+                /*after_response_to_client);*/
 
-        if ( r != 0 ) {
-            error_log("response failed");
-        }
+        /*zfree(response);*/
+
+        /*if ( r != 0 ) {*/
+            /*error_log("response failed");*/
+        /*}*/
     }
 
     __sync_sub_and_fetch(&session->finished_works, finished_works);
@@ -87,7 +154,7 @@ static UNUSED void session_async_cb(uv_async_t *async_handle, int status)
  */
 static void on_close(uv_handle_t *tcp_handle) 
 {
-    session_FROM_UV_HANDLE(tcp_handle, session, server);
+    session_FROM_UV_HANDLE(tcp_handle);
 
     total_sessions++;
     info_log("on_close(). total_sessions: %d", total_sessions);
@@ -102,7 +169,7 @@ static void on_close(uv_handle_t *tcp_handle)
 
 UNUSED static void after_shutdown(uv_shutdown_t *shutdown_req, int status) 
 {
-    session_FROM_UV_HANDLE(shutdown_req, session, server);
+    session_FROM_UV_HANDLE(shutdown_req);
 
     pthread_mutex_lock(&session->recv_pending_lock);{
 
@@ -133,7 +200,7 @@ UNUSED static void after_shutdown(uv_shutdown_t *shutdown_req, int status)
 
 UNUSED static void after_read(uv_stream_t *handle, ssize_t nread, const uv_buf_t *buf) 
 {
-    session_FROM_UV_HANDLE(handle, session, server);
+    session_FROM_UV_HANDLE(handle);
 
     conn_buf_t *cob = container_of(buf->base, conn_buf_t, base);
     assert(session == cob->session);
@@ -198,7 +265,7 @@ UNUSED static void after_read(uv_stream_t *handle, ssize_t nread, const uv_buf_t
 
 UNUSED static void session_alloc(uv_handle_t *handle, size_t suggested_size, uv_buf_t *buf) 
 {
-    session_FROM_UV_HANDLE(handle, session, server);
+    session_FROM_UV_HANDLE(handle);
 
     /* -------- cob -------- */
     uint32_t buf_len = sizeof(conn_buf_t);
@@ -355,10 +422,15 @@ void init_cob(conn_buf_t *cob)
 void delete_cob(conn_buf_t *cob)
 {
     session_t *session = cob->session;
-    server_t *server = session->server;
+    if ( session != NULL ){
+        __sync_sub_and_fetch(&session->cached_bytes, sizeof(conn_buf_t));
+        server_t *server = session->server;
+        if ( server != NULL ){
+            __sync_sub_and_fetch(&server->cached_bytes, sizeof(conn_buf_t));
+        }
+    }
+
     zfree(cob);
-    __sync_sub_and_fetch(&session->cached_bytes, sizeof(conn_buf_t));
-    __sync_sub_and_fetch(&server->cached_bytes, sizeof(conn_buf_t));
 }
 
 /* ==================== empty_session() ==================== */ 
@@ -378,6 +450,8 @@ void empty_session(session_t *session)
     session->connection.total_bytes = 0;
     session->cached_bytes = 0;
     session->finished_works = 0;
+
+    session->handle_request = session_handle_request;
 
     /* Init conn_buf_t field in session->connection.*/
     session->connection.cob.session = session;

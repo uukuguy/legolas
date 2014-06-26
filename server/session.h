@@ -26,7 +26,9 @@ extern void delete_cob(conn_buf_t *cob);
 extern void enqueue_recv_queue(session_t *session, conn_buf_t *cob); 
 extern conn_buf_t *dequeue_recv_queue(session_t *session); 
 
-#define session_FROM_UV_HANDLE(handle, session_iinfo, server) \
+extern int session_send_data(session_t *session, char *buf, uint32_t buf_size, uv_write_cb after_write);
+
+#define session_FROM_UV_HANDLE(handle) \
     UNUSED session_t *session = (struct session_t *)handle->data; \
     UNUSED server_t *server = session->server;
 

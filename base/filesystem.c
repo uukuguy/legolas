@@ -47,6 +47,26 @@ int get_file_parent_full_path(const char *filename, char *apath, int size)
     return 0;
 }
 
+int get_path_file_name(const char *path_name, char *file_name, int size)
+{
+    int cnt = strlen(path_name);
+
+    int i;
+    if ( cnt > 0 ){
+        for ( i = cnt - 1 ; i > 0 ; i-- ){
+            if ( path_name[i] == '/' ){
+                int len = cnt - i - 1;
+                memcpy(file_name, &path_name[i+1], len);
+                file_name[len] = '\0';
+                break;
+            }
+        }
+        return i;
+    }
+
+    return 0;
+}
+
 /**
  * apath must bin exe filename type: .../bin/foo
  */

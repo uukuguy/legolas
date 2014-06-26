@@ -94,73 +94,110 @@ int check_msg(struct msg_header_t *header)
 
 /* ==================== get_arg ==================== */   
 /* Get the idx'th argument */
-const struct msg_arg_t *get_arg(const void *p, int idx)
-{
-	const struct msg_header_t *header = (struct msg_header_t*)p;
-	const struct msg_arg_t *arg;
-	int i = 0;
+/*const struct msg_arg_t *get_arg(const void *p, int idx)*/
+/*{*/
+	/*const struct msg_header_t *header = (struct msg_header_t*)p;*/
+	/*const struct msg_arg_t *arg;*/
+	/*int i = 0;*/
 
-	for_each_arg(arg, header) {
-		if (i == idx)
-			return arg;
-		i++;
-	}
+	/*for_each_arg(arg, header) {*/
+		/*if (i == idx)*/
+			/*return arg;*/
+		/*i++;*/
+	/*}*/
 
-	return NULL;
-}
+	/*return NULL;*/
+/*}*/
 
-/* ==================== add_request_arg ==================== */   
+/* ==================== add_message_arg ==================== */   
 /* Add a new argument */
-void *add_request_arg(void *p, const void *data, uint32_t data_len)
-{
+/*void *add_message_arg(void *p, const void *data, uint32_t data_len)*/
+/*{*/
 	/*struct msg_header_t *header = (struct msg_header_t*)p;*/
-	struct msg_request_t *header = (struct msg_request_t*)p;
-	struct msg_arg_t *arg;
+	/*struct msg_header_t *header = (struct msg_header_t*)p;*/
 
 	/*header = (struct msg_header_t*)zrealloc(header, sizeof(*header) + header->data_length +*/
 			  /*sizeof(data_len) + data_len);*/
-	header = (struct msg_request_t*)zrealloc(header, sizeof(*header) + header->data_length +
+	/*header = (struct msg_header_t*)zrealloc(header, sizeof(*header) + header->data_length +*/
+			  /*sizeof(data_len) + data_len);*/
+	/*if (unlikely(!header)) {*/
+		/*fprintf(stderr, "oom\n");*/
+		/*return NULL;*/
+	/*}*/
+
+	/*struct msg_arg_t *arg;*/
+	/*arg = (struct msg_arg_t *)(header->data + header->data_length);*/
+	/*arg->size = data_len;*/
+	/*memcpy(arg->data, data, data_len);*/
+
+	/*header->data_length += sizeof(data_len) + data_len;*/
+
+	/*return header;*/
+/*}*/
+
+msg_request_t *add_request_arg(msg_request_t *request, const void *data, uint32_t data_len)
+{
+	request = (struct msg_request_t*)zrealloc(request, sizeof(*request) + request->data_length +
 		      sizeof(data_len) + data_len);
-	if (unlikely(!header)) {
+	if (unlikely(!request)) {
 		fprintf(stderr, "oom\n");
 		return NULL;
 	}
 
-	arg = (struct msg_arg_t *)(header->data + header->data_length);
+	struct msg_arg_t *arg;
+	arg = (struct msg_arg_t *)(request->data + request->data_length);
 	arg->size = data_len;
 	memcpy(arg->data, data, data_len);
 
-	header->data_length += sizeof(data_len) + data_len;
+	request->data_length += sizeof(data_len) + data_len;
 
-	return header;
+	return request;
+}
+
+
+msg_response_t *add_response_arg(msg_response_t *response, const void *data, uint32_t data_len)
+{
+	response = (struct msg_response_t*)zrealloc(response, sizeof(*response) + response->data_length +
+		      sizeof(data_len) + data_len);
+	if (unlikely(!response)) {
+		fprintf(stderr, "oom\n");
+		return NULL;
+	}
+
+	struct msg_arg_t *arg;
+	arg = (struct msg_arg_t *)(response->data + response->data_length);
+	arg->size = data_len;
+	memcpy(arg->data, data, data_len);
+
+	response->data_length += sizeof(data_len) + data_len;
+
+	return response;
 }
 
 /* ==================== append_request_arg ==================== */   
 /* Append data to the last argument.  This doesn't add a new argument */
-void *append_request_arg(void *p, const void *data, uint32_t data_len)
-{
+/*void *append_message_arg(void *p, const void *data, uint32_t data_len)*/
+/*{*/
 	/*struct msg_header_t *header = (struct msg_header_t*)p;*/
-	struct msg_request_t *header = (struct msg_request_t*)p;
-	struct msg_arg_t *arg, *last_arg = NULL;
+	/*struct msg_arg_t *arg, *last_arg = NULL;*/
 
-	if (header->data_length == 0)
-		return add_request_arg(p, data, data_len);
+	/*if (header->data_length == 0)*/
+		/*return add_message_arg(p, data, data_len);*/
 
 	/*header = (struct msg_header_t*)zrealloc(header, sizeof(*header) + header->data_length + data_len);*/
-	header = (struct msg_request_t*)zrealloc(header, sizeof(*header) + header->data_length + data_len);
-	if (unlikely(!header)) {
-		fprintf(stderr, "oom\n");
-		return NULL;
-	}
+	/*if (unlikely(!header)) {*/
+		/*fprintf(stderr, "oom\n");*/
+		/*return NULL;*/
+	/*}*/
 
-	for_each_arg(arg, header)
-		last_arg = arg;
+	/*for_each_arg(arg, header)*/
+		/*last_arg = arg;*/
 
-	memcpy(last_arg->data + last_arg->size, data, data_len);
-	last_arg->size += data_len;
+	/*memcpy(last_arg->data + last_arg->size, data, data_len);*/
+	/*last_arg->size += data_len;*/
 
-	header->data_length += data_len;
+	/*header->data_length += data_len;*/
 
-	return header;
-}
+	/*return header;*/
+/*}*/
 

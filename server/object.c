@@ -89,3 +89,14 @@ void object_queue_free(object_queue_t *oq)
     zfree(oq);
 }
 
+void* object_queue_find(object_queue_t *oq, void *query_data)
+{
+    void *data = skiplist_find_first(oq->objects, query_data, NULL);
+    return data;
+}
+
+int object_queue_insert(object_queue_t *oq, void *data)
+{
+    return skiplist_insert(oq->objects, data);
+}
+

@@ -63,10 +63,11 @@ int storage_get_filename_by_key(storage_t *storage, const char *key, char *filen
     md5_value_t md5Key;
     md5(&md5Key, (uint8_t *)key, strlen(key));
 
-    int d1 = md5Key.h1 % STORAGE_MAX_VNODES;
+    int d0 = md5Key.h0 % STORAGE_MAX_VNODES;
 
-    int d2 = md5Key.h2 % STORAGE_MAX_SECTIONS;
-    sprintf(filename, "%s/%04d/%02d/%s.dat", storage->storage_dir, d1, d2, key);
+    int d1 = md5Key.h1 % STORAGE_MAX_SECTIONS;
+    sprintf(filename, "%s/%04d/%02d/%s.dat", storage->storage_dir, d0, d1, key);
+    trace_log("get key(%s) filename(%s)", key, filename);
 
     /*int d2 = md5Key.h2 % 100;*/
     /*int d3 = md5Key.h3 % 100;*/
@@ -75,10 +76,8 @@ int storage_get_filename_by_key(storage_t *storage, const char *key, char *filen
     return 0;
 }
 
-storage_file_t *storage_open_file(storage_t *storage, const char *key, const char *fmode)
+storage_file_t *__storage_open_file(storage_t *storage, const char *filename, const char *fmode)
 {
-    char filename[NAME_MAX];
-    storage_get_filename_by_key(storage, key, filename); 
     trace_log("NAME_MAX:%d filename(%zu):%s", NAME_MAX, strlen(filename), filename);
 
     /* FIXME */
@@ -89,8 +88,6 @@ storage_file_t *storage_open_file(storage_t *storage, const char *key, const cha
         error_log("Can not create dir not exist! dirname:%s, filename:%s", dirname, filename);
         return NULL;
     }
-
-    debug_log("get key(%s) filename(%s)", key, filename);
 
     storage_file_t *storage_file = NULL;
     /*FILE *f = fopen(filename, fmode);*/
@@ -106,6 +103,28 @@ storage_file_t *storage_open_file(storage_t *storage, const char *key, const cha
     }
 
     return storage_file;
+}
+
+storage_file_t *storage_open_file(storage_t *storage, const char *key, const char *fmode)
+{
+    char filename[NAME_MAX];
+    storage_get_filename_by_key(storage, key, filename); 
+
+    return __storage_open_file(storage, filename, fmode);
+}
+
+storage_file_t *storage_open_file_by_keymd5(storage_t *storage, md5_value_t *key_md5, const char *fmode)
+{
+    char filename[NAME_MAX];
+
+
+    int d0 = key_md5->h0 % STORAGE_MAX_VNODES;
+    int d1 = key_md5->h1 % STORAGE_MAX_SECTIONS;
+
+    sprintf(filename, "%s/%04d/%02d/%2.2x-%2.2x-%2.2x-%2.2x.dat", storage->storage_dir, d0, d1, key_md5->h0, key_md5->h1, key_md5->h2, key_md5->h3);
+    trace_log("filename:%s", filename);
+
+    return __storage_open_file(storage, filename, fmode);
 }
 
 int storage_write_file(storage_t *storage, const char *buf, uint32_t buf_size, storage_file_t *storage_file)

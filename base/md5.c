@@ -20,7 +20,7 @@
     /*uint32_t h3;*/
 /*} md5_value_t;*/
  
-void md5(struct md5_value_t *md5_value, uint8_t *initial_msg, size_t initial_len) {
+void md5(md5_value_t *md5_value, const uint8_t *initial_msg, size_t initial_len) {
  
     uint32_t h0, h1, h2, h3;
 
@@ -173,7 +173,7 @@ void md5(struct md5_value_t *md5_value, uint8_t *initial_msg, size_t initial_len
     md5_value->h3 = h3;
 }
  
-int check_md5(struct md5_value_t *md5Keep, struct md5_value_t *md5Data)
+int check_md5(md5_value_t *md5Keep, md5_value_t *md5Data)
 {
     if ( md5Data->h0 != md5Keep->h0 ||
             md5Data->h1 != md5Keep->h1 ||

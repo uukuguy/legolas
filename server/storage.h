@@ -16,6 +16,8 @@
 #define STORAGE_MAX_VNODES 64
 #define STORAGE_MAX_SECTIONS 16
 
+typedef struct md5_value_t md5_value_t;
+
 typedef struct storage_file_t {
     //FILE *f;
     int f;
@@ -30,6 +32,7 @@ typedef struct storage_t {
 int storage_init(storage_t *storage);
 
 storage_file_t *storage_open_file(storage_t *storage, const char *key, const char *fmode);
+storage_file_t *storage_open_file_by_keymd5(storage_t *storage, md5_value_t *key_md5, const char *fmode);
 
 int storage_write_file(storage_t *storage, const char *buf, uint32_t buf_size, storage_file_t *storage_file);
 

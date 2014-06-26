@@ -20,6 +20,7 @@ typedef struct session_t session_t;
 typedef struct vnode_t vnode_t;
 typedef struct object_t object_t;
 typedef struct logfile_t logfile_t;
+typedef struct md5_value_t md5_value_t;
 
 typedef struct server_t {
     unsigned int idle_timeout;  /* Connection idle timeout in ms. */
@@ -41,7 +42,7 @@ typedef struct server_t {
 } server_t;
 
 
-vnode_t *get_vnode_by_object(server_t *server, object_t *object);
+vnode_t *get_vnode_by_key(server_t *server, md5_value_t *key_md5);
 logfile_t *get_logfile_by_session(server_t *server, session_t *session);
 work_queue_t *get_recv_queue_by_session(server_t *server, session_t *session);
 work_queue_t *get_send_queue_by_session(server_t *server, session_t *session);

@@ -1,5 +1,4 @@
 directory ./server:./client:./base:./legolas
-set args --trace --threads 4 --count 10 --server 192.168.0.226 data/32K.dat 32K
+set args --trace --write --threads 4 --count 5 --server 127.0.0.1 data/samples/32K.dat 
 b main
 run
-c

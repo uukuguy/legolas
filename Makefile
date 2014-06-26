@@ -15,7 +15,7 @@ KVDB_OBJS = ${LEVELDB_OBJS}
 
 SERVER_OBJS = server/main.o server/server.o server/session.o server/session_recv.o server/session_send.o server/operation.o server/storage.o server/vnode.o server/datazone.o server/logfile.o server/object.o
 
-CLIENT_OBJS = client/main.o client/client.o
+CLIENT_OBJS = client/main.o client/client.o client/client_write.o client/client_read.o
 
 
 LIBUV=libuv-v0.11.22

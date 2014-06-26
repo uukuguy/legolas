@@ -26,14 +26,13 @@ static void usage(int status)
                 program_name);
     else {
         printf("Usage: %s [OPTION] [PATH]\n", program_name);
-        printf("\
-                Legolas Daemon\n\
+        printf("Legolas Daemon\n\
                 -p, --port              specify the listen port number\n\
                 -d, --daemon            run in the daemon mode\n\
                 -v, --verbose           print debug messages\n\
                 -t, --trace             print trace messages\n\
                 -h, --help              display this help and exit\n\
-                ");
+");
     }
     exit(status);
 }

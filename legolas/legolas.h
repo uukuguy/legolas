@@ -90,11 +90,16 @@ struct co_buffer {
 	char *buf;
 };
 
+typedef struct msg_request_t msg_request_t;
+typedef int (handle_request_t)(session_t*, msg_request_t *);
+
 typedef struct session_t{
     session_id sid;
     enum session_status session_status;
-    server_t *server;  /* Backlink to owning server context. */
     conn_t connection;  /* Connection with the SOCKS client. */
+
+    /* void *parent; */
+    server_t *server;  /* Backlink to owning server context. */
 
     uint32_t total_received_buffers;
     uint32_t total_saved_buffers;
@@ -113,6 +118,8 @@ typedef struct session_t{
     coroutine_t *rx_co;
     coroutine_t *tx_co; 
 
+    handle_request_t *handle_request;
+    
     int refcnt;
     int waiting_for_close;
 
@@ -186,21 +193,30 @@ typedef struct client_t {
     conn_t connection;
     const char *server;
     int port;
-    const char *key;
+    /*const char *key;*/
+    const char *key_prefix;
+    char key[NAME_MAX];
     const char *file;
-
-    pthread_mutex_t send_pending_lock;
-    pthread_cond_t send_pending_cond;
+    int op_code;
 
     uint32_t id; /* block id */
     uint32_t total_readed;
     uint32_t file_size;
-    uint32_t total_files;
     FILE* f;
     int clientid;
-    int total_send;
+
+    uint32_t total_files;
 
     void *write_request;
+    int total_send;
+    pthread_mutex_t send_pending_lock;
+    pthread_cond_t send_pending_cond;
+
+
+    void *read_request;
+    int total_recv;
+    pthread_mutex_t recv_pending_lock;
+    pthread_cond_t recv_pending_cond;
 
 } client_t;
 

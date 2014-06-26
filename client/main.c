@@ -45,7 +45,7 @@ static void* client_thread(void *arg)
     const char *file = program_options->file;
     int total_files = program_options->total_files;
 
-    notice_log("enter client_thread(). id:%d", id);
+    /*notice_log("enter client_thread(). id:%d", id);*/
 
     UNUSED int ret;
     ret = start_connect(id, server, port, op_code, key, file, total_files);
@@ -134,7 +134,7 @@ int runclient(program_options_t *program_options)
     if (log_init(program_name, LOG_SPACE_SIZE, is_daemon, log_level, logfile))
         return -1;
 
-    notice_log("==> Start Legolas Client.");
+    notice_log("==> Start Legolas Client. op_code:%d", program_options->op_code);
 
     /* -------- Begin Timing -------- */
     struct timeval tv; 
@@ -180,8 +180,7 @@ static void usage(int status)
                 program_name);
     else {
         printf("Usage: %s [OPTION] [PATH]\n", program_name);
-        printf("\
-                Legolas client\n\
+        printf("Legolas Client\n\
                 -s, --server            specify the remote server\n\
                 -p, --port              specify the listen port number\n\
                 -w, --write             upload file to server\n\
@@ -194,7 +193,7 @@ static void usage(int status)
                 -v, --verbose           print debug messages\n\
                 -t, --trace             print trace messages\n\
                 -h, --help              display this help and exit\n\
-                ");
+");
     }
     exit(status);
 }
@@ -226,10 +225,11 @@ int main(int argc, char *argv[])
     program_options.server = "127.0.0.1";
 	program_options.port = DEFAULT_PORT;
     program_options.file = "data/32K.dat";
-    program_options.key = "";
+    program_options.key = "default";
     program_options.threads = 0;
     program_options.is_daemon = 0;
     program_options.log_level = LOG_INFO;
+    program_options.op_code = MSG_OP_NONE;
 
 	int ch, longindex;
 	while ((ch = getopt_long(argc, argv, short_options, long_options,

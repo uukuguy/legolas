@@ -41,7 +41,9 @@ enum MSG_RESULT {
     RESULT_SUCCESS = 0,
 
 	/* unknown */
-	RESULT_ERR_UNKNOWN = 0x10
+	RESULT_ERR_UNKNOWN = 0x10,
+
+    RESULT_ERR_NOTFOUND = 0x20
 };
 
 /**
@@ -132,9 +134,11 @@ extern struct msg_request_t *alloc_request_del(uint32_t id, const char *key, uin
 extern void init_msg_response(struct msg_response_t *response, uint32_t id, enum MSG_RESULT result);
 extern struct msg_response_t *alloc_response(uint32_t id, enum MSG_RESULT result);
 
-extern const struct msg_arg_t *get_arg(const void *p, int idx);
-extern void *add_request_arg(void *p, const void *data, uint32_t data_len);
-extern void *append_request_arg(void *p, const void *data, uint32_t data_len);
+//extern void *add_message_arg(void *p, const void *data, uint32_t data_len);
+extern msg_request_t *add_request_arg(msg_request_t *request, const void *data, uint32_t data_len);
+extern msg_response_t *add_response_arg(msg_response_t *response, const void *data, uint32_t data_len);
+//extern const struct msg_arg_t *get_arg(const void *p, int idx);
+//extern void *append_message_arg(void *p, const void *data, uint32_t data_len);
 
 #endif /* __PROTOCOL_H__ */
 

@@ -19,8 +19,8 @@ typedef struct md5_value_t{
     uint32_t h3;
 } md5_value_t;
  
-void md5(struct md5_value_t *md5_value, uint8_t *initial_msg, size_t initial_len);
-int check_md5(struct md5_value_t *md5Keep, struct md5_value_t *md5Data);
+void md5(md5_value_t *md5_value, const uint8_t *initial_msg, size_t initial_len);
+int check_md5(md5_value_t *md5Keep, struct md5_value_t *md5Data);
 
 #endif /* __MD5_H__ */
 

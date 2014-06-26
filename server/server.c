@@ -232,11 +232,11 @@ int init_server_work_queue(server_t *server)
         }
 	}
 
-	/*for ( i = 0; i < SEND_THREADS; i++ ) {*/
-		/*server->send_queue[i] = init_work_queue(send_response, SEND_INTERVAL);*/
-		/*if ( server->send_queue[i] == NULL )*/
-			/*return -1;*/
-	/*}*/
+    for ( i = 0; i < SEND_THREADS; i++ ) {
+        server->send_queue[i] = init_work_queue(send_response, SEND_INTERVAL);
+        if ( server->send_queue[i] == NULL )
+            return -1;
+    }
 
     return 0;
 }
@@ -255,14 +255,14 @@ int exit_server_work_queue(server_t *server)
         }
 	}
 
-	/*for ( i = 0; i < SEND_THREADS; i++ ) {*/
-        /*work_queue_t *wq = server->send_queue[i];*/
-        /*if ( wq != NULL ) {*/
-            /*exit_work_queue(wq);*/
-            /*zfree(wq);*/
-            /*server->send_queue[i] = NULL;*/
-        /*}*/
-	/*}*/
+    for ( i = 0; i < SEND_THREADS; i++ ) {
+        work_queue_t *wq = server->send_queue[i];
+        if ( wq != NULL ) {
+            exit_work_queue(wq);
+            zfree(wq);
+            server->send_queue[i] = NULL;
+        }
+    }
 
     /*pthread_key_delete(key_actived_cob);*/
 
@@ -270,11 +270,11 @@ int exit_server_work_queue(server_t *server)
 }
 
 
-vnode_t *get_vnode_by_object(server_t *server, object_t *object)
+vnode_t *get_vnode_by_key(server_t *server, md5_value_t *key_md5)
 {
     vnode_t *vnode = NULL;
 
-    int d1 = object->key_md5.h1 % VNODES;
+    int d1 = key_md5->h1 % VNODES;
     vnode = server->vnodes[d1];
 
     return vnode;
