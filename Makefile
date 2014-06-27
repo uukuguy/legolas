@@ -5,7 +5,7 @@ LEGOLAS_OBJS = legolas/legolas.o legolas/protocol.o
 
 BASE_OBJS = base/logger.o base/daemon.o base/coroutine.o
 BASE_OBJS += base/zmalloc.o base/work.o base/md5.o base/filesystem.o
-BASE_OBJS += base/skiplist.o base/adlist.o base/crc32.o
+BASE_OBJS += base/skiplist.o base/adlist.o base/crc32.o base/http_parser.o
 
 LEVELDB_OBJS = base/kvdb_leveldb.oo 
 KVDB_OBJS = ${LEVELDB_OBJS}
@@ -216,7 +216,7 @@ FINAL_CFLAGS = -Wstrict-prototypes ${COMMON_CFLAGS}
 #-DUSE_PRCTL
 FINAL_CXXFLAGS=${COMMON_CFLAGS} ${CXXFLAGS}
 
-FINAL_LDFLAGS = ${LDFLAGS_LIBUV} ${LDFLAGS_JEMALLOC} ${LDFLAGS_LEVELDB} ${LDFLAGS_LIBLMDB} ${LDFLAGS_ZYRE} ${LDFLAGS_CZMQ} ${LDFLAGS_ZEROMQ} ${LDFLAGS} -lpthread  -lstdc++
+FINAL_LDFLAGS = ${LDFLAGS_LIBUV} ${LDFLAGS_JEMALLOC} ${LDFLAGS_LEVELDB} ${LDFLAGS_LIBLMDB} ${LDFLAGS_ZYRE} ${LDFLAGS_CZMQ} ${LDFLAGS_ZEROMQ} ${LDFLAGS} -lpthread -lssl -lcrypto -lstdc++
 
 #${LDFLAGS_LIBLFDS} 
 #${LDFLAGS_PCL} 

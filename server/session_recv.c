@@ -26,7 +26,7 @@
 #include <malloc.h>
 #include <assert.h>
 
-#define STORAGE_LSM 
+/*#define STORAGE_LSM */
 
 static uint32_t total_fopen = 0;
 static uint32_t total_fclose = 0;
@@ -41,120 +41,6 @@ extern UNUSED void response_to_client(session_t *session, enum MSG_RESULT result
     session = cob->session; \
     continue; 
 
-/* ==================== do_read_data() ==================== */ 
-/*
- * Keep read data into buf from cob. If there is no more data in cob,
- * return control to parent thread by call coroutine_yield().
- */
-void do_read_data(conn_buf_t *cob, void *buf, size_t count)
-{
-    UNUSED session_t *session = cob->session;
-
-    assert(cob != NULL);
-    assert(buf != NULL);
-    assert(count > 0);
-
-    /**
-     * Keep read data from cob, until buf is fullfill count bytes.
-     */
-	uint32_t done = 0;
-    while ( count > 0 ) {
-        uint32_t len = cob->write_head - cob->read_head;
-        /*trace_log("Next to ...: blockid(%d), len(%d), count(%zu)", cob->blockid, len, count);*/
-
-        /**
-         * There are enough bytes(len) can be copied(count) into target buf.
-         */
-        if ( len >= count ) {
-            /* -------- Copy count bytes -------- */ 
-            memcpy(buf + done, cob->base + cob->read_head, count); 
-            done += count; 
-            cob->read_head += count; 
-            __sync_sub_and_fetch(&cob->remain_bytes, count);
-
-            count = 0; 
-
-            break;
-        }
-
-        /**
-         * Need count bytes, but there are just len (len < count) bytes.
-         * Just copy all bytes(len) in cob into target buf.
-         */
-        if ( len > 0 ) {
-            /* -------- Copy len bytes -------- */ 
-            memcpy(buf + done, cob->base + cob->read_head, len); 
-            done += len; 
-            cob->read_head += len; 
-            __sync_sub_and_fetch(&cob->remain_bytes, len);
-
-            count -= len; 
-        }
-
-        /**
-         * coroutine swap to parent. (coroutine_enter in recv_request())
-         */ 
-        YIELD_AND_CONTINUE;
-    }
-}
-
-/* ==================== check_data_crc32() ==================== */ 
-int check_data_crc32(int requestid, msg_arg_t *argCRC32, msg_arg_t *argData)
-{
-    uint32_t crc = *((uint32_t*)argCRC32->data);
-    uint32_t crc1 = crc32(0, argData->data, argData->size);
-
-    if ( crc != crc1 ) {
-        error_log("requestid(%d) upload crc32: %d, Data crc32: %d", requestid, crc, crc1);
-        return -1;
-    }
-
-    return 0;
-}
-
-/* ==================== session_do_read() ==================== */ 
-int session_do_read(conn_buf_t *cob, msg_request_t **p_request)
-{
-    session_t *session = cob->session;
-
-    /* -------- do_read_data:request_header -------- */
-    TRACE_LOG_SESSION_COB("Call do_read_data() for request_header.");
-
-    msg_request_t request_header;
-
-    do_read_data(cob, &request_header, sizeof(request_header));
-
-    cob = coroutine_self_data();
-    session = cob->session;
-
-    /* -------- check message request_header -------- */
-    if ( !check_msg((msg_header_t*)&request_header) ) {
-        WARNING_LOG_SESSION_COB("Check magic_code in message request_header failed!");
-        /*TRACE_DATA_TO_FILE("result/request_header.dat", &request_header, sizeof(request_header));*/
-
-        /*session->stop = 1;   */
-        return -1;
-    } else {
-        /*TRACE_LOG_SESSION_COB("Check magic_code in message request_header OK!");*/
-        /*trace_log("request_header.data_length=%d", request_header.data_length);*/
-    }
-
-    /* -------- do_read_data:data -------- */
-    TRACE_LOG_SESSION_COB("Call do_read_data() for data.");
-
-    msg_request_t *request = (msg_request_t*)zmalloc(sizeof(request_header) + request_header.data_length);
-    memcpy(request, &request_header, sizeof(request_header));
-
-    do_read_data(cob, request->data, request->data_length);
-
-    cob = coroutine_self_data();
-    session = cob->session;
-
-    *p_request = request;
-
-    return 0;
-}
-
 typedef struct block_t {
     uint32_t id;
 
@@ -165,62 +51,6 @@ typedef struct block_t {
     char *data;
     uint32_t data_size;
 } block_t;
-
-/* ==================== parse_write_request() ==================== */ 
-int parse_write_request(session_t *session, msg_request_t *request, block_t *block)
-{
-    /* -------- message args -------- */
-    msg_arg_t *arg = (msg_arg_t*)request->data;
-    msg_arg_t *argCRC32 = NULL;
-    block->id = request->id;
-    /*if ( request->id == 0 ) {*/
-        /* -------- argKey -------- */
-        msg_arg_t *argKey = arg;
-        if ( argKey->size > 0 ) {
-            uint32_t keylen = argKey->size < NAME_MAX - 1 ? argKey->size : NAME_MAX - 1;
-            memcpy(block->key, argKey->data, keylen);
-            block->key[keylen] = '\0';
-        } else {
-            uuid_t uuid;
-            uuid_generate(uuid);
-            uuid_unparse(uuid, block->key);
-        }
-
-        /* -------- argMd5 -------- */
-        msg_arg_t *argMd5 = next_arg(argKey);
-        memcpy(&block->key_md5, argMd5->data, sizeof(md5_value_t));
-
-        /* -------- argFileSize -------- */
-        msg_arg_t *argFileSize = next_arg(argMd5);
-        block->file_size = *((uint32_t*)argFileSize->data);
-
-        /*trace_log("\n~~~~~~~~ fd(%d) block(%d) ~~~~~~~~\n Try to open new file. \n key=%s file_size=%d\n", session_fd(session), cob->blockid, argKey->data, file_size);*/
-
-        /* -------- argCRC32 -------- */
-        argCRC32 = next_arg(argFileSize);
-    /*} else {*/
-        /*argCRC32 = arg;*/
-    /*}*/
-
-    msg_arg_t *argData = next_arg(argCRC32);
-
-    /*debug_log("fd(%d) block(%d) argData: size=%d", session_fd(session), cob->blockid, argData->size);*/
-    if ( argData->size > 0 ) {
-        /**
-         * Check data md5 value.
-         */
-
-        if ( check_data_crc32(request->id, argCRC32, argData) != 0 ){
-            error_log("fd(%d) request_id(%d) Check buffer crc32 failed.", session_fd(session), request->id);
-            return -1;
-        }
-    } 
-
-    block->data = argData->data;
-    block->data_size = argData->size;
-
-    return 0;
-}
 
 /* ==================== session_write_block() ==================== */ 
 int session_write_block(session_t *session, block_t *block)
@@ -307,6 +137,76 @@ int session_write_block(session_t *session, block_t *block)
     return 0;
 }
 
+/* ==================== check_data_crc32() ==================== */ 
+int check_data_crc32(int requestid, msg_arg_t *argCRC32, msg_arg_t *argData)
+{
+    uint32_t crc = *((uint32_t*)argCRC32->data);
+    uint32_t crc1 = crc32(0, argData->data, argData->size);
+
+    if ( crc != crc1 ) {
+        error_log("requestid(%d) upload crc32: %d, Data crc32: %d", requestid, crc, crc1);
+        return -1;
+    }
+
+    return 0;
+}
+
+/* ==================== parse_write_request() ==================== */ 
+int parse_write_request(session_t *session, msg_request_t *request, block_t *block)
+{
+    /* -------- message args -------- */
+    msg_arg_t *arg = (msg_arg_t*)request->data;
+    msg_arg_t *argCRC32 = NULL;
+    block->id = request->id;
+    /*if ( request->id == 0 ) {*/
+        /* -------- argKey -------- */
+        msg_arg_t *argKey = arg;
+        if ( argKey->size > 0 ) {
+            uint32_t keylen = argKey->size < NAME_MAX - 1 ? argKey->size : NAME_MAX - 1;
+            memcpy(block->key, argKey->data, keylen);
+            block->key[keylen] = '\0';
+        } else {
+            uuid_t uuid;
+            uuid_generate(uuid);
+            uuid_unparse(uuid, block->key);
+        }
+
+        /* -------- argMd5 -------- */
+        msg_arg_t *argMd5 = next_arg(argKey);
+        memcpy(&block->key_md5, argMd5->data, sizeof(md5_value_t));
+
+        /* -------- argFileSize -------- */
+        msg_arg_t *argFileSize = next_arg(argMd5);
+        block->file_size = *((uint32_t*)argFileSize->data);
+
+        /*trace_log("\n~~~~~~~~ fd(%d) block(%d) ~~~~~~~~\n Try to open new file. \n key=%s file_size=%d\n", session_fd(session), cob->blockid, argKey->data, file_size);*/
+
+        /* -------- argCRC32 -------- */
+        argCRC32 = next_arg(argFileSize);
+    /*} else {*/
+        /*argCRC32 = arg;*/
+    /*}*/
+
+    msg_arg_t *argData = next_arg(argCRC32);
+
+    /*debug_log("fd(%d) block(%d) argData: size=%d", session_fd(session), cob->blockid, argData->size);*/
+    if ( argData->size > 0 ) {
+        /**
+         * Check data md5 value.
+         */
+
+        if ( check_data_crc32(request->id, argCRC32, argData) != 0 ){
+            error_log("fd(%d) request_id(%d) Check buffer crc32 failed.", session_fd(session), request->id);
+            return -1;
+        }
+    } 
+
+    block->data = argData->data;
+    block->data_size = argData->size;
+
+    return 0;
+}
+
 int session_handle_write(session_t *session, msg_request_t *request)
 {
     block_t block;
@@ -371,7 +271,7 @@ int session_handle_write(session_t *session, msg_request_t *request)
 
         /* -------- response -------- */
 
-        /*session_rx_off(session);*/
+        session_rx_off(session);
         response_to_client(session, RESULT_SUCCESS);
         /*session_rx_on(session);*/
 
@@ -474,6 +374,106 @@ int session_handle_read(session_t *session, msg_request_t *request)
 
 int session_handle_delete(session_t *session, msg_request_t *request)
 {
+    return 0;
+}
+
+/* ==================== do_read_data() ==================== */ 
+/*
+ * Keep read data into buf from cob. If there is no more data in cob,
+ * return control to parent thread by call coroutine_yield().
+ */
+void do_read_data(conn_buf_t *cob, void *buf, size_t count)
+{
+    UNUSED session_t *session = cob->session;
+
+    assert(cob != NULL);
+    assert(buf != NULL);
+    assert(count > 0);
+
+    /**
+     * Keep read data from cob, until buf is fullfill count bytes.
+     */
+	uint32_t done = 0;
+    while ( count > 0 ) {
+        uint32_t len = cob->write_head - cob->read_head;
+        /*trace_log("Next to ...: blockid(%d), len(%d), count(%zu)", cob->blockid, len, count);*/
+
+        /**
+         * There are enough bytes(len) can be copied(count) into target buf.
+         */
+        if ( len >= count ) {
+            /* -------- Copy count bytes -------- */ 
+            memcpy(buf + done, cob->base + cob->read_head, count); 
+            done += count; 
+            cob->read_head += count; 
+            __sync_sub_and_fetch(&cob->remain_bytes, count);
+
+            count = 0; 
+
+            break;
+        }
+
+        /**
+         * Need count bytes, but there are just len (len < count) bytes.
+         * Just copy all bytes(len) in cob into target buf.
+         */
+        if ( len > 0 ) {
+            /* -------- Copy len bytes -------- */ 
+            memcpy(buf + done, cob->base + cob->read_head, len); 
+            done += len; 
+            cob->read_head += len; 
+            __sync_sub_and_fetch(&cob->remain_bytes, len);
+
+            count -= len; 
+        }
+
+        /**
+         * coroutine swap to parent. (coroutine_enter in recv_request())
+         */ 
+        YIELD_AND_CONTINUE;
+    }
+}
+
+/* ==================== session_do_read() ==================== */ 
+int session_do_read(conn_buf_t *cob, msg_request_t **p_request)
+{
+    session_t *session = cob->session;
+
+    /* -------- do_read_data:request_header -------- */
+    TRACE_LOG_SESSION_COB("Call do_read_data() for request_header.");
+
+    msg_request_t request_header;
+
+    do_read_data(cob, &request_header, sizeof(request_header));
+
+    cob = coroutine_self_data();
+    session = cob->session;
+
+    /* -------- check message request_header -------- */
+    if ( !check_msg((msg_header_t*)&request_header) ) {
+        WARNING_LOG_SESSION_COB("Check magic_code in message request_header failed!");
+        /*TRACE_DATA_TO_FILE("result/request_header.dat", &request_header, sizeof(request_header));*/
+
+        /*session->stop = 1;   */
+        return -1;
+    } else {
+        /*TRACE_LOG_SESSION_COB("Check magic_code in message request_header OK!");*/
+        /*trace_log("request_header.data_length=%d", request_header.data_length);*/
+    }
+
+    /* -------- do_read_data:data -------- */
+    TRACE_LOG_SESSION_COB("Call do_read_data() for data.");
+
+    msg_request_t *request = (msg_request_t*)zmalloc(sizeof(request_header) + request_header.data_length);
+    memcpy(request, &request_header, sizeof(request_header));
+
+    do_read_data(cob, request->data, request->data_length);
+
+    cob = coroutine_self_data();
+    session = cob->session;
+
+    *p_request = request;
+
     return 0;
 }
 

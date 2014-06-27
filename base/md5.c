@@ -8,6 +8,38 @@
 #include <string.h>
 #include <stdint.h>
 #include "md5.h" 
+
+#include <openssl/md5.h>
+#include "zmalloc.h"
+
+
+void *md5_init(void)
+{
+    MD5_CTX *c = (MD5_CTX*)zmalloc(sizeof(MD5_CTX));
+    return c;
+}
+
+int md5_upadte(void *md5_ctx, const uint8_t *buf, uint32_t buf_size)
+{
+    return MD5_Update((MD5_CTX*)md5_ctx, buf, buf_size);
+}
+
+int md5_final(void *md5_ctx, md5_value_t *md5_value)
+{
+    return MD5_Final((unsigned char*)md5_value, (MD5_CTX*)md5_ctx);
+}
+
+void md5(md5_value_t *md5_value, const uint8_t *buf, uint32_t buf_size)
+{
+    MD5(buf, buf_size, (unsigned char *)md5_value);
+}
+
+void md5_value_to_string(md5_value_t *md5_value, char *buf)
+{
+    sprintf(buf, "%2.2x-%2.2x-%2.2x-%2.2x", md5_value->h0, md5_value->h1, md5_value->h2, md5_value->h3);
+}
+
+
 // leftrotate function definition
 #define LEFTROTATE(x, c) (((x) << (c)) | ((x) >> (32 - (c))))
  
@@ -20,7 +52,7 @@
     /*uint32_t h3;*/
 /*} md5_value_t;*/
  
-void md5(md5_value_t *md5_value, const uint8_t *initial_msg, size_t initial_len) {
+UNUSED void md5_1(md5_value_t *md5_value, const uint8_t *initial_msg, size_t initial_len) {
  
     uint32_t h0, h1, h2, h3;
 
