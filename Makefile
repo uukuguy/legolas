@@ -266,16 +266,16 @@ run:
 
 data:
 	mkdir -p data
-	dd if=/dev/urandom of=data/320.dat bs=320 count=1
-	dd if=/dev/urandom of=data/640.dat bs=640 count=1
-	dd if=/dev/urandom of=data/1K.dat bs=1K count=1
-	dd if=/dev/urandom of=data/32K.dat bs=1K count=32
-	dd if=/dev/urandom of=data/64K.dat bs=1K count=64
-	dd if=/dev/urandom of=data/100K.dat bs=1K count=100
-	dd if=/dev/urandom of=data/320K.dat bs=1K count=320
-	dd if=/dev/urandom of=data/640K.dat bs=1K count=640
-	dd if=/dev/urandom of=data/1M.dat bs=1M count=1
-	dd if=/dev/urandom of=data/2M.dat bs=1M count=2
+	dd if=/dev/urandom of=data/samples/320.dat bs=320 count=1
+	dd if=/dev/urandom of=data/samples/640.dat bs=640 count=1
+	dd if=/dev/urandom of=data/samples/1K.dat bs=1K count=1
+	dd if=/dev/urandom of=data/samples/32K.dat bs=1K count=32
+	dd if=/dev/urandom of=data/samples/64K.dat bs=1K count=64
+	dd if=/dev/urandom of=data/samples/100K.dat bs=1K count=100
+	dd if=/dev/urandom of=data/samples/320K.dat bs=1K count=320
+	dd if=/dev/urandom of=data/samples/640K.dat bs=1K count=640
+	dd if=/dev/urandom of=data/samples/1M.dat bs=1M count=1
+	dd if=/dev/urandom of=data/samples/2M.dat bs=1M count=2
 
 test:
 	nc localhost 16076
