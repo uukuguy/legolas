@@ -22,9 +22,6 @@ void write_file(client_t* client);
 void read_file(client_t* client);
 void delete_file(client_t* client);
 
-void delete_file(client_t* client) {
-}
-
 /* ==================== destroy_client() ==================== */ 
 void destroy_client(client_t *client){
     assert(client != NULL);
@@ -39,7 +36,7 @@ void destroy_client(client_t *client){
 /* ==================== on_close() ==================== */ 
 void on_close(uv_handle_t* handle) {
     client_t *client = (client_t*)handle->data;
-    notice_log("on_close() clientid:%d", client->clientid);
+    trace_log("on_close() clientid:%d", client->clientid);
 
     destroy_client(client);
     handle->data = NULL;
@@ -65,7 +62,7 @@ static void on_connect(uv_connect_t *req, int status) {
 /* ==================== start_connect() ==================== */ 
 int start_connect(int clientid, const char *server, int port, int op_code, const char *key, const char *file, int total_files) 
 {
-    notice_log("Enter start_connect(). clientid:%d server=%s, port=%d, op_code=%d", clientid, server, port, op_code);
+    trace_log("Enter start_connect(). clientid:%d server=%s, port=%d, op_code=%d", clientid, server, port, op_code);
 
     int r;
 

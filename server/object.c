@@ -13,19 +13,41 @@
 #include "common.h"
 #include "md5.h"
 
+/* -------------------- slice_t -------------------- */
+slice_t *slice_new(void)
+{
+    slice_t *slice = (slice_t*)zmalloc(sizeof(slice_t));
+    memset(slice, 0, sizeof(slice_t));
+    byte_block_init(&slice->byteblock);
+    return slice;
+}
+
+void slice_free(void *ptr)
+{
+    slice_t *slice = (slice_t*)ptr;
+    if ( slice != NULL ){
+        byte_block_release(&slice->byteblock);
+        zfree(slice);
+    }
+}
+
+/* -------------------- object_t -------------------- */
 object_t *object_new(const char *key)
 {
     object_t *object = (object_t*)zmalloc(sizeof(object_t));
     memset(object, 0, sizeof(object_t));
 
-    uint32_t keylen = strlen(key);
-    object->key = zmalloc(keylen+1);
-    memcpy(object->key, key, keylen);
-    object->key[keylen] = '\0';
+    if ( key != NULL ){
+        uint32_t keylen = strlen(key);
+        object->key = zmalloc(keylen+1);
+        memcpy(object->key, key, keylen);
+        object->key[keylen] = '\0';
 
-    md5(&object->key_md5, (uint8_t *)object->key, keylen);
+        md5(&object->key_md5, (uint8_t *)object->key, keylen);
+    }
 
     object->slices = listCreate();
+    listSetFreeMethod(object->slices, slice_free);
     return object;
 }
 
@@ -43,6 +65,7 @@ void object_free(object_t *object)
     zfree(object);
 }
 
+/* -------------------- object_queue_t -------------------- */
 int object_compare_key_func(void *first, void *second)
 {
     object_t *object_first = (object_t*)first;
@@ -53,6 +76,8 @@ int object_compare_key_func(void *first, void *second)
 
 int object_compare_md5_func(void *first, void *second)
 {
+    if ( first == NULL ) return -1;
+    if ( second == NULL ) return 1;
     object_t *object_first = (object_t*)first;
     object_t *object_second = (object_t*)second;
 
@@ -98,5 +123,18 @@ void* object_queue_find(object_queue_t *oq, void *query_data)
 int object_queue_insert(object_queue_t *oq, void *data)
 {
     return skiplist_insert(oq->objects, data);
+}
+
+void object_queue_remove(object_queue_t *oq, void *query_data)
+{
+    void *node = NULL;
+    void *data = skiplist_find_first(oq->objects, query_data, &node);
+    if ( node != NULL ){
+        skiplist_delete_node(oq->objects, node);
+    }
+    if ( data != NULL ){
+        object_t * object = (object_t*)data;
+        object_free(object);
+    }
 }
 

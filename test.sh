@@ -25,10 +25,15 @@ if [ -z $file ]; then
     file=32K
 fi
 
+operation=$6
+if [ -z $operation ]; then
+    operation=write
+fi
+
 start=$(date "+%s")
 for (( i = 0; i < $num ; i++ ))
 do
-    bin/legolas --write --threads $threads --count $count --server $server data/samples/$file.dat 
+    bin/legolas --$operation --threads $threads --count $count --server $server data/samples/$file.dat 
     echo ++++++++ $i ++++++++++
 done
 

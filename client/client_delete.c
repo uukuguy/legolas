@@ -1,7 +1,7 @@
 /**
- * @file   client_read.c
+ * @file   client_delete.c
  * @author Jiangwen Su <uukuguy@gmail.com>
- * @date   2014-06-06 07:16:03
+ * @date   2014-07-07 15:30:43
  * 
  * @brief  
  * 
@@ -21,10 +21,10 @@
 void destroy_client(client_t *client); /* in client.c */
 void on_close(uv_handle_t* handle); /* in client.c */
 
-void read_file(client_t* client);
+void delete_file(client_t* client);
 
 /*  ==================== start_next_read_loop() ==================== */ 
-void start_next_read_loop(client_t *client)
+void start_next_delete_loop(client_t *client)
 {
     if ( client->total_recv < client->total_files ){
         client->id = 0;
@@ -32,9 +32,9 @@ void start_next_read_loop(client_t *client)
         client->file_size = 0;
         client->connection.total_bytes = 0;
 
-        trace_log("Start next read_file(). total_recv:%d/%d", client->total_recv, client->total_files);
+        trace_log("Start next delete_file(). total_recv:%d/%d", client->total_recv, client->total_files);
 
-        read_file(client);
+        delete_file(client);
     } else {
         uv_close(&client->connection.handle.handle, on_close);
     }
@@ -45,15 +45,15 @@ void start_next_read_loop(client_t *client)
  * Called by after_read_response().
  */
 
-UNUSED static void after_read_shutdown(uv_shutdown_t *shutdown_req, int status) 
+UNUSED static void after_delete_shutdown(uv_shutdown_t *shutdown_req, int status) 
 {
     uv_close((uv_handle_t*)shutdown_req->handle, on_close);
 
     zfree(shutdown_req);
 }
 
-/*  ==================== after_read_response() ==================== */ 
-static void after_read_response(uv_stream_t *handle, ssize_t nread, const uv_buf_t *buf) 
+/*  ==================== after_delete_response() ==================== */ 
+static void after_delete_response(uv_stream_t *handle, ssize_t nread, const uv_buf_t *buf) 
 {
     client_t *client = (client_t*)handle->data;
 
@@ -70,21 +70,22 @@ static void after_read_response(uv_stream_t *handle, ssize_t nread, const uv_buf
     if ( response->result == RESULT_SUCCESS ) {
         msg_arg_t *argObjectSize = next_arg(argKey);
         uint32_t object_size = *(uint32_t*)argObjectSize->data;
-        notice_log("Key Found! key=%s object_size=%d", argKey->data, object_size);
+        notice_log("Deleted! key=%s object_size=%d", argKey->data, object_size);
 
     } else if ( response->result == RESULT_ERR_NOTFOUND ) {
-        warning_log("NOT FOUND! key=%s", argKey->data);
+        warning_log("Not Deleted for NOTFOUND! key=%s", argKey->data);
     }
 
     zfree(buf->base);
 
-    start_next_read_loop(client);
+
+    start_next_delete_loop(client);
 
     /*pthread_cond_signal(&client->recv_pending_cond);*/
 }
 
 /* ==================== client_read_alloc() ==================== */ 
-static void client_read_alloc( uv_handle_t *handle, size_t suggested_size, uv_buf_t *buf) 
+static void client_delete_alloc( uv_handle_t *handle, size_t suggested_size, uv_buf_t *buf) 
 {
     buf->base = zmalloc(64 * 1024);
     buf->len = 64 * 1024;
@@ -99,8 +100,8 @@ static void client_read_alloc( uv_handle_t *handle, size_t suggested_size, uv_bu
     /*buf->len = cob->len;*/
 }
 
-/* ==================== after_read_block() ==================== */ 
-static void after_read_block(uv_write_t *read_req, int status) {
+/* ==================== after_delete_block() ==================== */ 
+static void after_delete_block(uv_write_t *read_req, int status) {
 
     client_t *client = (client_t*)read_req->data;
     assert(client != NULL);
@@ -109,7 +110,7 @@ static void after_read_block(uv_write_t *read_req, int status) {
     __sync_add_and_fetch(&client->total_recv, 1);
     trace_log("========> End loop %d/%d. clientid:%d key:%s", client->total_recv, client->total_files, client->clientid, client->key);
 
-    int ret = uv_read_start((uv_stream_t*)&client->connection.handle.handle, client_read_alloc, after_read_response);
+    int ret = uv_read_start((uv_stream_t*)&client->connection.handle.handle, client_delete_alloc, after_delete_response);
     if ( ret != 0 ) { 
         destroy_client(client);
         error_log("uv_read_start() failed. ret = %d", ret); 
@@ -118,12 +119,12 @@ static void after_read_block(uv_write_t *read_req, int status) {
     
 }
 
-/* ==================== do_read_block() ==================== */ 
-static int do_read_block(client_t *client)
+/* ==================== do_delet_block() ==================== */ 
+static int do_delete_block(client_t *client)
 {
     uint32_t head_size = 0;
 
-    msg_request_t *read_request = alloc_request(client->id, MSG_OP_READ); 
+    msg_request_t *read_request = alloc_request(client->id, MSG_OP_DEL); 
     head_size += sizeof(msg_request_t);
 
     uint32_t keylen = strlen(client->key);
@@ -157,7 +158,7 @@ static int do_read_block(client_t *client)
             &client->connection.handle.stream,
             &ubuf,
             1,
-            after_read_block);
+            after_delete_block);
 
     zfree(read_request);
 
@@ -169,8 +170,8 @@ static int do_read_block(client_t *client)
     return 0;
 }
 
-/* ==================== read_file() ==================== */ 
-void read_file(client_t* client) 
+/* ==================== delete_file() ==================== */ 
+void delete_file(client_t* client) 
 {
     client->connection.total_bytes = 0;
 
@@ -178,8 +179,8 @@ void read_file(client_t* client)
     get_path_file_name(client->file, file_name, NAME_MAX - 1);
 
     sprintf(client->key, "/test/%s/%04d/%08d-%s", client->key_prefix, client->clientid, client->total_recv, file_name);
-    trace_log("read_file(): %s", client->key);
+    trace_log("delete_file(): %s", client->key);
 
-    do_read_block(client);
+    do_delete_block(client);
 }
 

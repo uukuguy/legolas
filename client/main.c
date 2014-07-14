@@ -50,7 +50,7 @@ static void* client_thread(void *arg)
     UNUSED int ret;
     ret = start_connect(id, server, port, op_code, key, file, total_files);
 
-    notice_log("Ready to exit client_thread(). clientid:%d", id);
+    /*notice_log("Ready to exit client_thread(). clientid:%d", id);*/
 
     return NULL;
 }
@@ -68,8 +68,6 @@ int start_client_threads(program_options_t *program_options)
     program_options_t po[threads];
     int i;
     for ( i = 0 ; i < threads ; i++ ){
-        notice_log("Total threads:%d i:%d", threads, i);
-
         /*pthread_attr_t attr;*/
         /*pthread_attr_init(&attr);*/
         /*phread_attr_setdetachstate(&attr, PTHREAD_CREATE_DETACHED);*/
@@ -79,9 +77,9 @@ int start_client_threads(program_options_t *program_options)
         ret = pthread_create(&tid[i], NULL, client_thread, &po[i]);
         /*pthread_attr_destroy(&attr);*/
         if ( ret != 0 ){
-            error_log("pthread_create() failed. errno:%d", errno);
+            error_log("pthread_create() thread:%d failed. errno:%d", i, errno);
         } else {
-            notice_log("phread_create() OK.");
+            trace_log("phread_create() thread:%d OK.", i);
         }
     }
 

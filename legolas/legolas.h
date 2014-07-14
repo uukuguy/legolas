@@ -110,13 +110,14 @@ typedef struct session_t{
 
     uv_idle_t idle_handle;
     uv_async_t async_handle;
+    uv_timer_t timer_handle;
     uint32_t finished_works;
     
     uint32_t file_size;
     char key[NAME_MAX];
 
-    coroutine_t *rx_co;
-    coroutine_t *tx_co; 
+    coroutine_t *rx_coroutine;
+    coroutine_t *tx_coroutine; 
 
     handle_request_t *handle_request;
     

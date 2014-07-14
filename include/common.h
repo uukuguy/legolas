@@ -29,6 +29,7 @@
 #include <limits.h> /* NAME_MAX */
 #include <getopt.h>
 #include <assert.h>
+#include <uuid/uuid.h>
 
 #ifndef UNUSED
 #if defined(__clang__) ||                                \

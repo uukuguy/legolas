@@ -48,7 +48,7 @@ static void after_write_response(uv_stream_t *handle, ssize_t nread, const uv_bu
 {
     client_t *client = (client_t*)handle->data;
 
-    notice_log("Enter after_write_response().");
+    /*trace_log("Enter after_write_response().");*/
 
     start_next_write_loop(client);
 

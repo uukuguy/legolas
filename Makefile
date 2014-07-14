@@ -4,27 +4,73 @@ CLIENT = bin/legolas
 LEGOLAS_OBJS = legolas/legolas.o legolas/protocol.o 
 
 BASE_OBJS = base/logger.o base/daemon.o base/coroutine.o
-BASE_OBJS += base/zmalloc.o base/work.o base/md5.o base/filesystem.o
+BASE_OBJS += base/zmalloc.o base/work.o base/md5.o base/byteblock.o base/filesystem.o
 BASE_OBJS += base/skiplist.o base/adlist.o base/crc32.o base/http_parser.o
 
-LEVELDB_OBJS = base/kvdb_leveldb.oo 
-KVDB_OBJS = ${LEVELDB_OBJS}
+#CFLAGS_UCONTEXT=-D_XOPEN_SOURCE # ucontext.h error: The deprecated ucontext routines require _XOPEN_SOURCE to be defined.
+COMMON_CFLAGS = -ggdb -fPIC -m64 -Wall -D_GNU_SOURCE -I./include -I./legolas ${CFLAGS_UCONTEXT} 
 
-#LMDB_OBJS = base/kvdb_lmdb.o
-#KVDB_OBJS = ${LMDB_OBJS}
+KVDB_OBJS = base/kvdb.o 
 
-SERVER_OBJS = server/main.o server/server.o server/session.o server/session_recv.o server/session_send.o server/operation.o server/storage.o server/vnode.o server/datazone.o server/logfile.o server/object.o
+KVDB_CFLAGS=-DHAS_LSM -I./deps/lsm
+LSM_OBJS = base/kvdb_lsm.o
+LSM_OBJS += ./deps/lsm/lsm_main.o \
+			./deps/lsm/lsm_ckpt.o \
+			./deps/lsm/lsm_file.o \
+			./deps/lsm/lsm_log.o \
+			./deps/lsm/lsm_mem.o \
+			./deps/lsm/lsm_mutex.o \
+			./deps/lsm/lsm_shared.o \
+			./deps/lsm/lsm_sorted.o \
+			./deps/lsm/lsm_str.o \
+			./deps/lsm/lsm_tree.o \
+			./deps/lsm/lsm_unix.o \
+			./deps/lsm/lsm_varint.o \
+			./deps/lsm/os_fdatasync.o
 
-CLIENT_OBJS = client/main.o client/client.o client/client_write.o client/client_read.o
+KVDB_OBJS += ${LSM_OBJS}
+
+KVDB_CFLAGS += -DHAS_ROCKSDB
+ROCKSDB_OBJS = base/kvdb_rocksdb.o 
+KVDB_OBJS += ${ROCKSDB_OBJS}
+
+KVDB_CFLAGS += -DHAS_LEVELDB
+LEVELDB_OBJS = base/kvdb_leveldb.o 
+KVDB_OBJS += ${LEVELDB_OBJS}
+
+KVDB_CFLAGS += -DHAS_LMDB 
+LMDB_OBJS = base/kvdb_lmdb.o 
+KVDB_OBJS += ${LMDB_OBJS}
+
+COMMON_CFLAGS += ${KVDB_CFLAGS}
+
+SERVER_OBJS = server/main.o \
+			  server/server.o \
+			  server/session.o \
+			  server/session_handle_write.o \
+			  server/session_handle_read.o \
+			  server/session_handle_delete.o \
+			  server/session_recv.o \
+			  server/session_send.o \
+			  server/operation.o \
+			  server/storage.o \
+			  server/vnode.o \
+			  server/datazone.o \
+			  server/logfile.o \
+			  server/object.o
+
+CLIENT_OBJS = client/main.o client/client.o client/client_write.o client/client_read.o client/client_delete.o
 
 
 LIBUV=libuv-v0.11.22
 JEMALLOC=jemalloc-3.6.0
 LEVELDB=leveldb-1.15.0
 LIBLMDB=liblmdb-0.9.13
+ROCKSDB=rocksdb-3.2
 ZEROMQ=zeromq-4.0.4
 CZMQ=czmq-2.2.0
 ZYRE=zyre-1.0.0
+MSGPACK=msgpack-c-cpp-0.5.9
 
 PCL=pcl-1.12
 COLIB=colib-20140530
@@ -43,7 +89,7 @@ client: ${CLIENT}
 # ---------------- deps ----------------
 .PHONY: jemalloc libuv leveldb liblmdb zeromq czmq zyre liblfds pcl colib
 
-deps: jemalloc libuv leveldb liblmdb zeromq czmq zyre
+deps: jemalloc libuv leveldb liblmdb rocksdb zeromq czmq zyre msgpack
 #pcl 
 #colib
 
@@ -95,6 +141,7 @@ deps/leveldb:
 	tar zxvf ${LEVELDB}.tar.gz && \
 	ln -sf ${LEVELDB} leveldb && \
 	cd ${LEVELDB} && \
+	sed -i -e 's/()\s*;/(void);/g' include/leveldb/c.h && \
 	make 
 
 # ................ liblmdb ................
@@ -110,6 +157,21 @@ deps/liblmdb:
 	ln -sf ${LIBLMDB} liblmdb && \
 	cd ${LIBLMDB} && \
 	make 
+
+# ................ rocksdb ................
+
+CFLAGS_ROCKSDB=-I./deps/rocksdb/include
+LDFLAGS_ROCKSDB=./deps/rocksdb/librocksdb.a
+
+rocksdb: deps/rocksdb
+
+deps/rocksdb:
+	cd deps && \
+	tar zxvf ${ROCKSDB}.tar.gz && \
+	ln -sf ${ROCKSDB} rocksdb && \
+	cd ${ROCKSDB} && \
+	sed -i -e 's/()\s*;/(void);/g' include/rocksdb/c.h && \
+	MAKECMDGOALS=static_lib make 
 
 # ................ zeromq ................
 
@@ -160,6 +222,22 @@ deps/zyre:
 	make && \
 	ln -s src/.libs lib
 
+# ................ msgpack ................
+
+CFLAGS_MSGPACK=-I./deps/msgpack/src
+LDFLAGS_MSGPACK=./deps/msgpack/src/.libs/libmsgpack.a  
+
+msgpack: deps/msgpack
+
+deps/msgpack:
+	cd deps && \
+	tar zxvf ${MSGPACK}.tar.gz && \
+	ln -sf ${MSGPACK} msgpack && \
+	cd ${MSGPACK} && \
+	./bootstrap && \
+	./configure && \
+	make 
+
 # ................ liblfds ................
 
 CFLAGS_LIBLFDS=-I./deps/liblfds/inc
@@ -207,8 +285,16 @@ deps/colib:
 	
 #CFLAGS_UCONTEXT=-D_XOPEN_SOURCE # ucontext.h error: The deprecated ucontext routines require _XOPEN_SOURCE to be defined.
 
-COMMON_CFLAGS = -ggdb -fPIC -m64 -Wall -D_GNU_SOURCE -I./include -I./legolas ${CFLAGS_UCONTEXT} ${CFLAGS_LIBUV} ${CFLAGS_JEMALLOC} ${CFLAGS_LEVELDB}  ${CFLAGS_LIBLMDB} ${CFLAGS_ZYRE} ${CFLAGS_CZMQ} ${CFLAGS_ZEROMQ} ${CFLAGS}
-FINAL_CFLAGS = -Wstrict-prototypes ${COMMON_CFLAGS} 
+COMMON_CFLAGS += ${CFLAGS_LIBUV} \
+				 ${CFLAGS_JEMALLOC} \
+				 ${CFLAGS_LEVELDB} \
+				 ${CFLAGS_ROCKSDB} \
+				 ${CFLAGS_LIBLMDB} \
+				 ${CFLAGS_ZYRE} ${CFLAGS_CZMQ} ${CFLAGS_ZEROMQ} \
+				 ${CFLAGS_MSGPACK} 
+FINAL_CFLAGS = -Wstrict-prototypes \
+			   ${COMMON_CFLAGS} \
+			   ${CFLAGS}
 
 #${CFLAGS_LIBLFDS} 
 #${CFLAGS_PCL} 
@@ -216,7 +302,16 @@ FINAL_CFLAGS = -Wstrict-prototypes ${COMMON_CFLAGS}
 #-DUSE_PRCTL
 FINAL_CXXFLAGS=${COMMON_CFLAGS} ${CXXFLAGS}
 
-FINAL_LDFLAGS = ${LDFLAGS_LIBUV} ${LDFLAGS_JEMALLOC} ${LDFLAGS_LEVELDB} ${LDFLAGS_LIBLMDB} ${LDFLAGS_ZYRE} ${LDFLAGS_CZMQ} ${LDFLAGS_ZEROMQ} ${LDFLAGS} -lpthread -lssl -lcrypto -lstdc++
+FINAL_LDFLAGS = ${LDFLAGS_LIBUV} \
+				${LDFLAGS_JEMALLOC} \
+				${LDFLAGS_LEVELDB} \
+				${LDFLAGS_ROCKSDB} \
+				${LDFLAGS_LIBLMDB} \
+				${LDFLAGS_ZYRE} \
+				${LDFLAGS_CZMQ} \
+				${LDFLAGS_ZEROMQ} \
+				${LDFLAGS_MSGPACK} \
+				${LDFLAGS} -lpthread -lssl -lcrypto -lstdc++ -lm -lz
 
 #${LDFLAGS_LIBLFDS} 
 #${LDFLAGS_PCL} 
@@ -231,12 +326,21 @@ ifeq (${UNAME}, Darwin)
 endif
 
 #${SERVER}: deps ${BASE_OBJS} ${SERVER_OBJS} ${LEGOLAS_OBJS} bin
-${SERVER}: ${BASE_OBJS} ${SERVER_OBJS} ${LEGOLAS_OBJS} ${KVDB_OBJS} 
-	${CC} -o ${SERVER} ${BASE_OBJS} ${SERVER_OBJS} ${LEGOLAS_OBJS} ${KVDB_OBJS} ${FINAL_LDFLAGS}
+${SERVER}: ${BASE_OBJS} ${SERVER_OBJS} ${LEGOLAS_OBJS} ${KVDB_OBJS}  
+	${CC} -o ${SERVER} \
+		${BASE_OBJS} \
+		${SERVER_OBJS} \
+		${LEGOLAS_OBJS} \
+		${KVDB_OBJS} \
+		${FINAL_LDFLAGS} 
 
 
 ${CLIENT}: ${BASE_OBJS} ${CLIENT_OBJS} ${LEGOLAS_OBJS} 
-	${CC} -o ${CLIENT} ${BASE_OBJS} ${CLIENT_OBJS} ${LEGOLAS_OBJS} ${FINAL_LDFLAGS}
+	${CC} -o ${CLIENT} \
+		${BASE_OBJS} \
+		${CLIENT_OBJS} \
+		${LEGOLAS_OBJS} \
+		${FINAL_LDFLAGS}
 
 bin:
 	mkdir -p bin
@@ -250,10 +354,28 @@ bin:
 # ---------------- clean ----------------
 
 clean:
-	rm -fr ${SERVER} ${CLIENT} ${BASE_OBJS} ${SERVER_OBJS} ${CLIENT_OBJS} ${LEGOLAS_OBJS} 
+	rm -fr \
+		${SERVER} \
+		${CLIENT} \
+		${BASE_OBJS} \
+		${SERVER_OBJS} \
+		${CLIENT_OBJS} \
+		${LEGOLAS_OBJS} \
+		${LSM_OBJS} \
+		${LEVELDB_OBJS} \
+		${ROCKSDB_OBJS} \
+		${KVDB_OBJS}
 
 clean-deps:
-	rm -fr deps/${LIBUV} deps/libuv deps/${JEMALLOC} deps/jemalloc deps/${LEVELDB} deps/leveldb deps/${LIBLMDB} deps/liblmdb deps/${ZEROMQ} deps/zeromq deps/${CZMQ} deps/czmq deps/${ZYRE} deps/zyre  
+	rm -fr \
+		deps/${LIBUV} deps/libuv \
+		deps/${JEMALLOC} deps/jemalloc \
+		deps/${LEVELDB} deps/leveldb \
+		deps/${LIBLMDB} deps/rocksdb \
+		deps/${ROCKSDB} deps/liblmdb \
+		deps/${ZEROMQ} deps/zeromq \
+		deps/${CZMQ} deps/czmq \
+		deps/${ZYRE} deps/zyre  
 
 cleanall: clean clean-deps
 

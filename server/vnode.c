@@ -43,7 +43,12 @@ vnode_t *vnode_new(char *root_dir, uint32_t id)
     /* Index DB */
     char dbpath[NAME_MAX];
     sprintf(dbpath, "%s/manifest.db", vnode->root_dir);
-    kvdb_t *kvdb = kvdb_open(dbpath); 
+
+    kvdb_t *kvdb = kvdb_open("lmdb", dbpath); 
+    /*kvdb_t *kvdb = kvdb_open("rocksdb", dbpath); */
+    /*kvdb_t *kvdb = kvdb_open("leveldb", dbpath); */
+    /*kvdb_t *kvdb = kvdb_open("lsm", dbpath); */
+
     if ( kvdb == NULL ){
         error_log("kvdb_init() failed. vnode(%d) dir:%s", id, vnode->root_dir);
         zfree(vnode);

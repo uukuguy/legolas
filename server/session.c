@@ -14,6 +14,7 @@
 #include "uv.h"
 #include "md5.h"
 #include "coroutine.h"
+#include "crc32.h"
 #include <uuid/uuid.h>
 #include <pthread.h>
 #include <stdlib.h>
@@ -31,36 +32,9 @@ void empty_session(session_t *session);
 int create_session_coroutine(session_t *session);
 int destroy_session_coroutine(session_t *session);
 
-int session_handle_write(session_t *session, msg_request_t *request);
-int session_handle_read(session_t *session, msg_request_t *request);
-int session_handle_delete(session_t *session, msg_request_t *request);
+int session_handle_request(session_t *session, msg_request_t *request);
 
-static int session_handle_request(session_t *session, msg_request_t *request)
-{
-    int ret = 0;
-
-    switch ( request->op_code ){
-        case MSG_OP_WRITE:
-            {
-                trace_log("MSG_OP_WRITE");
-                ret = session_handle_write(session, request);
-            } break;
-        case MSG_OP_READ:
-            {
-                trace_log("MSG_OP_READ");
-                ret = session_handle_read(session, request);
-            } break;
-        case MSG_OP_DEL:
-            {
-                trace_log("MSG_OP_DEL");
-                ret = session_handle_delete(session, request);
-            } break;
-    };
-
-    return ret;
-}
-
-static void after_response_to_client(uv_write_t *write_rsp, int status) 
+UNUSED static void after_response_to_client(uv_write_t *write_rsp, int status) 
 {
     zfree(write_rsp);
 }
@@ -68,6 +42,7 @@ static void after_response_to_client(uv_write_t *write_rsp, int status)
 int session_send_data(session_t *session, char *buf, uint32_t buf_size, uv_write_cb after_write)
 {
     int ret = 0;
+    server_t *server = session->server;
 
     /* -------- response message -------- */
     uv_buf_t rbuf = uv_buf_init(buf, buf_size);
@@ -77,6 +52,9 @@ int session_send_data(session_t *session, char *buf, uint32_t buf_size, uv_write
     write_rsp = zmalloc(sizeof(uv_write_t));
     write_rsp->data = session;
 
+    /*session_rx_off(session);*/
+    /*pthread_mutex_lock(&session->send_pending_lock);*/
+    pthread_mutex_lock(&server->send_pending_lock);
     /* -------- uv_write -------- */
     ret = uv_write(write_rsp,
             &session_stream(session),
@@ -85,66 +63,15 @@ int session_send_data(session_t *session, char *buf, uint32_t buf_size, uv_write
             after_write);
 
 
+    /*pthread_mutex_unlock(&session->send_pending_lock);*/
+    pthread_mutex_unlock(&server->send_pending_lock);
+    /*session_rx_on(session);*/
+
     if ( ret != 0 ) {
         error_log("response failed");
     }
 
     return ret;
-}
-
-static UNUSED void session_idle_cb(uv_idle_t *idle_handle, int status) 
-{
-    session_t *session = (session_t*)idle_handle->data;
-    uint32_t finished_works = session->finished_works;
-
-    uint32_t n;
-    for ( n = 0 ; n < finished_works ; n++ ){
-        msg_response_t *response = alloc_response(0, RESULT_SUCCESS);
-        notice_log("session_send_data() %d/%d", n, finished_works);
-        session_send_data(session, (char *)response, sizeof(*response), after_response_to_client);
-        zfree(response);
-
-        /* -------- response message -------- */
-        /*msg_response_t *response = alloc_response(0, RESULT_SUCCESS);*/
-        /*uv_buf_t rbuf = uv_buf_init((char *)response, sizeof(msg_response_t));*/
-
-        /* -------- write_rsp -------- */
-        /*uv_write_t *write_rsp;*/
-        /*write_rsp = zmalloc(sizeof(uv_write_t));*/
-        /*write_rsp->data = session;*/
-
-        /* -------- uv_write -------- */
-        /*trace_log("fd(%d) Ready to call uv_write. finished_works:%d", session_fd(session), finished_works);*/
-
-        /*int r = uv_write(write_rsp,*/
-                /*&session_stream(session),*/
-                /*&rbuf,*/
-                /*1,*/
-                /*[>NULL);<]*/
-                /*after_response_to_client);*/
-
-        /*zfree(response);*/
-
-        /*if ( r != 0 ) {*/
-            /*error_log("response failed");*/
-        /*}*/
-    }
-
-    __sync_sub_and_fetch(&session->finished_works, finished_works);
-
-}
-
-static UNUSED void session_async_cb(uv_async_t *async_handle, int status) 
-{
-    /*session_t *session = (session_t*)async_handle->data;*/
-    /*server_t *server = session->server;*/
-    /*uv_loop_t *loop = server->tcp_handle.loop;*/
-
-    /*uv_idle_t *idle_handle = (uv_idle_t *)zmalloc(sizeof(uv_idle_t));*/
-    /*idle_handle->data = session;*/
-
-    /*uv_idle_init(loop, idle_handle);*/
-    /*uv_idle_start(idle_handle, session_idle_cb);*/
 }
 
 /* =================== on_close() ==================== */ 
@@ -171,18 +98,20 @@ UNUSED static void after_shutdown(uv_shutdown_t *shutdown_req, int status)
 {
     session_FROM_UV_HANDLE(shutdown_req);
 
-    pthread_mutex_lock(&session->recv_pending_lock);{
+    /*pthread_mutex_lock(&session->recv_pending_lock);{*/
 
-        while ( session_is_waiting(session) == 0 ){
-            pthread_cond_wait(&session->recv_pending_cond, 
-                    &session->recv_pending_lock);
-        }
+        /*while ( session_is_waiting(session) == 0 ){*/
+            /*pthread_cond_wait(&session->recv_pending_cond, */
+                    /*&session->recv_pending_lock);*/
+        /*}*/
 
-    } pthread_mutex_unlock(&session->recv_pending_lock);
+    /*} pthread_mutex_unlock(&session->recv_pending_lock);*/
 
     session->waiting_for_close = 0;
 
     TRACE_session("Do shutdown!");
+
+    uv_timer_stop(&session->timer_handle);
 
     /*uv_close((uv_handle_t *)&session->async_handle, NULL);*/
     uv_idle_stop(&session->idle_handle);
@@ -191,6 +120,66 @@ UNUSED static void after_shutdown(uv_shutdown_t *shutdown_req, int status)
     uv_close((uv_handle_t*)shutdown_req->handle, on_close);
 
     zfree(shutdown_req);
+}
+
+static UNUSED void session_idle_cb(uv_idle_t *idle_handle, int status) 
+{
+    session_t *session = (session_t*)idle_handle->data;
+
+    if ( session->waiting_for_close == 1 ) {
+        if ( session_is_waiting(session)) {
+            info_log("Start to close session in session_timer_cb()");
+            uv_timer_stop(&session->timer_handle);
+
+            uv_shutdown_t* shutdown_req = (uv_shutdown_t*)zmalloc(sizeof(uv_shutdown_t));
+            shutdown_req->data = session;
+            uv_shutdown(shutdown_req, &session->connection.handle.stream, after_shutdown);
+        }
+    }
+
+    /*uint32_t finished_works = session->finished_works;*/
+
+    /*uint32_t n;*/
+    /*for ( n = 0 ; n < finished_works ; n++ ){*/
+        /*msg_response_t *response = alloc_response(0, RESULT_SUCCESS);*/
+        /*notice_log("session_send_data() %d/%d", n, finished_works);*/
+        /*session_send_data(session, (char *)response, sizeof(*response), after_response_to_client);*/
+        /*zfree(response);*/
+    /*}*/
+
+    /*__sync_sub_and_fetch(&session->finished_works, finished_works);*/
+
+}
+
+static UNUSED void session_timer_cb(uv_timer_t *timer_handle, int status) 
+{
+    session_t *session = (session_t*)timer_handle->data;
+    if ( session->waiting_for_close == 1 ) {
+        if ( session_is_waiting(session)) {
+            info_log("Start to close session in session_timer_cb()");
+            uv_timer_stop(&session->timer_handle);
+
+            uv_shutdown_t* shutdown_req = (uv_shutdown_t*)zmalloc(sizeof(uv_shutdown_t));
+            shutdown_req->data = session;
+            uv_shutdown(shutdown_req, &session->connection.handle.stream, after_shutdown);
+        }
+    }
+}
+
+static UNUSED void session_async_cb(uv_async_t *async_handle, int status) 
+{
+    session_t *session = (session_t*)async_handle->data;
+
+    /* -------- Shutdown -------- */
+    if ( session->waiting_for_close == 1 ) {
+        info_log("Want to close session in session_async_cb()");
+
+        uv_timer_stop(&session->timer_handle);
+
+        uv_shutdown_t* shutdown_req = (uv_shutdown_t*)zmalloc(sizeof(uv_shutdown_t));
+        shutdown_req->data = session;
+        uv_shutdown(shutdown_req, &session->connection.handle.stream, after_shutdown);
+    }
 }
 
 /* ==================== after_read() ==================== */ 
@@ -246,9 +235,10 @@ UNUSED static void after_read(uv_stream_t *handle, ssize_t nread, const uv_buf_t
 
         /* -------- Shutdown -------- */
         session->waiting_for_close = 1;
-        uv_shutdown_t* shutdown_req = (uv_shutdown_t*)zmalloc(sizeof(uv_shutdown_t));
-        shutdown_req->data = session;
-        uv_shutdown(shutdown_req, handle, after_shutdown);
+        info_log("waiting_for_colose=1");
+        /*uv_shutdown_t* shutdown_req = (uv_shutdown_t*)zmalloc(sizeof(uv_shutdown_t));*/
+        /*shutdown_req->data = session;*/
+        /*uv_shutdown(shutdown_req, handle, after_shutdown);*/
 
         return;
     } else { 
@@ -313,13 +303,17 @@ session_t* create_session(server_t *server)
     /* -------- loop -------- */
     uv_loop_t *loop =  server->tcp_handle.loop;
 
-    /*session->async_handle.data = session;*/
-    /*uv_async_init(loop, &session->async_handle, session_async_cb);*/
+    uv_async_init(loop, &session->async_handle, session_async_cb);
+    session->async_handle.data = session;
 
     uv_idle_t *idle_handle = &session->idle_handle;
     idle_handle->data = session;
     uv_idle_init(loop, idle_handle);
     uv_idle_start(idle_handle, session_idle_cb);
+
+    uv_timer_init(loop, &session->timer_handle);
+    session->timer_handle.data = session;
+    uv_timer_start(&session->timer_handle, session_timer_cb, 1000, 10000);
 
     /* -------- tcp_handle -------- */
     uv_tcp_t *tcp_handle = &session->connection.handle.tcp;
@@ -366,7 +360,6 @@ void destroy_session(session_t *session)
 
     destroy_session_coroutine(session);
 
-
     pthread_mutex_destroy(&session->recv_pending_lock);
     pthread_cond_destroy(&session->recv_pending_cond);
     pthread_mutex_destroy(&session->send_pending_lock);
@@ -380,6 +373,7 @@ void destroy_session(session_t *session)
 /* ==================== close_session() ==================== */ 
 void close_session(session_t *session)
 {
+    session_rx_off(session);
     destroy_session(session);
 }
 
@@ -439,6 +433,7 @@ void empty_session(session_t *session)
     session->session_status = SESSION_STATUS_HEAD;
     session->f = NULL;
     session->refcnt = 1;
+    session->stop = 0;
     session->waiting_for_close = 0;
     session->total_blocks = 0;
     session->total_received_buffers = 0;
@@ -458,20 +453,21 @@ void empty_session(session_t *session)
     init_cob(&session->connection.cob);
 }
 
-extern void *session_rx_handler(void *opaque);
-extern void *session_tx_handler(void *opaque);
+extern void *session_rx_coroutine(void *opaque);
+extern void *session_tx_coroutine(void *opaque);
 /* ==================== create_session_coroutine() ==================== */ 
 int create_session_coroutine(session_t *session)
 {
-    session->rx_co = coroutine_create(session_rx_handler);
-    if ( session->rx_co == NULL ) {
-        error_log("Cann't create coroutine session->rx_co");
+    /*info_log("Create session coroutine.");*/
+    session->rx_coroutine = coroutine_create(session_rx_coroutine);
+    if ( session->rx_coroutine == NULL ) {
+        error_log("Cann't create coroutine session->rx_coroutine");
         return -1;
     }
 
-    session->tx_co = coroutine_create(session_tx_handler);
-    if ( session->tx_co == NULL ) {
-        error_log("Cann't create coroutine session->tx_co");
+    session->tx_coroutine = coroutine_create(session_tx_coroutine);
+    if ( session->tx_coroutine == NULL ) {
+        error_log("Cann't create coroutine session->tx_coroutine");
         return -1;
     }
 
@@ -481,14 +477,15 @@ int create_session_coroutine(session_t *session)
 /* ==================== destroy_session_coroutine() ==================== */ 
 int destroy_session_coroutine(session_t *session)
 {
-    if ( session->rx_co != NULL ){
-        coroutine_delete(session->rx_co);
-        session->rx_co = NULL;
+    /*info_log("Destroy session coroutine.");*/
+    if ( session->rx_coroutine != NULL ){
+        coroutine_delete(session->rx_coroutine);
+        session->rx_coroutine = NULL;
     }
 
-    if ( session->tx_co != NULL ){
-        coroutine_delete(session->tx_co);
-        session->tx_co = NULL;
+    if ( session->tx_coroutine != NULL ){
+        coroutine_delete(session->tx_coroutine);
+        session->tx_coroutine = NULL;
     }
 
     return 0;
@@ -591,5 +588,19 @@ conn_buf_t *dequeue_recv_queue(session_t *session)
     }
 
     return NULL;
+}
+
+/* ==================== check_data_crc32() ==================== */ 
+int check_data_crc32(int requestid, msg_arg_t *argCRC32, msg_arg_t *argData)
+{
+    uint32_t crc = *((uint32_t*)argCRC32->data);
+    uint32_t crc1 = crc32(0, argData->data, argData->size);
+
+    if ( crc != crc1 ) {
+        error_log("requestid(%d) upload crc32: %d, Data crc32: %d", requestid, crc, crc1);
+        return -1;
+    }
+
+    return 0;
 }
 

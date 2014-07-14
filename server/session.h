@@ -3,6 +3,8 @@
 
 #include "legolas.h"
 
+#define STORAGE_LSM 
+
 #define MAX_CACHED_BYTES 1024 * 1024 * 1024
 
 extern session_t* create_session(server_t* server);
@@ -27,6 +29,10 @@ extern void enqueue_recv_queue(session_t *session, conn_buf_t *cob);
 extern conn_buf_t *dequeue_recv_queue(session_t *session); 
 
 extern int session_send_data(session_t *session, char *buf, uint32_t buf_size, uv_write_cb after_write);
+
+extern void response_to_client(session_t *session, enum MSG_RESULT result); 
+
+extern int check_data_crc32(int requestid, msg_arg_t *argCRC32, msg_arg_t *argData);
 
 #define session_FROM_UV_HANDLE(handle) \
     UNUSED session_t *session = (struct session_t *)handle->data; \

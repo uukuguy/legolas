@@ -19,12 +19,33 @@ extern "C" {
 
     typedef struct kvdb_t kvdb_t;
 
-    kvdb_t *kvdb_open(const char *dbpath);
+    typedef struct db_methods_t {
+        void (*db_close)(kvdb_t *);
+        int (*db_put)(kvdb_t *, void *, uint32_t , void *, uint32_t);
+        int (*db_get)(kvdb_t *, void *, uint32_t, void **, uint32_t *);
+        int (*db_del)(kvdb_t *, void *, uint32_t);
+        //int (*xScan)(TestDb *, void *, int, void *, int, void *, int,
+                //void (*)(void *, void *, int , void *, int)
+                //);
+        //int (*xDeleteRange)(TestDb *, void *, int, void *, int);
+        int (*db_begin)(kvdb_t *, int);
+        int (*db_commit)(kvdb_t *, int);
+        int (*db_rollback)(kvdb_t *, int);
+    } db_methods_t;
+
+    typedef struct kvdb_t {
+        db_methods_t const *db_methods;
+        const char *dbclass;
+    } kvdb_t;
+
+    kvdb_t *kvdb_open(const char *dbclass, const char *dbpath);
     void kvdb_close(kvdb_t *kvdb);
 
-    int kvdb_put(kvdb_t *kvdb, const char *key, uint32_t keylen, const char *value, uint32_t valuelen);
-    const char *kvdb_get(kvdb_t *kvdb, const char *key, uint32_t keylen);
-    int kvdb_delete(kvdb_t *kvdb, const char *key, uint32_t keylen);
+    int kvdb_put(kvdb_t *kvdb, void *key, uint32_t klen, void *value, uint32_t vlen);
+    int kvdb_get(kvdb_t *kvdb, void *key, uint32_t klen, void **value, uint32_t *vlen);
+    int kvdb_del(kvdb_t *kvdb, void *key, uint32_t klen);
+
+    int undefined_transaction_function(kvdb_t *, int);
 
 
 #ifdef __cplusplus

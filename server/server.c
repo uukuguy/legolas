@@ -64,6 +64,9 @@ void server_destroy(server_t *server)
         }
     }
 
+    pthread_mutex_destroy(&server->send_pending_lock);
+    pthread_cond_destroy(&server->send_pending_cond);
+
     zfree(server);
 }
 
@@ -151,8 +154,8 @@ int start_listen(int listen_port, const char *data_dir)
  *
  * ************************************************************/
 
-void recv_request(work_queue_t *wq);
-void send_response(work_queue_t *wq);
+void recv_queue_handle_request(work_queue_t *wq);
+void send_queue_handle_response(work_queue_t *wq);
 
 void empty_server(server_t *server)
 {
@@ -163,6 +166,9 @@ void empty_server(server_t *server)
 int server_init(server_t *server)
 {
     assert(server!= NULL);
+
+	pthread_mutex_init(&server->send_pending_lock, NULL);
+	pthread_cond_init(&server->send_pending_cond, NULL);
 
     int r;
 
@@ -226,14 +232,14 @@ int init_server_work_queue(server_t *server)
 	int i;
 
 	for ( i = 0; i < RECV_THREADS; i++ ) {
-		server->recv_queue[i] = init_work_queue(recv_request, RECV_INTERVAL);
+		server->recv_queue[i] = init_work_queue(recv_queue_handle_request, RECV_INTERVAL);
 		if ( server->recv_queue[i] == NULL ){
 			return -1;
         }
 	}
 
     for ( i = 0; i < SEND_THREADS; i++ ) {
-        server->send_queue[i] = init_work_queue(send_response, SEND_INTERVAL);
+        server->send_queue[i] = init_work_queue(send_queue_handle_response, SEND_INTERVAL);
         if ( server->send_queue[i] == NULL )
             return -1;
     }

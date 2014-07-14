@@ -14,14 +14,28 @@
 #include "adlist.h"
 #include "md5.h"
 #include "skiplist.h"
+#include "byteblock.h"
 #include <pthread.h>
+
+typedef struct block_t {
+    uint32_t id;
+
+    char key[NAME_MAX];
+    md5_value_t key_md5;
+    uint32_t file_size;
+
+    char *data;
+    uint32_t data_size;
+} block_t;
 
 /* -------------------- slice_t -------------------- */
 typedef struct slice_t {
     uint32_t seq_num;
-    char *buf;
-    uint32_t buf_size;
+    byte_block_t byteblock;
 } slice_t;
+
+slice_t *slice_new(void);
+void slice_free(void *slice);
 
 /* -------------------- object_t -------------------- */
 typedef struct object_t
@@ -54,6 +68,7 @@ object_queue_t *object_queue_new(object_compare_func_t *func);
 void object_queue_free(object_queue_t *oq);
 void* object_queue_find(object_queue_t *oq, void *query_data);
 int object_queue_insert(object_queue_t *oq, void *data);
+void object_queue_remove(object_queue_t *oq, void *query_data);
 
 #endif /* __OBJECT_H__ */
 

@@ -35,6 +35,7 @@
 #include "util.h"
 #include "coroutine.h"
 #include "zmalloc.h"
+#include "logger.h"
 
 enum co_action {
 	COROUTINE_YIELD = 1,
@@ -129,7 +130,7 @@ static void __attribute__((constructor)) coroutine_init(void)
 
 	ret = pthread_key_create(&thread_state_key, coroutine_thread_cleanup);
 	if (ret != 0) {
-		fprintf(stderr, "unable to create leader key: %m\n");
+		error_log("unable to create leader key: %m\n");
 		abort();
 	}
 }
@@ -178,8 +179,7 @@ static int get_stack_size(co_ucontext_t *co)
 			break;
 
 	if (i == 0) {
-		fprintf(stderr, "stack overflow\n");
-		fflush(stderr);
+		error_log("stack overflow\n");
 		abort();
 	}
 
@@ -256,7 +256,7 @@ void coroutine_delete(coroutine_t *co_)
 	co_ucontext_t *co = container_of(co_, co_ucontext_t, base);
 
 #ifdef COROUTINE_DEBUG
-	fprintf(stdout, "%d bytes are consumed\n", get_stack_size(co));
+	error_log("%d bytes are consumed\n", get_stack_size(co));
 #endif
 
 	if (s->pool_size < POOL_MAX_SIZE) {
@@ -337,7 +337,7 @@ void coroutine_enter(coroutine_t *co, void *opaque)
 	coroutine_t *self = coroutine_self();
 
 	if (unlikely(co->caller)) {
-		fprintf(stderr, "Co-routine re-entered recursively\n");
+		error_log("Co-routine re-entered recursively\n");
 		abort();
 	}
 
@@ -352,7 +352,7 @@ void coroutine_yield(void)
 	coroutine_t *to = self->caller;
 
 	if (unlikely(!to)) {
-		fprintf(stderr, "Co-routine is yielding to no one\n");
+		error_log("Co-routine is yielding to no one\n");
 		abort();
 	}
 
