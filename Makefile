@@ -83,7 +83,8 @@ deps: jemalloc libuv leveldb liblmdb rocksdb lsm-sqlite4 zeromq czmq zyre msgpac
 
 # ................ jemalloc ................
 
-CFLAGS_JEMALLOC=-DUSE_JEMALLOC -DHAVE_ATOMIC -DJEMALLOC_MANGLE -I./deps/jemalloc/include
+CFLAGS_JEMALLOC=-DUSE_JEMALLOC -DHAVE_ATOMIC  -I./deps/jemalloc/include
+#-DJEMALLOC_MANGLE
 #-DJEMALLOC_NO_DEMANGLE 
 LDFLAGS_JEMALLOC=./deps/jemalloc/lib/libjemalloc.a
 #LDFLAGS_JEMALLOC=-L./deps/jemalloc/lib -ljemalloc

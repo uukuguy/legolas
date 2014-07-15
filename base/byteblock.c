@@ -20,6 +20,15 @@ byte_block_t *byte_block_new(void)
     return bb;
 }
 
+byte_block_t *byte_block_attach(void *data, uint32_t size)
+{
+    byte_block_t *bb = byte_block_new();
+    bb->capacity = size;
+    bb->size = size;
+    bb->buf = data;
+    return bb;
+}
+
 void byte_block_init(byte_block_t *bb)
 {
     memset(bb, 0, sizeof(byte_block_t));
@@ -33,11 +42,11 @@ void byte_block_release(byte_block_t *bb)
     byte_block_init(bb);
 }
 
-void byte_block_free(byte_block_t *bb)
+void byte_block_free(void *ptr)
 {
-    if ( bb != NULL ){
-        byte_block_release(bb);
-        zfree(bb);
+    if ( ptr != NULL ){
+        byte_block_release((byte_block_t*)ptr);
+        zfree(ptr);
     }
 }
 

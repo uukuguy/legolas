@@ -28,6 +28,7 @@ extern void delete_cob(conn_buf_t *cob);
 extern void enqueue_recv_queue(session_t *session, conn_buf_t *cob); 
 extern conn_buf_t *dequeue_recv_queue(session_t *session); 
 
+extern int session_response(session_t *session, char *buf, uint32_t buf_size);
 extern int session_send_data(session_t *session, char *buf, uint32_t buf_size, uv_write_cb after_write);
 
 extern void response_to_client(session_t *session, enum MSG_RESULT result); 

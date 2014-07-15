@@ -3,6 +3,7 @@
 
 #include "zmalloc.h"
 #include "list.h"
+#include "adlist.h"
 #include "uv.h"
 #include "work.h"
 #include "logger.h"
@@ -107,6 +108,7 @@ typedef struct session_t{
     struct list_head rx_list;
     int stop; /* if true, the connection is not ready for read
                * operations because of too many requests */
+    list *responseQueue;
 
     uv_idle_t idle_handle;
     uv_async_t async_handle;

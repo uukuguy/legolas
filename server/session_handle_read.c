@@ -150,7 +150,7 @@ int unpack_object_nslices(msgpack_unpacker *unpacker, object_t *object)
 }
 
 
-static void after_response_to_read(uv_write_t *write_rsp, int status) 
+UNUSED static void after_response_to_read(uv_write_t *write_rsp, int status) 
 {
     /*session_t *session = (session_t*)write_rsp->data;*/
     /*uv_async_send(&session->async_handle);*/
@@ -174,7 +174,8 @@ static void response_to_read(session_t *session, block_t *block, object_t *objec
         msg_size = sizeof(msg_response_t) + response->data_length;
     }
 
-    session_send_data(session, (char *)response, msg_size, after_response_to_read);
+    session_response(session, (char *)response, msg_size);
+    /*session_send_data(session, (char *)response, msg_size, after_response_to_read);*/
 
     zfree(response);
 }

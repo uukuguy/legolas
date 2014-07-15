@@ -15,6 +15,7 @@
 #include "md5.h"
 #include "coroutine.h"
 #include "crc32.h"
+#include "byteblock.h"
 #include <uuid/uuid.h>
 #include <pthread.h>
 #include <stdlib.h>
@@ -39,10 +40,21 @@ UNUSED static void after_response_to_client(uv_write_t *write_rsp, int status)
     zfree(write_rsp);
 }
 
+int session_response(session_t *session, char *buf, uint32_t buf_size)
+{
+    byte_block_t *bb = byte_block_attach(buf, buf_size);
+
+    pthread_mutex_lock(&session->send_pending_lock);
+    listAddNodeTail(session->responseQueue, bb);
+    pthread_mutex_unlock(&session->send_pending_lock);
+
+    return 0;
+}
+
 int session_send_data(session_t *session, char *buf, uint32_t buf_size, uv_write_cb after_write)
 {
     int ret = 0;
-    server_t *server = session->server;
+    /*server_t *server = session->server;*/
 
     /* -------- response message -------- */
     uv_buf_t rbuf = uv_buf_init(buf, buf_size);
@@ -54,7 +66,7 @@ int session_send_data(session_t *session, char *buf, uint32_t buf_size, uv_write
 
     /*session_rx_off(session);*/
     /*pthread_mutex_lock(&session->send_pending_lock);*/
-    pthread_mutex_lock(&server->send_pending_lock);
+    /*pthread_mutex_lock(&server->send_pending_lock);*/
     /* -------- uv_write -------- */
     ret = uv_write(write_rsp,
             &session_stream(session),
@@ -64,7 +76,7 @@ int session_send_data(session_t *session, char *buf, uint32_t buf_size, uv_write
 
 
     /*pthread_mutex_unlock(&session->send_pending_lock);*/
-    pthread_mutex_unlock(&server->send_pending_lock);
+    /*pthread_mutex_unlock(&server->send_pending_lock);*/
     /*session_rx_on(session);*/
 
     if ( ret != 0 ) {
@@ -134,8 +146,21 @@ static UNUSED void session_idle_cb(uv_idle_t *idle_handle, int status)
             uv_shutdown_t* shutdown_req = (uv_shutdown_t*)zmalloc(sizeof(uv_shutdown_t));
             shutdown_req->data = session;
             uv_shutdown(shutdown_req, &session->connection.handle.stream, after_shutdown);
+            return;
         }
     }
+
+    uint32_t nResponses = listLength(session->responseQueue);
+    while ( nResponses-- > 0 ){
+        
+        pthread_mutex_lock(&session->send_pending_lock);
+        listNode *first = listFirst(session->responseQueue);
+        void *nodeData = listNodeValue(first);
+        byte_block_t *bb = (byte_block_t*)nodeData;
+        session_send_data(session, bb->buf, bb->size, NULL);
+        listDelNode(session->responseQueue, first);
+        pthread_mutex_unlock(&session->send_pending_lock);
+    };
 
     /*uint32_t finished_works = session->finished_works;*/
 
@@ -360,6 +385,8 @@ void destroy_session(session_t *session)
 
     destroy_session_coroutine(session);
 
+    listRelease(session->responseQueue);
+
     pthread_mutex_destroy(&session->recv_pending_lock);
     pthread_cond_destroy(&session->recv_pending_cond);
     pthread_mutex_destroy(&session->send_pending_lock);
@@ -445,6 +472,9 @@ void empty_session(session_t *session)
     session->connection.total_bytes = 0;
     session->cached_bytes = 0;
     session->finished_works = 0;
+
+    session->responseQueue = listCreate();
+    listSetFreeMethod(session->responseQueue, byte_block_free);
 
     session->handle_request = session_handle_request;
 

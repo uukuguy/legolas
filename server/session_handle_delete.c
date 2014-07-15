@@ -45,7 +45,7 @@ int parse_delete_request(session_t *session, msg_request_t *request, block_t *bl
     return 0;
 }
 
-static void after_response_to_delete(uv_write_t *write_rsp, int status) 
+UNUSED static void after_response_to_delete(uv_write_t *write_rsp, int status) 
 {
     zfree(write_rsp);
 }
@@ -56,7 +56,8 @@ void response_to_delete(session_t *session, enum MSG_RESULT result)
 
     uint32_t msg_size = sizeof(msg_response_t) + response->data_length;
 
-    session_send_data(session, (char *)response, msg_size, after_response_to_delete);
+    session_response(session, (char *)response, msg_size);
+    /*session_send_data(session, (char *)response, msg_size, after_response_to_delete);*/
 
     zfree(response);
 }

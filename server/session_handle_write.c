@@ -88,7 +88,8 @@ void response_to_write(session_t *session, enum MSG_RESULT result)
     msg_response_t *response = alloc_response(0, result);
 
     uint32_t msg_size = sizeof(msg_response_t) + response->data_length;
-    session_send_data(session, (char *)response, msg_size, after_response_to_write);
+    session_response(session, (char *)response, msg_size);
+    /*session_send_data(session, (char *)response, msg_size, after_response_to_write);*/
 
     zfree(response);
 }
