@@ -14,19 +14,6 @@ KVDB_OBJS = base/kvdb.o
 
 KVDB_CFLAGS=-DHAS_LSM -I./deps/lsm
 LSM_OBJS = base/kvdb_lsm.o
-LSM_OBJS += ./deps/lsm/lsm_main.o \
-			./deps/lsm/lsm_ckpt.o \
-			./deps/lsm/lsm_file.o \
-			./deps/lsm/lsm_log.o \
-			./deps/lsm/lsm_mem.o \
-			./deps/lsm/lsm_mutex.o \
-			./deps/lsm/lsm_shared.o \
-			./deps/lsm/lsm_sorted.o \
-			./deps/lsm/lsm_str.o \
-			./deps/lsm/lsm_tree.o \
-			./deps/lsm/lsm_unix.o \
-			./deps/lsm/lsm_varint.o \
-			./deps/lsm/os_fdatasync.o
 
 KVDB_OBJS += ${LSM_OBJS}
 
@@ -67,6 +54,7 @@ JEMALLOC=jemalloc-3.6.0
 LEVELDB=leveldb-1.15.0
 LIBLMDB=liblmdb-0.9.13
 ROCKSDB=rocksdb-3.2
+LSM_SQLITE4=lsm-sqlite4
 ZEROMQ=zeromq-4.0.4
 CZMQ=czmq-2.2.0
 ZYRE=zyre-1.0.0
@@ -89,13 +77,14 @@ client: ${CLIENT}
 # ---------------- deps ----------------
 .PHONY: jemalloc libuv leveldb liblmdb zeromq czmq zyre liblfds pcl colib
 
-deps: jemalloc libuv leveldb liblmdb rocksdb zeromq czmq zyre msgpack
+deps: jemalloc libuv leveldb liblmdb rocksdb lsm-sqlite4 zeromq czmq zyre msgpack
 #pcl 
 #colib
 
 # ................ jemalloc ................
 
-CFLAGS_JEMALLOC=-DUSE_JEMALLOC -DHAVE_ATOMIC -DJEMALLOC_NO_DEMANGLE -I./deps/jemalloc/include
+CFLAGS_JEMALLOC=-DUSE_JEMALLOC -DHAVE_ATOMIC -DJEMALLOC_MANGLE -I./deps/jemalloc/include
+#-DJEMALLOC_NO_DEMANGLE 
 LDFLAGS_JEMALLOC=./deps/jemalloc/lib/libjemalloc.a
 #LDFLAGS_JEMALLOC=-L./deps/jemalloc/lib -ljemalloc
 
@@ -108,6 +97,7 @@ deps/jemalloc:
 	cd ${JEMALLOC} && \
 	echo 3.6.0 > VERSION && \
 	./autogen.sh && \
+	./configure --with-jemalloc-prefix=je_ && \
 	make build_lib
 
 # ................ libuv ................
@@ -161,7 +151,7 @@ deps/liblmdb:
 # ................ rocksdb ................
 
 CFLAGS_ROCKSDB=-I./deps/rocksdb/include
-LDFLAGS_ROCKSDB=./deps/rocksdb/librocksdb.a
+LDFLAGS_ROCKSDB=./deps/rocksdb/librocksdb.a -lbz2
 
 rocksdb: deps/rocksdb
 
@@ -172,6 +162,20 @@ deps/rocksdb:
 	cd ${ROCKSDB} && \
 	sed -i -e 's/()\s*;/(void);/g' include/rocksdb/c.h && \
 	MAKECMDGOALS=static_lib make 
+
+# ................ lsm-sqlite4 ................
+
+CFLAGS_LSM_SQLITE4=-I./deps/lsm
+LDFLAGS_LSM_SQLITE4=./deps/lsm/liblsm-sqlite4.a
+
+lsm-sqlite4: deps/lsm
+
+deps/lsm:
+	cd deps && \
+	tar zxvf ${LSM_SQLITE4}.tar.gz && \
+	ln -sf ${LSM_SQLITE4} lsm && \
+	cd ${LSM_SQLITE4} && \
+	make
 
 # ................ zeromq ................
 
@@ -289,6 +293,7 @@ COMMON_CFLAGS += ${CFLAGS_LIBUV} \
 				 ${CFLAGS_JEMALLOC} \
 				 ${CFLAGS_LEVELDB} \
 				 ${CFLAGS_ROCKSDB} \
+				 ${CFLAGS_LSM_SQLITE4} \
 				 ${CFLAGS_LIBLMDB} \
 				 ${CFLAGS_ZYRE} ${CFLAGS_CZMQ} ${CFLAGS_ZEROMQ} \
 				 ${CFLAGS_MSGPACK} 
@@ -302,10 +307,12 @@ FINAL_CFLAGS = -Wstrict-prototypes \
 #-DUSE_PRCTL
 FINAL_CXXFLAGS=${COMMON_CFLAGS} ${CXXFLAGS}
 
-FINAL_LDFLAGS = ${LDFLAGS_LIBUV} \
+FINAL_LDFLAGS = -static \
+				${LDFLAGS_LIBUV} \
 				${LDFLAGS_JEMALLOC} \
 				${LDFLAGS_LEVELDB} \
 				${LDFLAGS_ROCKSDB} \
+				${LDFLAGS_LSM_SQLITE4} \
 				${LDFLAGS_LIBLMDB} \
 				${LDFLAGS_ZYRE} \
 				${LDFLAGS_CZMQ} \
@@ -373,6 +380,7 @@ clean-deps:
 		deps/${LEVELDB} deps/leveldb \
 		deps/${LIBLMDB} deps/rocksdb \
 		deps/${ROCKSDB} deps/liblmdb \
+		deps/${LSM_SQLITE4} deps/lsm \
 		deps/${ZEROMQ} deps/zeromq \
 		deps/${CZMQ} deps/czmq \
 		deps/${ZYRE} deps/zyre  
@@ -387,7 +395,7 @@ run:
 # ---------------- test ----------------
 
 data:
-	mkdir -p data
+	mkdir -p data/samples
 	dd if=/dev/urandom of=data/samples/320.dat bs=320 count=1
 	dd if=/dev/urandom of=data/samples/640.dat bs=640 count=1
 	dd if=/dev/urandom of=data/samples/1K.dat bs=1K count=1

@@ -48,7 +48,7 @@ typedef struct list {
     listNode *head;
     listNode *tail;
     void *(*dup)(void *ptr);
-    void (*free)(void *ptr);
+    void (*delete)(void *ptr);
     int (*match)(void *ptr, void *key);
     unsigned long len;
 } list;
@@ -62,11 +62,11 @@ typedef struct list {
 #define listNodeValue(n) ((n)->value)
 
 #define listSetDupMethod(l,m) ((l)->dup = (m))
-#define listSetFreeMethod(l,m) ((l)->free = (m))
+#define listSetFreeMethod(l,m) ((l)->delete = (m))
 #define listSetMatchMethod(l,m) ((l)->match = (m))
 
 #define listGetDupMethod(l) ((l)->dup)
-#define listGetFree(l) ((l)->free)
+#define listGetFree(l) ((l)->delete)
 #define listGetMatchMethod(l) ((l)->match)
 
 /* Prototypes */

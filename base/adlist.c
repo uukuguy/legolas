@@ -47,7 +47,7 @@ list *listCreate(void)
     list->head = list->tail = NULL;
     list->len = 0;
     list->dup = NULL;
-    list->free = NULL;
+    list->delete = NULL;
     list->match = NULL;
     return list;
 }
@@ -64,7 +64,7 @@ void listRelease(list *list)
     len = list->len;
     while(len--) {
         next = current->next;
-        if (list->free) list->free(current->value);
+        if (list->delete) list->delete(current->value);
         zfree(current);
         current = next;
     }
@@ -166,7 +166,7 @@ void listDelNode(list *list, listNode *node)
         node->next->prev = node->prev;
     else
         list->tail = node->prev;
-    if (list->free) list->free(node->value);
+    if (list->delete) list->delete(node->value);
     zfree(node);
     list->len--;
 }
@@ -248,7 +248,7 @@ list *listDup(list *orig)
     if ((copy = listCreate()) == NULL)
         return NULL;
     copy->dup = orig->dup;
-    copy->free = orig->free;
+    copy->delete = orig->delete;
     copy->match = orig->match;
     iter = listGetIterator(orig, AL_START_HEAD);
     while((node = listNext(iter)) != NULL) {

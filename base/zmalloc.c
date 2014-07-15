@@ -135,7 +135,7 @@ void *zmalloc(size_t size) {
 #endif
 }
 
-void *zcalloc(size_t size) {
+void *zcalloc2(size_t size) {
     void *ptr = calloc(1, size+PREFIX_SIZE);
 
     if (!ptr) zmalloc_oom_handler(size);
