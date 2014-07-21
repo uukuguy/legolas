@@ -42,13 +42,21 @@ UNUSED static void after_response_to_client(uv_write_t *write_rsp, int status)
 
 int session_response(session_t *session, char *buf, uint32_t buf_size)
 {
-    byte_block_t *bb = byte_block_attach(buf, buf_size);
+    int ret;
 
-    pthread_mutex_lock(&session->send_pending_lock);
-    listAddNodeTail(session->responseQueue, bb);
-    pthread_mutex_unlock(&session->send_pending_lock);
+    /*pthread_mutex_lock(&session->server->send_pending_lock);*/
+    ret = session_send_data(session, buf, buf_size, after_response_to_client);
+    /*pthread_mutex_unlock(&session->server->send_pending_lock);*/
 
-    return 0;
+    return ret;
+
+    /*byte_block_t *bb = byte_block_attach(buf, buf_size);*/
+
+    /*pthread_mutex_lock(&session->server->send_pending_lock);*/
+    /*listAddNodeTail(session->responseQueue, bb);*/
+    /*pthread_mutex_unlock(&session->server->send_pending_lock);*/
+
+    /*return 0;*/
 }
 
 int session_send_data(session_t *session, char *buf, uint32_t buf_size, uv_write_cb after_write)
@@ -86,6 +94,17 @@ int session_send_data(session_t *session, char *buf, uint32_t buf_size, uv_write
     return ret;
 }
 
+/* ==================== session_response_to_client() ==================== */ 
+void session_response_to_client(session_t *session, enum MSG_RESULT result)
+{
+    msg_response_t *response = alloc_response(0, result);
+
+    uint32_t msg_size = sizeof(msg_response_t) + response->data_length;
+    session_response(session, (char *)response, msg_size);
+
+    zfree(response);
+}
+
 /* =================== on_close() ==================== */ 
 /**
  * Try to destroy session after uv_close().
@@ -112,7 +131,7 @@ UNUSED static void after_shutdown(uv_shutdown_t *shutdown_req, int status)
 
     /*pthread_mutex_lock(&session->recv_pending_lock);{*/
 
-        /*while ( session_is_waiting(session) == 0 ){*/
+        /*while ( session_is_idle(session) == 0 ){*/
             /*pthread_cond_wait(&session->recv_pending_cond, */
                     /*&session->recv_pending_lock);*/
         /*}*/
@@ -138,9 +157,17 @@ static UNUSED void session_idle_cb(uv_idle_t *idle_handle, int status)
 {
     session_t *session = (session_t*)idle_handle->data;
 
+    uint32_t finished_works = session->finished_works;
+    if ( finished_works > 0 ) {
+        __sync_sub_and_fetch(&session->finished_works, finished_works);
+        while ( finished_works-- > 0 ) {
+            session_response_to_client(session, RESULT_SUCCESS);
+        }
+    }
+
     if ( session->waiting_for_close == 1 ) {
-        if ( session_is_waiting(session)) {
-            info_log("Start to close session in session_timer_cb()");
+        if ( session_is_idle(session)) {
+            info_log("Start to close session in session_idle_cb()");
             uv_timer_stop(&session->timer_handle);
 
             uv_shutdown_t* shutdown_req = (uv_shutdown_t*)zmalloc(sizeof(uv_shutdown_t));
@@ -150,61 +177,16 @@ static UNUSED void session_idle_cb(uv_idle_t *idle_handle, int status)
         }
     }
 
-    uint32_t nResponses = listLength(session->responseQueue);
-    while ( nResponses-- > 0 ){
-        
-        pthread_mutex_lock(&session->send_pending_lock);
-        listNode *first = listFirst(session->responseQueue);
-        void *nodeData = listNodeValue(first);
-        byte_block_t *bb = (byte_block_t*)nodeData;
-        session_send_data(session, bb->buf, bb->size, NULL);
-        listDelNode(session->responseQueue, first);
-        pthread_mutex_unlock(&session->send_pending_lock);
-    };
-
-    /*uint32_t finished_works = session->finished_works;*/
-
-    /*uint32_t n;*/
-    /*for ( n = 0 ; n < finished_works ; n++ ){*/
-        /*msg_response_t *response = alloc_response(0, RESULT_SUCCESS);*/
-        /*notice_log("session_send_data() %d/%d", n, finished_works);*/
-        /*session_send_data(session, (char *)response, sizeof(*response), after_response_to_client);*/
-        /*zfree(response);*/
-    /*}*/
-
-    /*__sync_sub_and_fetch(&session->finished_works, finished_works);*/
-
 }
 
+/* ==================== session_timer_cb() ==================== */ 
 static UNUSED void session_timer_cb(uv_timer_t *timer_handle, int status) 
 {
-    session_t *session = (session_t*)timer_handle->data;
-    if ( session->waiting_for_close == 1 ) {
-        if ( session_is_waiting(session)) {
-            info_log("Start to close session in session_timer_cb()");
-            uv_timer_stop(&session->timer_handle);
-
-            uv_shutdown_t* shutdown_req = (uv_shutdown_t*)zmalloc(sizeof(uv_shutdown_t));
-            shutdown_req->data = session;
-            uv_shutdown(shutdown_req, &session->connection.handle.stream, after_shutdown);
-        }
-    }
 }
 
+/* ==================== session_async_cb() ==================== */ 
 static UNUSED void session_async_cb(uv_async_t *async_handle, int status) 
 {
-    session_t *session = (session_t*)async_handle->data;
-
-    /* -------- Shutdown -------- */
-    if ( session->waiting_for_close == 1 ) {
-        info_log("Want to close session in session_async_cb()");
-
-        uv_timer_stop(&session->timer_handle);
-
-        uv_shutdown_t* shutdown_req = (uv_shutdown_t*)zmalloc(sizeof(uv_shutdown_t));
-        shutdown_req->data = session;
-        uv_shutdown(shutdown_req, &session->connection.handle.stream, after_shutdown);
-    }
 }
 
 /* ==================== after_read() ==================== */ 
@@ -212,6 +194,7 @@ static UNUSED void session_async_cb(uv_async_t *async_handle, int status)
  * nread <= DEFAULT_CONN_BUF_SIZE 64 * 1024
  */
 
+void recv_queue_process_cob(conn_buf_t *cob);
 UNUSED static void after_read(uv_stream_t *handle, ssize_t nread, const uv_buf_t *buf) 
 {
     session_FROM_UV_HANDLE(handle);
@@ -229,7 +212,17 @@ UNUSED static void after_read(uv_stream_t *handle, ssize_t nread, const uv_buf_t
 
         trace_log("\n........\nfd(%d) block(%d) nread=%zu bytes. write_head:%d, remain_bytes=%d, total_bytes=%d\n", session_fd(session), cob->blockid, nread, cob->write_head, cob->remain_bytes, session->connection.total_bytes);
 
-        enqueue_recv_queue(session, cob);
+
+        /* FIXME */
+        /*enqueue_recv_queue(session, cob);*/
+
+        __sync_add_and_fetch(&session->total_received_buffers, 1);
+        recv_queue_process_cob(cob);
+
+        /*session_response_to_client(session, RESULT_SUCCESS);*/
+        /*delete_cob(cob);*/
+        /*session_finish_saving_buffer(session);*/
+
         pthread_yield();
 
         /* FIXME */
@@ -537,13 +530,11 @@ int too_many_requests(session_t *session)
 }
 
 void session_finish_saving_buffer(session_t *session){
-    pthread_mutex_lock(&session->recv_pending_lock);{
-        session->total_saved_buffers++;
-    } pthread_mutex_unlock(&session->recv_pending_lock);
+    __sync_add_and_fetch(&session->total_saved_buffers, 1);
 }
 
-/* ==================== session_is_waiting() ==================== */ 
-int session_is_waiting(session_t *session)
+/* ==================== session_is_idle() ==================== */ 
+int session_is_idle(session_t *session)
 {
     assert(session->total_received_buffers >= session->total_saved_buffers);
 
@@ -597,9 +588,7 @@ void remove_from_recv_queue(session_t *session, conn_buf_t *cob)
 /* ==================== enqueue_recv_queue() ==================== */ 
 void enqueue_recv_queue(session_t *session, conn_buf_t *cob)
 {
-    pthread_mutex_lock(&session->recv_pending_lock);{
-        session->total_received_buffers++;
-    } pthread_mutex_unlock(&session->recv_pending_lock);
+    __sync_add_and_fetch(&session->total_received_buffers, 1);
 
     work_queue_t *wq = get_recv_queue_by_session(session->server, session);
 
@@ -623,14 +612,16 @@ conn_buf_t *dequeue_recv_queue(session_t *session)
 /* ==================== check_data_crc32() ==================== */ 
 int check_data_crc32(int requestid, msg_arg_t *argCRC32, msg_arg_t *argData)
 {
-    uint32_t crc = *((uint32_t*)argCRC32->data);
-    uint32_t crc1 = crc32(0, argData->data, argData->size);
-
-    if ( crc != crc1 ) {
-        error_log("requestid(%d) upload crc32: %d, Data crc32: %d", requestid, crc, crc1);
-        return -1;
-    }
-
     return 0;
+
+    /*uint32_t crc = *((uint32_t*)argCRC32->data);*/
+    /*uint32_t crc1 = crc32(0, argData->data, argData->size);*/
+
+    /*if ( crc != crc1 ) {*/
+        /*error_log("requestid(%d) upload crc32: %d, Data crc32: %d", requestid, crc, crc1);*/
+        /*return -1;*/
+    /*}*/
+
+    /*return 0;*/
 }
 

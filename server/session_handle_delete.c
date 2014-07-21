@@ -38,7 +38,7 @@ int parse_delete_request(session_t *session, msg_request_t *request, block_t *bl
     memcpy(&block->key_md5, argMd5->data, sizeof(md5_value_t));
 
     block->id = 0;
-    block->file_size = 0;
+    block->object_size = 0;
     block->data = NULL;
     block->data_size = 0;
 
@@ -80,11 +80,7 @@ int session_handle_delete(session_t *session, msg_request_t *request)
     int object_deleted = 0;
     if ( vnode != NULL ) {
 
-        char key_md5[1024];
-        sprintf(key_md5, "%2.2x%2.2x%2.2x%2.2x", block.key_md5.h0, block.key_md5.h1, block.key_md5.h2, block.key_md5.h3);
-        uint32_t key_md5_len = strlen(key_md5);
-
-        int rc = kvdb_del(vnode->kvdb, key_md5, key_md5_len);
+        int rc = object_del_from_kvdb(vnode->kvdb, block.key_md5);
         if ( rc == 0 ){
             object_deleted = 1;
         }

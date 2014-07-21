@@ -24,6 +24,7 @@ extern "C" {
         int (*db_put)(kvdb_t *, void *, uint32_t , void *, uint32_t);
         int (*db_get)(kvdb_t *, void *, uint32_t, void **, uint32_t *);
         int (*db_del)(kvdb_t *, void *, uint32_t);
+        void (*db_flush)(kvdb_t *);
         //int (*xScan)(TestDb *, void *, int, void *, int, void *, int,
                 //void (*)(void *, void *, int , void *, int)
                 //);
@@ -45,6 +46,7 @@ extern "C" {
     int kvdb_get(kvdb_t *kvdb, void *key, uint32_t klen, void **value, uint32_t *vlen);
     int kvdb_del(kvdb_t *kvdb, void *key, uint32_t klen);
 
+    void undefined_kvdb_function(kvdb_t *);
     int undefined_transaction_function(kvdb_t *, int);
 
 

@@ -74,6 +74,8 @@ static void after_read_response(uv_stream_t *handle, ssize_t nread, const uv_buf
 
     } else if ( response->result == RESULT_ERR_NOTFOUND ) {
         warning_log("NOT FOUND! key=%s", argKey->data);
+    } else {
+        error_log("Error response code!");
     }
 
     zfree(buf->base);

@@ -81,7 +81,9 @@ static void after_write_block(uv_write_t *write_req, int status) {
         fclose(client->f);
 
         __sync_add_and_fetch(&client->total_send, 1);
-        notice_log("========> End loop %d/%d. clientid:%d key:%s", client->total_send, client->total_files, client->clientid, client->key);
+        if ( client->total_send % 1000 == 0 ){
+            notice_log("========> End loop %d/%d. clientid:%d key:%s", client->total_send, client->total_files, client->clientid, client->key);
+        }
 
         /*start_next_write_loop(client);*/
 

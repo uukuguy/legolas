@@ -57,6 +57,7 @@ kvdb_t *kvdb_open(const char *dbclass, const char *dbpath)
         if ( strcmp(dbclass, kvdb_classes[i].dbclass) == 0 ){
             char fullpath[NAME_MAX];
             sprintf(fullpath, "%s/%s", dbpath, kvdb_classes[i].dbclass);
+            mkdir_if_not_exist(fullpath);
             return kvdb_classes[i].kvdb_open(fullpath);
         }
     }
@@ -115,6 +116,17 @@ int kvdb_del(kvdb_t *kvdb, void *key, uint32_t klen)
     }
 }
 
+void kvdb_flush(kvdb_t *kvdb)
+{
+    if ( kvdb->db_methods->db_flush != NULL ){
+        kvdb->db_methods->db_flush(kvdb);
+    }
+}
+
+
+void undefined_kvdb_function(kvdb_t *kvdb)
+{
+}
 
 int undefined_transaction_function(kvdb_t *kvdb, int level)
 {

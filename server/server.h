@@ -6,8 +6,8 @@
 #include "work.h"
 #include <uv.h>
 
-#define RECV_THREADS 1 
-#define SEND_THREADS 1 
+#define RECV_THREADS 4 
+#define SEND_THREADS 4 
 #define RECV_INTERVAL 1 /* ms */
 #define SEND_INTERVAL 1 /* ms */
 

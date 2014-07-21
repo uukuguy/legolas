@@ -20,7 +20,6 @@ typedef struct kvdb_rocksdb_t {
     rocksdb_options_t *pOpt;
     rocksdb_writeoptions_t *pWriteOpt;
     rocksdb_readoptions_t *pReadOpt;
-    char *pVal;
 } kvdb_rocksdb_t;
 
 void kvdb_rocksdb_close(kvdb_t *kvdb);
@@ -33,6 +32,7 @@ static const db_methods_t rocksdb_methods = {
     kvdb_rocksdb_put,
     kvdb_rocksdb_get,
     kvdb_rocksdb_del,
+    undefined_kvdb_function,
     undefined_transaction_function,
     undefined_transaction_function,
     undefined_transaction_function
@@ -69,9 +69,6 @@ void kvdb_rocksdb_close(kvdb_t *kvdb){
   rocksdb_writeoptions_destroy(rocksdb->pWriteOpt);
   rocksdb_readoptions_destroy(rocksdb->pReadOpt);
   rocksdb_options_destroy(rocksdb->pOpt);
-  if ( rocksdb->pVal != NULL ){
-      zfree(rocksdb->pVal);
-  }
   zfree(kvdb);
 
 }
@@ -94,22 +91,24 @@ int kvdb_rocksdb_get(kvdb_t *kvdb, void *key, uint32_t klen, void **ppVal, uint3
   char *szErr = NULL;
   size_t nVal = 0;
 
-  if ( rocksdb->pVal != NULL ){
-      zfree(rocksdb->pVal);
-      rocksdb->pVal = NULL;
-  }
+  char *pVal = rocksdb_get(rocksdb->db, rocksdb->pReadOpt, (const char *)key, klen, &nVal, &szErr);
 
-  rocksdb->pVal = rocksdb_get(rocksdb->db, rocksdb->pReadOpt, (const char *)key, klen, &nVal, &szErr);
-  *ppVal = (void *)(rocksdb->pVal);
-  if( rocksdb->pVal == NULL ){
+  if( pVal == NULL ){
     *pnVal = -1;
+    return -1;
   }else{
     *pnVal = nVal;
   }
 
   if ( szErr ) {
+      /*zfree(pVal);*/
       return -1;
   } else {
+     char *result = (char*)zmalloc(nVal);
+     memcpy(result, pVal, nVal);
+     *ppVal = result;
+     /*zfree(pVal);*/
+
       return 0;
   }
 }

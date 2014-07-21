@@ -13,6 +13,7 @@
 
 #include "adlist.h"
 #include "md5.h"
+#include "kvdb.h"
 #include "skiplist.h"
 #include "byteblock.h"
 #include <pthread.h>
@@ -22,7 +23,7 @@ typedef struct block_t {
 
     char key[NAME_MAX];
     md5_value_t key_md5;
-    uint32_t file_size;
+    uint32_t object_size;
 
     char *data;
     uint32_t data_size;
@@ -43,6 +44,7 @@ typedef struct object_t
     char *key;
     md5_value_t key_md5;
     uint32_t object_size;
+    uint32_t nslices;
 
     list *slices;
     uint32_t unfinished_size;
@@ -50,6 +52,10 @@ typedef struct object_t
 
 object_t *object_new(const char *key);
 void object_free(object_t *object);
+
+int object_put_into_kvdb(kvdb_t *kvdb, object_t *object);
+object_t *object_get_from_kvdb(kvdb_t *kvdb, md5_value_t key_md5);
+int object_del_from_kvdb(kvdb_t *kvdb, md5_value_t key_md5);
 
 /* -------------------- object_queue_t -------------------- */
 typedef struct object_queue_t {

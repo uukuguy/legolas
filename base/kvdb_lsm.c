@@ -20,7 +20,6 @@ typedef struct kvdb_lsm_t {
     kvdb_t kvdb;
     lsm_env env;
     lsm_db *db;
-    void *pBuf;
     int nBuf;
     int nSector;
 } kvdb_lsm_t;
@@ -35,6 +34,7 @@ static const db_methods_t lsm_methods = {
     kvdb_lsm_put,
     kvdb_lsm_get,
     kvdb_lsm_del,
+    undefined_kvdb_function,
     undefined_transaction_function,
     undefined_transaction_function,
     undefined_transaction_function
@@ -64,7 +64,9 @@ kvdb_t *kvdb_lsm_open(const char *dbpath)
 
     int rc = lsm_new(&lsm->env, &lsm->db);
     if ( rc == 0 ){
-        rc = lsm_open(lsm->db, dbpath);
+        char fullpath[NAME_MAX];
+        sprintf(fullpath, "%s/data", dbpath);
+        rc = lsm_open(lsm->db, fullpath);
         if ( rc == 0 ) {
             return (kvdb_t*)lsm;
         } else {
@@ -81,7 +83,6 @@ void kvdb_lsm_close(kvdb_t *kvdb){
   /*lsm_csr_close(lsm->pCsr);*/
   lsm_close(lsm->db);
 
-  zfree(lsm->pBuf);
   zfree(lsm);
 
 }
@@ -108,13 +109,11 @@ int kvdb_lsm_get(kvdb_t *kvdb, void *key, uint32_t klen, void **ppVal, uint32_t 
     if( lsm_csr_valid(csr) ){
         void *pVal; int nVal;
         rc = lsm_csr_value(csr, &pVal, &nVal);
-        if( nVal > lsm->nBuf ){
-            zfree(lsm->pBuf);
-            lsm->pBuf = zmalloc(nVal*2);
-            lsm->nBuf = nVal*2;
-        }
-        memcpy(lsm->pBuf, pVal, nVal);
-        *ppVal = lsm->pBuf;
+
+        char *result = (char*)zmalloc(nVal);
+        memcpy(result, pVal, nVal);
+        *ppVal = result;
+
         *pnVal = nVal;
     }else{
         *ppVal = NULL;

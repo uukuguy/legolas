@@ -12,6 +12,9 @@
 #include "zmalloc.h"
 #include "common.h"
 #include "md5.h"
+#include "kvdb.h"
+#include "logger.h"
+#include <msgpack.h>
 
 /* -------------------- slice_t -------------------- */
 slice_t *slice_new(void)
@@ -63,6 +66,275 @@ void object_free(object_t *object)
         object->slices = NULL;
     }
     zfree(object);
+}
+
+/* ==================== unpack_object_key_md5() ==================== */ 
+int unpack_object_key_md5(msgpack_unpacker *unpacker, object_t *object)
+{
+    msgpack_unpacked result;
+    msgpack_unpacked_init(&result);
+
+    if ( !msgpack_unpacker_next(unpacker, &result) ){
+        error_log("unpark key_md5 failed.");
+        return -1;
+    } 
+
+    msgpack_object *mobj = &result.data;                    
+    if ( mobj->type != MSGPACK_OBJECT_ARRAY ){
+        return -1;
+    }
+
+    msgpack_object_array *mobj_array = &mobj->via.array;
+    msgpack_object *obj0 = &mobj_array->ptr[0];
+    object->key_md5.h0 = obj0->via.u64;
+    msgpack_object *obj1 = &mobj_array->ptr[1];
+    object->key_md5.h1 = obj1->via.u64;
+    msgpack_object *obj2 = &mobj_array->ptr[2];
+    object->key_md5.h2 = obj2->via.u64;
+    msgpack_object *obj3 = &mobj_array->ptr[3];
+    object->key_md5.h3 = obj3->via.u64;
+    trace_log("key_md5: %2.2x%2.2x%2.2x%2.2x", object->key_md5.h0, object->key_md5.h1, object->key_md5.h2, object->key_md5.h3); 
+    
+    msgpack_unpacked_destroy(&result);
+
+    return 0;
+}
+
+/* ==================== unpack_object_key() ==================== */ 
+int unpack_object_key(msgpack_unpacker *unpacker, object_t *object)
+{
+    msgpack_unpacked result;
+    msgpack_unpacked_init(&result);
+
+    if ( !msgpack_unpacker_next(unpacker, &result) ){
+        error_log("unpark key failed.");
+        return -1;
+    } 
+
+    msgpack_object *mobj = &result.data;                    
+    if ( mobj->type != MSGPACK_OBJECT_RAW ){
+        return -1;
+    }
+
+    msgpack_object_raw *mobj_raw = &mobj->via.raw;
+    trace_log("key: %s ", mobj_raw->ptr);
+
+    object->key = zmalloc(mobj_raw->size + 1);
+    memcpy(object->key, mobj_raw->ptr, mobj_raw->size);
+    object->key[mobj_raw->size] = '\0';
+    
+    msgpack_unpacked_destroy(&result);
+
+    return 0;
+}
+
+/* ==================== unpack_object_object_size() ==================== */ 
+int unpack_object_object_size(msgpack_unpacker *unpacker, object_t *object)
+{
+    msgpack_unpacked result;
+    msgpack_unpacked_init(&result);
+
+    if ( !msgpack_unpacker_next(unpacker, &result) ){
+        error_log("unpark key failed.");
+        return -1;
+    } 
+
+    msgpack_object *mobj = &result.data;                    
+    if ( mobj->type != MSGPACK_OBJECT_POSITIVE_INTEGER ){
+        return -1;
+    }
+
+    uint32_t object_size = (uint32_t)mobj->via.u64;
+    trace_log("object_size: %d ", object_size);
+    object->object_size = object_size;
+    
+    msgpack_unpacked_destroy(&result);
+
+    return 0;
+}
+
+/* ==================== unpack_object_nslices() ==================== */ 
+int unpack_object_nslices(msgpack_unpacker *unpacker, object_t *object)
+{
+    msgpack_unpacked result;
+    msgpack_unpacked_init(&result);
+
+    if ( !msgpack_unpacker_next(unpacker, &result) ){
+        error_log("unpark key failed.");
+        return -1;
+    } 
+
+    msgpack_object *mobj = &result.data;                    
+    if ( mobj->type != MSGPACK_OBJECT_POSITIVE_INTEGER ){
+        return -1;
+    }
+
+    uint32_t nSlices = (uint32_t)mobj->via.u64;
+    trace_log("nSlices: %d ", nSlices);
+    object->nslices = nSlices;
+
+    msgpack_unpacked_destroy(&result);
+
+    return 0;
+}
+
+int object_put_into_kvdb(kvdb_t *kvdb, object_t *object)
+{
+    md5_value_t key_md5 = object->key_md5;
+
+    uint32_t nSlices = listLength(object->slices);
+
+    msgpack_sbuffer *sbuf = msgpack_sbuffer_new();
+    msgpack_packer *packer = msgpack_packer_new(sbuf, msgpack_sbuffer_write);
+
+    /* key_md5 */
+    msgpack_pack_array(packer, 4);
+    msgpack_pack_uint32(packer, object->key_md5.h0);
+    msgpack_pack_uint32(packer, object->key_md5.h1);
+    msgpack_pack_uint32(packer, object->key_md5.h2);
+    msgpack_pack_uint32(packer, object->key_md5.h3);
+
+    /* key */
+    uint32_t key_len = strlen(object->key);
+    msgpack_pack_raw(packer, key_len);
+    msgpack_pack_raw_body(packer, object->key, key_len);
+
+    /* object_size */
+    msgpack_pack_uint32(packer, object->object_size);
+
+    /* nSlices */
+    msgpack_pack_uint32(packer, nSlices);
+
+    char sz_key_md5[1024];
+    sprintf(sz_key_md5, "%2.2x%2.2x%2.2x%2.2x", key_md5.h0, key_md5.h1, key_md5.h2, key_md5.h3);
+    uint32_t key_md5_len = strlen(sz_key_md5);
+
+    int rc = kvdb_put(kvdb, sz_key_md5, key_md5_len, sbuf->data, sbuf->size);
+    msgpack_sbuffer_free(sbuf);
+    msgpack_packer_free(packer);
+
+    if ( rc != 0 ) {
+        error_log("Storage save key_md5 by kvdb_put() failed. key_md5=%s, key=%s, object_size=%d, slices=%d", sz_key_md5, object->key, object->object_size, nSlices);
+        return -1;
+    } else {
+        trace_log("Storage save key_md5 by kvdb_put() failed. key_md5=%s, key=%s, object_size=%d, slices=%d", sz_key_md5, object->key, object->object_size, nSlices);
+    }
+
+    uint32_t seq_num = 0;
+
+    listIter *iter = listGetIterator(object->slices, AL_START_HEAD);
+    listNode *node = NULL;
+    while ( (node = listNext(iter)) != NULL ){
+        slice_t *slice = (slice_t*)node->value;
+        char *buf = slice->byteblock.buf;
+        uint32_t buf_size = slice->byteblock.size;
+
+        char key[64];
+        sprintf(key, "%2.2x%2.2x%2.2x%2.2x-%08d", object->key_md5.h0, object->key_md5.h1, object->key_md5.h2, object->key_md5.h3, seq_num);
+
+        int rc = kvdb_put(kvdb, key, strlen(key), buf, buf_size);
+        if ( rc != 0 ) {
+            error_log("Storage save by kvdb_put() failed. key=%s seq_num=%d buf_size=%d", key, seq_num, buf_size);
+            return -1;
+        } else {
+            trace_log("Storage save by kvdb_put() OK. key=%s seq_num=%d buf_size=%d", key, seq_num, buf_size);
+        }
+    }
+    listReleaseIterator(iter);
+
+    return 0;
+}
+
+        /*uint32_t n;*/
+        /*for ( n = 0 ; n < object->nslices ; n++ ) {*/
+            /*char key[64];*/
+            /*sprintf(key, "%2.2x%2.2x%2.2x%2.2x-%08d", object->key_md5.h0, object->key_md5.h1, object->key_md5.h2, object->key_md5.h3, n);*/
+            /*char *buf = NULL;*/
+            /*uint32_t buf_size = 0;*/
+            /*int rc = kvdb_get(kvdb, sz_key_md5, key_md5_len, (void**)&buf, &buf_size);*/
+            /*if ( rc == 0 && buf != NULL && buf_size > 0 ){*/
+                /*zfree(buf);*/
+            /*} else {*/
+                /*error_log("kvdb_get() failed. key:%s, n=%d/%d", key, n, object->nSlices);*/
+                /*ret = -1;*/
+                /*break;*/
+            /*}*/
+
+        /*}*/
+
+object_t *object_get_from_kvdb(kvdb_t *kvdb, md5_value_t key_md5)
+{
+    UNUSED int object_found = 0;
+    object_t *object = NULL;
+
+    char sz_key_md5[1024];
+    sprintf(sz_key_md5, "%2.2x%2.2x%2.2x%2.2x", key_md5.h0, key_md5.h1, key_md5.h2, key_md5.h3);
+    uint32_t key_md5_len = strlen(sz_key_md5);
+
+    char *buf = NULL;
+    uint32_t buf_size = 0;
+    int rc = kvdb_get(kvdb, sz_key_md5, key_md5_len, (void**)&buf, &buf_size);
+    if ( rc == 0 && buf != NULL && buf_size > 0 ){
+        msgpack_unpacker unpacker;
+        msgpack_unpacker_init(&unpacker, buf_size);
+
+        msgpack_unpacker_reserve_buffer(&unpacker, buf_size);
+        memcpy(msgpack_unpacker_buffer(&unpacker), buf, buf_size);
+        msgpack_unpacker_buffer_consumed(&unpacker, buf_size);
+
+        object = object_new(NULL);
+
+
+        if ( unpack_object_key_md5(&unpacker, object) == 0 ){
+            if ( unpack_object_key(&unpacker, object) == 0 ){
+                if ( unpack_object_object_size(&unpacker, object) == 0 ){
+                    if ( unpack_object_nslices(&unpacker, object) == 0 ){
+                        object_found = 1;
+                    }
+                }
+            }
+        }
+
+        msgpack_unpacker_destroy(&unpacker);
+
+        zfree(buf);
+    }
+
+    return object;
+}
+
+int object_del_from_kvdb(kvdb_t *kvdb, md5_value_t key_md5)
+{
+    int ret = 0;
+    UNUSED int rc;
+
+    object_t *object = object_get_from_kvdb(kvdb, key_md5);
+    if ( object != NULL ){
+        char sz_key_md5[64];
+        sprintf(sz_key_md5, "%2.2x%2.2x%2.2x%2.2x", key_md5.h0, key_md5.h1, key_md5.h2, key_md5.h3);
+        uint32_t key_md5_len = strlen(sz_key_md5);
+
+        rc = kvdb_del(kvdb, sz_key_md5, key_md5_len);
+        if ( rc == 0 ){
+            uint32_t n;
+            for ( n = 0 ; n < object->nslices ; n++ ) {
+                char key[64];
+                sprintf(key, "%2.2x%2.2x%2.2x%2.2x-%08d", object->key_md5.h0, object->key_md5.h1, object->key_md5.h2, object->key_md5.h3, n);
+                uint32_t key_len = strlen(key);
+                int rc = kvdb_del(kvdb, key, key_len);
+                if ( rc == 0 ){
+                } else {
+                    error_log("kvdb_del() failed. key:%s, n=%d/%d", key, n, object->nslices);
+                    ret = -1;
+                    break;
+                }
+            }
+        }
+    } else {
+        ret = -1;
+    }
+
+    return ret;
 }
 
 /* -------------------- object_queue_t -------------------- */

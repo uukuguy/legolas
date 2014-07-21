@@ -24,12 +24,14 @@ void kvdb_lmdb_close(kvdb_t *kvdb);
 int kvdb_lmdb_put(kvdb_t *kvdb, void *key, uint32_t klen, void *value, uint32_t vlen);
 int kvdb_lmdb_get(kvdb_t *kvdb, void *key, uint32_t klen, void **ppVal, uint32_t *pnVal);
 int kvdb_lmdb_del(kvdb_t *kvdb, void *key, uint32_t klen);
+void kvdb_lmdb_flush(kvdb_t *kvdb);
 
 static const db_methods_t lmdb_methods = {
     kvdb_lmdb_close,
     kvdb_lmdb_put,
     kvdb_lmdb_get,
     kvdb_lmdb_del,
+    kvdb_lmdb_flush,
     undefined_transaction_function,
     undefined_transaction_function,
     undefined_transaction_function
@@ -75,9 +77,8 @@ kvdb_t *kvdb_lmdb_open(const char *dbpath)
         return NULL;
     }
 
-    /*if ( rc == 0 ) rc = mdb_env_open(lmdb->env, dbpath, MDB_NOSYNC|MDB_NOSUBDIR, 0640);*/
-    /*rc = mdb_env_open(lmdb->env, dbpath, MDB_WRITEMAP | MDB_NOTLS, 0640);*/
-    rc = mdb_env_open(lmdb->env, dbpath, MDB_NOSYNC | MDB_NOSUBDIR, 0640);
+    rc = mdb_env_open(lmdb->env, dbpath, MDB_MAPASYNC | MDB_WRITEMAP | MDB_NOTLS, 0640); 
+    /*rc = mdb_env_open(lmdb->env, dbpath, MDB_NOSYNC | MDB_WRITEMAP | MDB_NOTLS, 0640); */
     if ( rc != 0 ) {
         zfree(lmdb);
         error_log("mdb_env_open() failed.");
@@ -110,88 +111,99 @@ kvdb_t *kvdb_lmdb_open(const char *dbpath)
 }
 
 void kvdb_lmdb_close(kvdb_t *kvdb){
-  kvdb_lmdb_t *lmdb = (kvdb_lmdb_t*)kvdb;
+    kvdb_lmdb_t *lmdb = (kvdb_lmdb_t*)kvdb;
 
 
-  mdb_close(lmdb->env, lmdb->dbi);
-  mdb_env_close(lmdb->env);
-  zfree(lmdb);
+    mdb_close(lmdb->env, lmdb->dbi);
+    mdb_env_close(lmdb->env);
+    zfree(lmdb);
 }
 
 int kvdb_lmdb_put(kvdb_t *kvdb, void *key, uint32_t klen, void *value, uint32_t vlen)
 {
-  kvdb_lmdb_t *lmdb = (kvdb_lmdb_t*)kvdb;
+    kvdb_lmdb_t *lmdb = (kvdb_lmdb_t*)kvdb;
 
-  MDB_val m_val;
-  MDB_val m_key;
-  MDB_txn *txn;
+    MDB_val m_val;
+    MDB_val m_key;
+    MDB_txn *txn;
 
-  m_val.mv_size = vlen; 
-  m_val.mv_data = value;
-  m_key.mv_size = klen; 
-  m_key.mv_data = key;
+    m_val.mv_size = vlen; 
+    m_val.mv_data = value;
+    m_key.mv_size = klen; 
+    m_key.mv_data = key;
 
-  int rc = mdb_txn_begin(lmdb->env, NULL, 0, &txn);
-  if( rc==0 ){
-    rc = mdb_put(txn, lmdb->dbi, &m_key, &m_val, 0);
+    int rc = mdb_txn_begin(lmdb->env, NULL, 0, &txn);
     if( rc==0 ){
-      rc = mdb_txn_commit(txn);
-    }else{
-      mdb_txn_abort(txn);
+        rc = mdb_put(txn, lmdb->dbi, &m_key, &m_val, 0);
+        if( rc==0 ){
+            rc = mdb_txn_commit(txn);
+        }else{
+            mdb_txn_abort(txn);
+        }
     }
-  }
-  
-  return rc;
+
+    return rc;
 }
 
 int kvdb_lmdb_get(kvdb_t *kvdb, void *key, uint32_t klen, void **ppVal, uint32_t *pnVal)
 {
-  kvdb_lmdb_t *lmdb = (kvdb_lmdb_t*)kvdb;
+    kvdb_lmdb_t *lmdb = (kvdb_lmdb_t*)kvdb;
 
-  MDB_val m_key;
-  MDB_txn *txn;
+    MDB_val m_key;
+    MDB_txn *txn;
 
-  m_key.mv_size = klen;
-  m_key.mv_data = key;
+    m_key.mv_size = klen;
+    m_key.mv_data = key;
 
-  int rc = mdb_txn_begin(lmdb->env, NULL, MDB_RDONLY, &txn);
-  if( rc==0 ){
-    MDB_val m_val = {0, 0};
-    rc = mdb_get(txn, lmdb->dbi, &m_key, &m_val);
-    if( rc==MDB_NOTFOUND ){
-      rc = 0;
-      *ppVal = 0;
-      *pnVal = -1;
-    }else{
-      *ppVal = m_val.mv_data;
-      *pnVal = m_val.mv_size;
+    int rc = mdb_txn_begin(lmdb->env, NULL, MDB_RDONLY, &txn);
+    if( rc==0 ){
+        MDB_val m_val = {0, 0};
+        rc = mdb_get(txn, lmdb->dbi, &m_key, &m_val);
+        if( rc==MDB_NOTFOUND ){
+            rc = 0;
+            *ppVal = 0;
+            *pnVal = -1;
+        }else{
+            uint32_t nVal = m_val.mv_size;
+            char *pVal = m_val.mv_data;
+            char *result = (char*)zmalloc(nVal);
+            memcpy(result, pVal, nVal);
+            *ppVal = result;
+
+            *pnVal = nVal;
+        }
+        mdb_txn_commit(txn);
     }
-    mdb_txn_commit(txn);
-  }
 
-  return rc;
+    return rc;
 }
 
 int kvdb_lmdb_del(kvdb_t *kvdb, void *key, uint32_t klen)
 {
-  kvdb_lmdb_t *lmdb = (kvdb_lmdb_t*)kvdb;
+    kvdb_lmdb_t *lmdb = (kvdb_lmdb_t*)kvdb;
 
-  MDB_val m_key;
-  MDB_txn *txn;
+    MDB_val m_key;
+    MDB_txn *txn;
 
-  m_key.mv_size = klen; 
-  m_key.mv_data = key;
+    m_key.mv_size = klen; 
+    m_key.mv_data = key;
 
-  int rc = mdb_txn_begin(lmdb->env, NULL, 0, &txn);
-  if( rc==0 ){
-    rc = mdb_del(txn, lmdb->dbi, &m_key, 0);
+    int rc = mdb_txn_begin(lmdb->env, NULL, 0, &txn);
     if( rc==0 ){
-      rc = mdb_txn_commit(txn);
-    }else{
-      mdb_txn_abort(txn);
+        rc = mdb_del(txn, lmdb->dbi, &m_key, 0);
+        if( rc==0 ){
+            rc = mdb_txn_commit(txn);
+        }else{
+            mdb_txn_abort(txn);
+        }
     }
-  }
-  
-  return rc;
+
+    return rc;
+}
+
+void kvdb_lmdb_flush(kvdb_t *kvdb)
+{
+    kvdb_lmdb_t *lmdb = (kvdb_lmdb_t*)kvdb;
+    mdb_env_sync(lmdb->env, 1);
 }
 

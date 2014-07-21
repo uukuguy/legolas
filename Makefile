@@ -34,6 +34,7 @@ COMMON_CFLAGS += ${KVDB_CFLAGS}
 SERVER_OBJS = server/main.o \
 			  server/server.o \
 			  server/session.o \
+			  server/session_handle.o \
 			  server/session_handle_write.o \
 			  server/session_handle_read.o \
 			  server/session_handle_delete.o \
@@ -52,7 +53,7 @@ CLIENT_OBJS = client/main.o client/client.o client/client_write.o client/client_
 LIBUV=libuv-v0.11.22
 JEMALLOC=jemalloc-3.6.0
 LEVELDB=leveldb-1.15.0
-LIBLMDB=liblmdb-0.9.13
+LIBLMDB=liblmdb-0.9.14
 ROCKSDB=rocksdb-3.2
 LSM_SQLITE4=lsm-sqlite4
 ZEROMQ=zeromq-4.0.4
@@ -483,4 +484,7 @@ rm_result:
 2M: rm_result
 	ln -s ../data/2M.dat result/test.dat
 	@${MAKE} --no-print-directory check_result
+
+valgrind:
+	valgrind --leak-check=summary --xml=yes --xml-file="valgrind.xml" bin/legolasd
 

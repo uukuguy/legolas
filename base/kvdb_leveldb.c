@@ -20,7 +20,6 @@ typedef struct kvdb_leveldb_t {
     leveldb_options_t *pOpt;
     leveldb_writeoptions_t *pWriteOpt;
     leveldb_readoptions_t *pReadOpt;
-    char *pVal;
 } kvdb_leveldb_t;
 
 void kvdb_leveldb_close(kvdb_t *kvdb);
@@ -33,6 +32,7 @@ static const db_methods_t leveldb_methods = {
     kvdb_leveldb_put,
     kvdb_leveldb_get,
     kvdb_leveldb_del,
+    undefined_kvdb_function,
     undefined_transaction_function,
     undefined_transaction_function,
     undefined_transaction_function
@@ -69,9 +69,6 @@ void kvdb_leveldb_close(kvdb_t *kvdb){
   leveldb_writeoptions_destroy(leveldb->pWriteOpt);
   leveldb_readoptions_destroy(leveldb->pReadOpt);
   leveldb_options_destroy(leveldb->pOpt);
-  if ( leveldb->pVal != NULL ){
-      zfree(leveldb->pVal);
-  }
   zfree(kvdb);
 
 }
@@ -94,15 +91,11 @@ int kvdb_leveldb_get(kvdb_t *kvdb, void *key, uint32_t klen, void **ppVal, uint3
   char *szErr = NULL;
   size_t nVal = 0;
 
-  if ( leveldb->pVal != NULL ){
-      zfree(leveldb->pVal);
-      leveldb->pVal = NULL;
-  }
+  char *pVal = leveldb_get(leveldb->db, leveldb->pReadOpt, (const char *)key, klen, &nVal, &szErr);
 
-  leveldb->pVal = leveldb_get(leveldb->db, leveldb->pReadOpt, (const char *)key, klen, &nVal, &szErr);
-  *ppVal = (void *)(leveldb->pVal);
-  if( leveldb->pVal == NULL ){
-    *pnVal = -1;
+  if( pVal == NULL ){
+    *pnVal = 0;
+    return -1;
   }else{
     *pnVal = nVal;
   }
@@ -110,6 +103,9 @@ int kvdb_leveldb_get(kvdb_t *kvdb, void *key, uint32_t klen, void **ppVal, uint3
   if ( szErr ) {
       return -1;
   } else {
+      char *result = (char*)zmalloc(nVal);
+      memcpy(result, pVal, nVal);
+      *ppVal = result;
       return 0;
   }
 }

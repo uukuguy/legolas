@@ -19,7 +19,7 @@ extern int session_tx_on(session_t *session);
 extern void session_tx_off(session_t *session);
 
 extern int too_many_requests(session_t *session);
-extern int session_is_waiting(session_t *session);
+extern int session_is_idle(session_t *session);
 extern void session_finish_saving_buffer(session_t *session);
 
 extern void init_cob(conn_buf_t *cob);
@@ -31,7 +31,7 @@ extern conn_buf_t *dequeue_recv_queue(session_t *session);
 extern int session_response(session_t *session, char *buf, uint32_t buf_size);
 extern int session_send_data(session_t *session, char *buf, uint32_t buf_size, uv_write_cb after_write);
 
-extern void response_to_client(session_t *session, enum MSG_RESULT result); 
+extern void session_response_to_client(session_t *session, enum MSG_RESULT result); 
 
 extern int check_data_crc32(int requestid, msg_arg_t *argCRC32, msg_arg_t *argData);
 

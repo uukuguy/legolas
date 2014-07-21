@@ -44,6 +44,7 @@ static void on_connection(uv_stream_t *stream, int status)
 /* ==================== server_destroy() ==================== */ 
 void server_destroy(server_t *server)
 {
+    /* FIXME */
     exit_server_work_queue(server);
 
     int i;
@@ -170,7 +171,7 @@ int server_init(server_t *server)
 	pthread_mutex_init(&server->send_pending_lock, NULL);
 	pthread_cond_init(&server->send_pending_cond, NULL);
 
-    int r;
+    UNUSED int r;
 
     get_instance_parent_full_path(server->root_dir, NAME_MAX);
 
@@ -213,6 +214,7 @@ int server_init(server_t *server)
         server->logfiles[i] = logfile;
     }
 
+    /* FIXME */
     r = init_server_work_queue(server);
     if ( r != 0 ){
         error_log("init_server_work_queue() failed.");
