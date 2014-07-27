@@ -11,40 +11,13 @@
 #ifndef __PROTOCOL_H__
 #define __PROTOCOL_H__
 
-#include "common.h"
-#include "util.h"
-#include "zmalloc.h"
-
-#define PROTOCAL_VERSION 1
+#include "message.h"
 
 #define MSG_EVENT_NONE          0x00000000
 
 #define MSG_EVENT_CREATED       0x00000001
 #define MSG_EVENT_DELETED       0x00000002
 #define MSG_EVENT_CHANGED       0x00000004
-
-enum MSG_TYPE {
-    MSG_TYPE_UNKNOWN = 0,
-	MSG_TYPE_REQUEST,
-	MSG_TYPE_RESPONSE,
-	MSG_TYPE_NOTIFICATION
-};
-
-enum MSG_OPERATION {
-    MSG_OP_NONE = 0,
-	MSG_OP_WRITE,
-	MSG_OP_READ,
-	MSG_OP_DEL
-};
-
-enum MSG_RESULT {
-    RESULT_SUCCESS = 0,
-
-	/* unknown */
-	RESULT_ERR_UNKNOWN = 0x10,
-
-    RESULT_ERR_NOTFOUND = 0x20
-};
 
 /**
  * msg format :
@@ -59,8 +32,6 @@ enum MSG_RESULT {
  *   write(fd, arg2->size, sizeof(uint32_t));
  *   write(fd, arg2->data, sizeof(arg2->size));
  **/
-
-static const char magic_code[] = "legolas";
 
 
 /* -------------------- msg_header_t -------------------- */ 
@@ -78,6 +49,7 @@ typedef struct msg_header_t {
 
 	uint8_t         data[0];
 } msg_header_t;
+
 
 /* -------------------- msg_request_t -------------------- */ 
 #define REQ_FIELDS \

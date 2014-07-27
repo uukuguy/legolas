@@ -10,21 +10,21 @@
 
 #include "server.h"
 #include "session.h"
-#include "protocol.h"
+#include "message.h"
 #include "object.h"
 #include "logger.h"
 #include "vnode.h"
 #include "kvdb.h"
 
 /* ==================== parse_read_request() ==================== */ 
-int parse_read_request(session_t *session, msg_request_t *request, block_t *block)
+int parse_read_request(session_t *session, message_t *message, block_t *block)
 {
     /* -------- message args -------- */
-    msg_arg_t *arg = (msg_arg_t*)request->data;
-    block->id = request->id;
+    message_arg_t *arg = (message_arg_t*)message->data;
+    block->id = message->id;
 
     /* -------- argKey -------- */
-    msg_arg_t *argKey = arg;
+    message_arg_t *argKey = arg;
     if ( argKey->size > 0 ) {
         uint32_t keylen = argKey->size < NAME_MAX - 1 ? argKey->size : NAME_MAX - 1;
         memcpy(block->key, argKey->data, keylen);
@@ -36,7 +36,7 @@ int parse_read_request(session_t *session, msg_request_t *request, block_t *bloc
     }
 
     /* -------- argMd5 -------- */
-    msg_arg_t *argMd5 = next_arg(argKey);
+    message_arg_t *argMd5 = message_next_arg(argKey);
     memcpy(&block->key_md5, argMd5->data, sizeof(md5_value_t));
 
     block->id = 0;
@@ -47,38 +47,98 @@ int parse_read_request(session_t *session, msg_request_t *request, block_t *bloc
     return 0;
 }
 
-UNUSED static void after_response_to_read(uv_write_t *write_rsp, int status) 
+typedef struct response_data_t {
+    session_t *session;
+    kvdb_t *kvdb;
+    object_t *object;
+    uint32_t seq_num;
+} response_data_t;
+
+void response_object_slices(response_data_t *response_data);
+
+static void after_response_to_read(uv_write_t *write_rsp, int status) 
 {
-    /*session_t *session = (session_t*)write_rsp->data;*/
-    /*uv_async_send(&session->async_handle);*/
+    /*response_data_t *response_data = (response_data_t*)write_rsp->data;*/
+
+    /*object_t *object = response_data->object;*/
+    /*uint32_t seq_num = response_data->seq_num;*/
+    /*if ( seq_num < object->nslices ){*/
+        /*response_object_slices(response_data);*/
+    /*}*/
+
     zfree(write_rsp);
 }
 
-static void response_to_read(session_t *session, block_t *block, object_t *object)
+void response_object_slices(response_data_t *response_data) 
 {
-    msg_response_t *response;
-    uint32_t msg_size = 0;
+    session_t *session = response_data->session;
+    kvdb_t *kvdb = response_data->kvdb;
+    object_t *object = response_data->object;
+    uint32_t seq_num = response_data->seq_num;
+
+    char *buf = NULL;
+    uint32_t buf_size = 0;
+    int rc = object_get_slice_from_kvdb(kvdb, object->key_md5, seq_num, (void**)&buf, &buf_size);
+    if ( rc == 0 ) {
+        if ( seq_num == object->nslices - 1 ){
+            message_t *response = alloc_response_message(0, RESULT_SUCCESS);
+            response = add_message_arg(response, object->key, object->key != NULL ? strlen(object->key) : 0 );
+            response = add_message_arg(response, &object->object_size, sizeof(object->object_size));
+            /*response = add_message_arg(response, &seq_num, sizeof(seq_num));*/
+            /*response = add_message_arg(response, &object->nslices, sizeof(object->nslices));*/
+            /*response = add_message_arg(response, buf, buf_size);*/
+            uint32_t msg_size = sizeof(message_t) + response->data_length;
+
+            session_send_data(session, (char *)response, msg_size, (void*)response_data, after_response_to_read);
+        }
+
+        zfree(buf);
+
+    } else {
+        error_log("object_get_slice_from_kvdb() failure.");
+    }
+}
+
+static void response_to_read(session_t *session, block_t *block, object_t *object, kvdb_t *kvdb)
+{
 
     if ( object != NULL ){
-        response = alloc_response(0, RESULT_SUCCESS);
-        response = add_response_arg(response, object->key, object->key != NULL ? strlen(object->key) : 0 );
-        response = add_response_arg(response, &object->object_size, sizeof(object->object_size));
-        msg_size = sizeof(msg_response_t) + response->data_length;
+        /* FIXME */
+        response_data_t response_data;
+        response_data.session = session;
+        response_data.kvdb = kvdb;
+        response_data.object = object;
+
+        uint32_t n;
+        for ( n = 0 ; n < object->nslices ; n++ ){
+            response_data.seq_num = n;
+            response_object_slices(&response_data);
+        }
+
+
+        /*message_t *response = alloc_response_message(0, RESULT_SUCCESS);*/
+        /*response = add_message_arg(response, object->key, object->key != NULL ? strlen(object->key) : 0 );*/
+        /*response = add_message_arg(response, &object->object_size, sizeof(object->object_size));*/
+        /*uint32_t msg_size = sizeof(message_t) + response->data_length;*/
+
+        /*[>notice_log("FOUND key=%s object_size=%d", object->key, object->object_size);<]*/
+        /*session_send_data(session, (char *)response, msg_size, (void*)response, after_response_to_read);*/
+
+        /*zfree(response);*/
     } else {
-        response = alloc_response(0, RESULT_ERR_NOTFOUND);
+        message_t *response = alloc_response_message(0, RESULT_ERR_NOTFOUND);
         warning_log("key:%s NOT FOUND.", block->key);
-        response = add_response_arg(response, block->key, strlen(block->key));
-        msg_size = sizeof(msg_response_t) + response->data_length;
+        response = add_message_arg(response, block->key, strlen(block->key));
+        uint32_t msg_size = sizeof(message_t) + response->data_length;
+
+        session_response_data(session, (char *)response, msg_size);
+
+        zfree(response);
     }
-
-    session_response(session, (char *)response, msg_size);
-    /*session_send_data(session, (char *)response, msg_size, after_response_to_read);*/
-
-    zfree(response);
 }
 
 /* ==================== session_handle_read() ==================== */ 
-int session_handle_read(session_t *session, msg_request_t *request)
+int session_handle_read(session_t *session, message_t *request)
 {
     /** ----------------------------------------
      *    Parse request
@@ -92,13 +152,13 @@ int session_handle_read(session_t *session, msg_request_t *request)
 
 #ifdef STORAGE_LSM
 
-    vnode_t *vnode = get_vnode_by_key(session->server, &block.key_md5);
+    vnode_t *vnode = get_vnode_by_key(SERVER(session), &block.key_md5);
 
     if ( vnode != NULL ) {
 
         object_t *object = object_get_from_kvdb(vnode->kvdb, block.key_md5);
 
-        response_to_read(session, &block, object);
+        response_to_read(session, &block, object, vnode->kvdb);
 
         if ( object != NULL ){
             object_free(object);

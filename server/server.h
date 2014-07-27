@@ -4,6 +4,7 @@
 #include "common.h"
 #include "storage.h"
 #include "work.h"
+#include "session.h"
 #include <uv.h>
 
 #define RECV_THREADS 4 
@@ -23,8 +24,10 @@ typedef struct logfile_t logfile_t;
 typedef struct md5_value_t md5_value_t;
 
 typedef struct server_t {
+    connection_t connection;
+
     unsigned int idle_timeout;  /* Connection idle timeout in ms. */
-    uv_tcp_t tcp_handle;
+
 
     work_queue_t *recv_queue[RECV_THREADS];
     work_queue_t *send_queue[SEND_THREADS];
@@ -42,8 +45,14 @@ typedef struct server_t {
     pthread_mutex_t send_pending_lock;
     pthread_cond_t send_pending_cond;
 
+
 } server_t;
 
+#define SERVER(session) \
+    (server_t*)(session->parent)
+
+server_t *server_new(void);
+void server_free(server_t *server);
 
 vnode_t *get_vnode_by_key(server_t *server, md5_value_t *key_md5);
 logfile_t *get_logfile_by_session(server_t *server, session_t *session);

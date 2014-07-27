@@ -19,11 +19,18 @@
 #include "common.h"
 #include "logfile.h"
 
-void empty_server(server_t *server);
 int server_init(server_t *server);
 int init_server_work_queue(server_t *server);
 int exit_server_work_queue(server_t *server);
 
+/* in session_handle.c */
+void session_idle_cb(uv_idle_t *idle_handle, int status);
+void session_timer_cb(uv_timer_t *timer_handle, int status);
+void session_async_cb(uv_async_t *async_handle, int status);
+int session_is_idle(session_t *session);
+int session_handle_message(session_t *session, message_t *message);
+int session_init(session_t *session);
+void session_destroy(session_t *session);
 
 /* ==================== on_connection() ==================== */ 
 static void on_connection(uv_stream_t *stream, int status)
@@ -31,9 +38,23 @@ static void on_connection(uv_stream_t *stream, int status)
     server_t *server= (server_t*)stream->data;
 
     /* -------- create_session -------- */
-    session_t *session = create_session(server);
+    session_callbacks_t callbacks = {
+        session_idle_cb,
+        session_timer_cb,
+        session_async_cb,
+        session_is_idle,
+        session_handle_message,
+        session_init,
+        session_destroy
+    };
+    session_t *session = session_new((void*)server, callbacks);
     if ( session == NULL ){
-        error_log("create_session() failed. session == NULL.");
+        error_log("session_new() failed. session == NULL.");
+        return;
+    }
+    int ret = session_accept(session, &server->connection.handle.tcp);
+    if ( ret != 0 ) {
+        error_log("session_accept() failed. ret=%d", ret);
         return;
     }
 
@@ -41,8 +62,21 @@ static void on_connection(uv_stream_t *stream, int status)
 
 }
 
-/* ==================== server_destroy() ==================== */ 
-void server_destroy(server_t *server)
+/* ==================== server_new() ==================== */ 
+server_t *server_new(void)
+{
+    server_t *server= (server_t*)zmalloc(sizeof(server_t));
+    memset(server, 0, sizeof(server_t));
+
+    server->cached_bytes = 0;
+
+    connection_init(&server->connection);
+
+    return server;
+}
+
+/* ==================== server_free() ==================== */ 
+void server_free(server_t *server)
 {
     /* FIXME */
     exit_server_work_queue(server);
@@ -65,6 +99,8 @@ void server_destroy(server_t *server)
         }
     }
 
+    connection_destroy(&server->connection);
+
     pthread_mutex_destroy(&server->send_pending_lock);
     pthread_cond_destroy(&server->send_pending_cond);
 
@@ -76,11 +112,6 @@ int start_listen(int listen_port, const char *data_dir)
 {
     int r;
 
-    /* -------- loop -------- */
-    uv_loop_t session_loop;
-    uv_loop_init(&session_loop);
-    uv_loop_t *loop = &session_loop;
-
     /* -------- server_addr -------- */
     struct sockaddr_in server_addr;
     r = uv_ip4_addr("0.0.0.0", listen_port, &server_addr);
@@ -90,22 +121,24 @@ int start_listen(int listen_port, const char *data_dir)
     }
 
     /* -------- server-------- */
-    server_t *server= (server_t*)zmalloc(sizeof(server_t));
-    empty_server(server);
+    server_t *server = server_new();
 
     if ( server_init(server) != 0 ){
         error_log("server_init() failed.");
         return -1;
     }
 
+    /* -------- loop -------- */
+    uv_loop_t *loop = &server->connection.loop;
+
     /* -------- tcp_handle -------- */
-    uv_tcp_t *tcp_handle = &server->tcp_handle;
+    uv_tcp_t *tcp_handle = &server->connection.handle.tcp;
 
     /* -------- uv_tcp_init -------- */
     r = uv_tcp_init(loop, tcp_handle);
     if ( r ) {
         error_log("uv_tcp_init() failed.");
-        server_destroy(server);
+        server_free(server);
         return -1;
     }
     tcp_handle->data = server;
@@ -114,7 +147,7 @@ int start_listen(int listen_port, const char *data_dir)
     r = uv_tcp_bind(tcp_handle, (const struct sockaddr*)&server_addr, 0);
     if ( r ) {
         error_log("uv_tcp_bind() failed.");
-        server_destroy(server);
+        server_free(server);
         return -1;
     }
 
@@ -122,7 +155,7 @@ int start_listen(int listen_port, const char *data_dir)
     r = uv_listen((uv_stream_t*)tcp_handle, SOMAXCONN, on_connection);
     if ( r ) {
         error_log("uv_listen() failed.");
-        server_destroy(server);
+        server_free(server);
         return -1;
     }
 
@@ -132,7 +165,7 @@ int start_listen(int listen_port, const char *data_dir)
     r = uv_run(loop, UV_RUN_DEFAULT);
     if ( r ) {
         error_log("uv_run() failed.");
-        server_destroy(server);
+        server_free(server);
         return -1;
     }
 
@@ -142,7 +175,7 @@ int start_listen(int listen_port, const char *data_dir)
     /*close_loop(loop);      */
     /*uv_loop_delete(loop);  */
 
-    server_destroy(server);
+    server_free(server);
 
     notice_log("Server exit.");
 
@@ -157,12 +190,6 @@ int start_listen(int listen_port, const char *data_dir)
 
 void recv_queue_handle_request(work_queue_t *wq);
 void send_queue_handle_response(work_queue_t *wq);
-
-void empty_server(server_t *server)
-{
-    memset(server, 0, sizeof(server_t));
-    server->cached_bytes = 0;
-}
 
 int server_init(server_t *server)
 {
@@ -224,12 +251,26 @@ int server_init(server_t *server)
     return 0;
 }
 
-/*pthread_key_t key_actived_cob;*/
+/*pthread_key_t key_actived_sockbuf;*/
+
+/* ==================== recv_queue_handle_request() ==================== */ 
+/**
+ * Running in a thread in recv_queue.
+ * One thread per session and many sessions per thread.
+ */
+void recv_queue_process_sockbuf(sockbuf_t *sockbuf);
+void recv_queue_handle_request(work_queue_t *wq)
+{
+    void *nodeData = NULL;
+    while ( (nodeData = dequeue_work(wq)) != NULL ){
+       recv_queue_process_sockbuf((sockbuf_t*)nodeData);
+    }
+}
 
 /* ==================== init_server_work_queue() ==================== */ 
 int init_server_work_queue(server_t *server)
 {
-    /*pthread_key_create(&key_actived_cob, NULL);*/
+    /*pthread_key_create(&key_actived_sockbuf, NULL);*/
 
 	int i;
 
@@ -272,7 +313,7 @@ int exit_server_work_queue(server_t *server)
         }
     }
 
-    /*pthread_key_delete(key_actived_cob);*/
+    /*pthread_key_delete(key_actived_sockbuf);*/
 
     return 0;
 }
@@ -314,3 +355,26 @@ work_queue_t *get_send_queue_by_session(server_t *server, session_t *session)
     return server->send_queue[idx];
 }
 
+/* ==================== enqueue_recv_queue() ==================== */ 
+void enqueue_recv_queue(session_t *session, sockbuf_t *sockbuf)
+{
+    __sync_add_and_fetch(&session->total_received_buffers, 1);
+
+    work_queue_t *wq = get_recv_queue_by_session(SERVER(session), session);
+
+    if ( wq != NULL ) {
+        enqueue_work(wq, (void*)sockbuf);
+    }
+}
+
+/* ==================== dequeue_recv_queue() ==================== */ 
+sockbuf_t *dequeue_recv_queue(session_t *session)
+{
+    work_queue_t *wq = get_recv_queue_by_session(SERVER(session), session);
+
+    if ( wq != NULL ) {
+        return dequeue_work(wq);
+    }
+
+    return NULL;
+}

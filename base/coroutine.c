@@ -113,15 +113,20 @@ static co_thread_state_t *coroutine_get_thread_state(void)
 
 static void coroutine_thread_cleanup(void *opaque)
 {
-	co_thread_state_t *s = (co_thread_state_t*)opaque;
-	coroutine_t *co;
-	coroutine_t *tmp;
+	/*co_thread_state_t *s = (co_thread_state_t*)opaque;*/
+	/*coroutine_t *co;*/
+	/*coroutine_t *tmp;*/
 
-	list_for_each_entry_safe(co, tmp, &s->pool, pool_next) {
-		free(container_of(co, co_ucontext_t, base)->stack);
-		free(co);
-	}
-	free(s);
+    /*list_for_each_entry_safe(co, tmp, &s->pool, pool_next) {*/
+        /*co_ucontext_t *ucontext = container_of(co, co_ucontext_t, base);*/
+        /*void *stack = ucontext->stack;*/
+
+        /*[>void *stack = container_of(co, co_ucontext_t, base)->stack;<]*/
+        /*free(stack);*/
+        /*free(co);*/
+    /*}*/
+
+	/*free(s);*/
 }
 
 static void __attribute__((constructor)) coroutine_init(void)
@@ -259,12 +264,12 @@ void coroutine_delete(coroutine_t *co_)
 	error_log("%d bytes are consumed\n", get_stack_size(co));
 #endif
 
-	if (s->pool_size < POOL_MAX_SIZE) {
-		list_add(&co->base.pool_next, &s->pool);
-		co->base.caller = NULL;
-		s->pool_size++;
-		return;
-	}
+    if (s->pool_size < POOL_MAX_SIZE) {
+        list_add(&co->base.pool_next, &s->pool);
+        co->base.caller = NULL;
+        s->pool_size++;
+        return;
+    }
 
 	zfree(co->stack);
 	zfree(co);

@@ -10,7 +10,7 @@
 
 #include "server.h"
 #include "session.h"
-#include "protocol.h"
+#include "message.h"
 #include "object.h"
 #include "logger.h"
 #include "vnode.h"
@@ -18,15 +18,15 @@
 #include <msgpack.h>
 
 /* ==================== parse_write_request() ==================== */ 
-int parse_write_request(session_t *session, msg_request_t *request, block_t *block)
+int parse_write_request(session_t *session, message_t *request, block_t *block)
 {
     /* -------- message args -------- */
-    msg_arg_t *arg = (msg_arg_t*)request->data;
-    msg_arg_t *argCRC32 = NULL;
+    message_arg_t *arg = (message_arg_t*)request->data;
+    message_arg_t *argCRC32 = NULL;
     block->id = request->id;
     /*if ( request->id == 0 ) {*/
         /* -------- argKey -------- */
-        msg_arg_t *argKey = arg;
+        message_arg_t *argKey = arg;
         if ( argKey->size > 0 ) {
             uint32_t keylen = argKey->size < NAME_MAX - 1 ? argKey->size : NAME_MAX - 1;
             memcpy(block->key, argKey->data, keylen);
@@ -38,31 +38,31 @@ int parse_write_request(session_t *session, msg_request_t *request, block_t *blo
         }
 
         /* -------- argMd5 -------- */
-        msg_arg_t *argMd5 = next_arg(argKey);
+        message_arg_t *argMd5 = message_next_arg(argKey);
         memcpy(&block->key_md5, argMd5->data, sizeof(md5_value_t));
 
         /* -------- argFileSize -------- */
-        msg_arg_t *argFileSize = next_arg(argMd5);
+        message_arg_t *argFileSize = message_next_arg(argMd5);
         block->object_size = *((uint32_t*)argFileSize->data);
 
-        /*trace_log("\n~~~~~~~~ fd(%d) block(%d) ~~~~~~~~\n Try to open new file. \n key=%s object_size=%d\n", session_fd(session), cob->blockid, argKey->data, object_size);*/
+        /*trace_log("\n~~~~~~~~ fd(%d) block(%d) ~~~~~~~~\n Try to open new file. \n key=%s object_size=%d\n", session_fd(session), sockbuf->blockid, argKey->data, object_size);*/
 
         /* -------- argCRC32 -------- */
-        argCRC32 = next_arg(argFileSize);
+        argCRC32 = message_next_arg(argFileSize);
     /*} else {*/
         /*argCRC32 = arg;*/
     /*}*/
 
-    msg_arg_t *argData = next_arg(argCRC32);
+    message_arg_t *argData = message_next_arg(argCRC32);
 
-    /*debug_log("fd(%d) block(%d) argData: size=%d", session_fd(session), cob->blockid, argData->size);*/
+    /*debug_log("fd(%d) block(%d) argData: size=%d", session_fd(session), sockbuf->blockid, argData->size);*/
     if ( argData->size > 0 ) {
         /**
          * Check data md5 value.
          */
 
         if ( check_data_crc32(request->id, argCRC32, argData) != 0 ){
-            error_log("fd(%d) request_id(%d) Check buffer crc32 failed.", session_fd(session), request->id);
+            error_log("fd(%d) request message id(%d) Check buffer crc32 failed.", session_fd(session), request->id);
             return -1;
         }
     } 
@@ -76,7 +76,7 @@ int parse_write_request(session_t *session, msg_request_t *request, block_t *blo
 /* ==================== response_to_write() ==================== */ 
 void response_to_write(session_t *session, enum MSG_RESULT result)
 {
-    session_response_to_client(session, result);
+    session_response(session, result);
 }
 
 #ifdef STORAGE_LSM
@@ -184,7 +184,7 @@ object_t *session_write_block(session_t *session, block_t *block)
 
     char *write_buf = block->data;
 
-    vnode_t *vnode = get_vnode_by_key(session->server, &block->key_md5);
+    vnode_t *vnode = get_vnode_by_key(SERVER(session), &block->key_md5);
     assert(vnode != NULL);
 
     object_t *object = write_to_cache(vnode->caching_objects, block->id, block->key, block->key_md5, block->object_size, write_buf, write_bytes);
@@ -204,7 +204,7 @@ object_t *session_write_block(session_t *session, block_t *block)
 }
 
 /* ==================== session_handle_write() ==================== */ 
-int session_handle_write(session_t *session, msg_request_t *request)
+int session_handle_write(session_t *session, message_t *request)
 {
     block_t block;
 
@@ -241,7 +241,7 @@ int session_handle_write(session_t *session, msg_request_t *request)
      *    Write block!
      *  ---------------------------------------- */
 
-    /*trace_log("fd(%d) block(%d) argData: size=%d", session_fd(session), cob->blockid, argData->size);*/
+    /*trace_log("fd(%d) block(%d) argData: size=%d", session_fd(session), sockbuf->blockid, argData->size);*/
 
     object_t *object = session_write_block(session, &block); 
     if (  object == NULL ) {
@@ -257,7 +257,7 @@ int session_handle_write(session_t *session, msg_request_t *request)
 
     if ( session->total_writed >= block.object_size ){
 #ifdef STORAGE_LSM
-        vnode_t *vnode = get_vnode_by_key(session->server, &block.key_md5);
+        vnode_t *vnode = get_vnode_by_key(SERVER(session), &block.key_md5);
         write_to_kvdb(object, vnode);
 
         /*object_queue_remove(vnode->caching_objects, object);*/

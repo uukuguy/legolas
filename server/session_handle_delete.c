@@ -10,21 +10,21 @@
 
 #include "server.h"
 #include "session.h"
-#include "protocol.h"
+#include "message.h"
 #include "object.h"
 #include "logger.h"
 #include "kvdb.h"
 #include "vnode.h"
 
 /* ==================== parse_delete_request() ==================== */ 
-int parse_delete_request(session_t *session, msg_request_t *request, block_t *block)
+int parse_delete_request(session_t *session, message_t *request, block_t *block)
 {
     /* -------- message args -------- */
-    msg_arg_t *arg = (msg_arg_t*)request->data;
+    message_arg_t *arg = (message_arg_t*)request->data;
     block->id = request->id;
 
     /* -------- argKey -------- */
-    msg_arg_t *argKey = arg;
+    message_arg_t *argKey = arg;
     if ( argKey->size > 0 ) {
         uint32_t keylen = argKey->size < NAME_MAX - 1 ? argKey->size : NAME_MAX - 1;
         memcpy(block->key, argKey->data, keylen);
@@ -34,7 +34,7 @@ int parse_delete_request(session_t *session, msg_request_t *request, block_t *bl
     }
 
     /* -------- argMd5 -------- */
-    msg_arg_t *argMd5 = next_arg(argKey);
+    message_arg_t *argMd5 = message_next_arg(argKey);
     memcpy(&block->key_md5, argMd5->data, sizeof(md5_value_t));
 
     block->id = 0;
@@ -52,18 +52,17 @@ UNUSED static void after_response_to_delete(uv_write_t *write_rsp, int status)
 
 void response_to_delete(session_t *session, enum MSG_RESULT result)
 {
-    msg_response_t *response = alloc_response(0, result);
+    message_t *response = alloc_response_message(0, result);
 
-    uint32_t msg_size = sizeof(msg_response_t) + response->data_length;
+    uint32_t msg_size = sizeof(message_t) + response->data_length;
 
-    session_response(session, (char *)response, msg_size);
-    /*session_send_data(session, (char *)response, msg_size, after_response_to_delete);*/
+    session_response_data(session, (char *)response, msg_size);
 
     zfree(response);
 }
 
 /* ==================== session_handle_delete() ==================== */ 
-int session_handle_delete(session_t *session, msg_request_t *request)
+int session_handle_delete(session_t *session, message_t *request)
 {
     /** ----------------------------------------
      *    Parse request
@@ -75,7 +74,7 @@ int session_handle_delete(session_t *session, msg_request_t *request)
         return -1;
     }
 
-    vnode_t *vnode = get_vnode_by_key(session->server, &block.key_md5);
+    vnode_t *vnode = get_vnode_by_key(SERVER(session), &block.key_md5);
 
     int object_deleted = 0;
     if ( vnode != NULL ) {

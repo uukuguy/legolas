@@ -10,8 +10,9 @@
 
 #include "common.h"
 #include "legolas.h"
-#include "protocol.h"
+#include "message.h"
 #include "daemon.h"
+#include "client.h"
 
 static char program_name[] = "legolas";
 static int msec0, msec1;
@@ -19,62 +20,57 @@ static int msec0, msec1;
 /*UNUSED static sem_t sem;*/
 
 typedef struct{
-    const char *server;
+    int id;
+
+    const char *ip;
     int port;
-    const char *key;
-    const char *file;
     int op_code;
+    const char *key;
+    const char *filename;
+    int total_files;
+
     int is_daemon;
     int log_level;
     int threads;
-    int id;
-    int total_files;
 } program_options_t;
+    
+typedef struct thread_args_t {
+    int id;
+    client_t *client;
+} thread_args_t;
 
-int start_connect(int clientid, const char *server, int port, int op_code, const char *key, const char *file, int total_files); 
+/*int start_connect(int session_id, const char *ip, int port, int op_code, const char *key, const char *file, int total_files); */
+int start_connect(client_t *client, int session_id);
 /* ==================== client_thread() ==================== */ 
 static void* client_thread(void *arg)
 {
-    program_options_t *program_options = (program_options_t*)arg;
-
-    int id = program_options->id;
-    const char *server = program_options->server;
-    int port = program_options->port;
-    int op_code = program_options->op_code;
-    const char *key = program_options->key;
-    const char *file = program_options->file;
-    int total_files = program_options->total_files;
-
-    /*notice_log("enter client_thread(). id:%d", id);*/
-
+    thread_args_t *t_args = (thread_args_t*)arg;
     UNUSED int ret;
-    ret = start_connect(id, server, port, op_code, key, file, total_files);
-
-    /*notice_log("Ready to exit client_thread(). clientid:%d", id);*/
+    ret = start_connect(t_args->client, t_args->id);
 
     return NULL;
 }
 
 /* ==================== start_client_threads() ==================== */ 
-int start_client_threads(program_options_t *program_options)
+int start_client_threads(client_t *client)
 {
     int ret = 0;
-    int threads = program_options->threads;
+    int threads = client->nthreads;
 
     /*sem_init(&sem, 0, threads);*/
 
     /* -------- Create threads -------- */
     pthread_t tid[threads];
-    program_options_t po[threads];
+    thread_args_t t_args[threads];
     int i;
     for ( i = 0 ; i < threads ; i++ ){
         /*pthread_attr_t attr;*/
         /*pthread_attr_init(&attr);*/
         /*phread_attr_setdetachstate(&attr, PTHREAD_CREATE_DETACHED);*/
 
-        memcpy(&po[i], program_options, sizeof(program_options_t));
-        po[i].id = i;
-        ret = pthread_create(&tid[i], NULL, client_thread, &po[i]);
+        t_args[i].id = i;
+        t_args[i].client = client;
+        ret = pthread_create(&tid[i], NULL, client_thread, &t_args[i]);
         /*pthread_attr_destroy(&attr);*/
         if ( ret != 0 ){
             error_log("pthread_create() thread:%d failed. errno:%d", i, errno);
@@ -104,18 +100,10 @@ int start_client_threads(program_options_t *program_options)
 }
 
 /* ==================== start_client_normal() ==================== */ 
-int start_client_normal(program_options_t *program_options)
+/*int start_client_normal(program_options_t *program_options)*/
+int start_client_normal(client_t *client)
 {
-    const char *server = program_options->server;
-    int port = program_options->port;
-    const char *file = program_options->file;
-    const char *key = program_options->key;
-    int op_code = program_options->op_code;
-    int total_files = program_options->total_files;
-
-    int ret;
-    ret = start_connect(0, server, port, op_code, key, file, total_files);
-    return ret;
+    return start_connect(client, 0);
 }
 
 /* ==================== runclient() ==================== */ 
@@ -139,14 +127,25 @@ int runclient(program_options_t *program_options)
     gettimeofday(&tv, NULL); 
     msec0 = tv.tv_sec * 1000 + tv.tv_usec / 1000; 
 
+    /* ---------- New client ---------- */
+    client_t *client = client_new(program_options->ip, 
+            program_options->port, 
+            program_options->op_code,  
+            program_options->key, 
+            program_options->filename, 
+            program_options->total_files,
+            program_options->threads);
+
     /* -------- start_client (normal or thread)-------- */
 
     int ret;
     if ( program_options->threads > 0 ){
-        ret = start_client_threads(program_options);
+        ret = start_client_threads(client);
     } else {
-        ret = start_client_normal(program_options);
+        ret = start_client_normal(client);
     }
+
+    client_free(client);
 
     /* -------- End Timing -------- */
     gettimeofday(&tv, NULL); 
@@ -220,9 +219,9 @@ int main(int argc, char *argv[])
 {
     program_options_t program_options;
 
-    program_options.server = "127.0.0.1";
+    program_options.ip = "127.0.0.1";
 	program_options.port = DEFAULT_PORT;
-    program_options.file = "data/32K.dat";
+    program_options.filename = "data/32K.dat";
     program_options.key = "default";
     program_options.threads = 0;
     program_options.is_daemon = 0;
@@ -234,7 +233,7 @@ int main(int argc, char *argv[])
 				 &longindex)) >= 0) {
 		switch (ch) {
 		case 's':
-			program_options.server = optarg;
+			program_options.ip = optarg;
 			break;
 		case 'p':
 			program_options.port = atoi(optarg);
@@ -282,7 +281,7 @@ int main(int argc, char *argv[])
 	}
 
 	if (optind != argc)
-		program_options.file = argv[optind];
+		program_options.filename = argv[optind];
 
     return runclient(&program_options);
 

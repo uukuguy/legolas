@@ -1,7 +1,7 @@
 SERVER = bin/legolasd
 CLIENT = bin/legolas
 
-LEGOLAS_OBJS = legolas/legolas.o legolas/protocol.o 
+LEGOLAS_OBJS = legolas/legolas.o legolas/message.o 
 
 BASE_OBJS = base/logger.o base/daemon.o base/coroutine.o
 BASE_OBJS += base/zmalloc.o base/work.o base/md5.o base/byteblock.o base/filesystem.o
@@ -33,12 +33,12 @@ COMMON_CFLAGS += ${KVDB_CFLAGS}
 
 SERVER_OBJS = server/main.o \
 			  server/server.o \
-			  server/session.o \
+			  legolas/session.o \
+			  legolas/session_sockbuf_message.o \
 			  server/session_handle.o \
 			  server/session_handle_write.o \
 			  server/session_handle_read.o \
 			  server/session_handle_delete.o \
-			  server/session_recv.o \
 			  server/session_send.o \
 			  server/operation.o \
 			  server/storage.o \
@@ -47,7 +47,14 @@ SERVER_OBJS = server/main.o \
 			  server/logfile.o \
 			  server/object.o
 
-CLIENT_OBJS = client/main.o client/client.o client/client_write.o client/client_read.o client/client_delete.o
+CLIENT_OBJS = client/main.o \
+			  client/client.o \
+			  legolas/session.o \
+			  legolas/session_sockbuf_message.o \
+			  client/client_write.o \
+			  client/client_read.o \
+			  client/client_delete.o \
+			  client/client_session_handle.o
 
 
 LIBUV=libuv-v0.11.22

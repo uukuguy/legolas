@@ -11,28 +11,28 @@
 #include "operation.h"
 #include "logger.h"
 
-static int exec_read_request(const msg_request_t *request, msg_response_t **rsp, session_t *session){
+static int exec_read_request(const message_t *request, message_t **rsp, session_t *session){
     int ret = 0;
 
     return ret;
 }
 
-static int exec_write_request(const msg_request_t *request, msg_response_t **rsp, session_t *session){
+static int exec_write_request(const message_t *request, message_t **rsp, session_t *session){
     int ret = 0;
 
     return ret;
 }
 
-static int exec_del_request(const msg_request_t *request, msg_response_t **rsp, session_t *session){
+static int exec_del_request(const message_t *request, message_t **rsp, session_t *session){
     int ret = 0;
 
     return ret;
 }
 
-static void notify_write_event(const msg_request_t *request){
+static void notify_write_event(const message_t *request){
 }
 
-static void notify_del_event(const msg_request_t *request){
+static void notify_del_event(const message_t *request){
 }
 
 static struct operation_handler_t operations[] = {

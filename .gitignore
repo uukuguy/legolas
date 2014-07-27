@@ -1,3 +1,6 @@
+bin/*
+data/*
+deps/*/*
 *.beam
 .eunit
 apps/legolas/ebin

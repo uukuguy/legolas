@@ -10,7 +10,7 @@
 
 #include "server.h"
 #include "session.h"
-#include "protocol.h"
+#include "message.h"
 #include "md5.h"
 #include "uv.h"
 #include "coroutine.h"
@@ -61,17 +61,17 @@ void* session_tx_coroutine(void *opaque)
     return NULL;
 }
 
-/* ==================== send_queue_process_cob() ==================== */ 
-void send_queue_process_cob(conn_buf_t *cob)
+/* ==================== send_queue_process_sockbuf() ==================== */ 
+void send_queue_process_sockbuf(sockbuf_t *sockbuf)
 {
-    session_t *session = cob->session;
+    session_t *session = sockbuf->session;
 
-    if ( likely( cob->remain_bytes > 0 ) ) {
+    if ( likely( sockbuf->remain_bytes > 0 ) ) {
 
         /**
          * coroutine enter session_rx_handler() 
          */
-        coroutine_enter(session->tx_coroutine, cob);
+        coroutine_enter(session->tx_coroutine, sockbuf);
 
         /**
          * too many requests or not ?
@@ -87,7 +87,7 @@ void send_queue_process_cob(conn_buf_t *cob)
         /* -------- remain bytes == 0 -------- */
     }
 
-    delete_cob(cob);
+    sockbuf_free(sockbuf);
 
     /*session_finish_saving_buffer(session);*/
 
@@ -106,7 +106,7 @@ void send_queue_handle_response(work_queue_t *wq)
 {
     void *nodeData = NULL;
     while ( (nodeData = dequeue_work(wq)) != NULL ){
-       send_queue_process_cob((conn_buf_t*)nodeData); 
+       send_queue_process_sockbuf((sockbuf_t*)nodeData); 
     }
 }
 

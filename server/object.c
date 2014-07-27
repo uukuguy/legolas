@@ -205,7 +205,7 @@ int object_put_into_kvdb(kvdb_t *kvdb, object_t *object)
     /* nSlices */
     msgpack_pack_uint32(packer, nSlices);
 
-    char sz_key_md5[1024];
+    char sz_key_md5[64];
     sprintf(sz_key_md5, "%2.2x%2.2x%2.2x%2.2x", key_md5.h0, key_md5.h1, key_md5.h2, key_md5.h3);
     uint32_t key_md5_len = strlen(sz_key_md5);
 
@@ -262,12 +262,28 @@ int object_put_into_kvdb(kvdb_t *kvdb, object_t *object)
 
         /*}*/
 
+int object_get_slice_from_kvdb(kvdb_t *kvdb, md5_value_t key_md5, uint32_t seq_num, void** ppbuf, uint32_t *pbuf_size)
+{
+    char key[64];
+    sprintf(key, "%2.2x%2.2x%2.2x%2.2x-%08d", key_md5.h0, key_md5.h1, key_md5.h2, key_md5.h3, seq_num);
+    uint32_t key_len = strlen(key);
+
+    char *buf = NULL;
+    uint32_t buf_size = 0;
+    int rc = kvdb_get(kvdb, key, key_len, (void**)&buf, &buf_size);
+    if ( rc == 0 && buf != NULL && buf_size > 0 ){
+        *ppbuf = buf;
+        *pbuf_size = buf_size;
+    }
+    return rc;
+}
+
 object_t *object_get_from_kvdb(kvdb_t *kvdb, md5_value_t key_md5)
 {
     UNUSED int object_found = 0;
     object_t *object = NULL;
 
-    char sz_key_md5[1024];
+    char sz_key_md5[64];
     sprintf(sz_key_md5, "%2.2x%2.2x%2.2x%2.2x", key_md5.h0, key_md5.h1, key_md5.h2, key_md5.h3);
     uint32_t key_md5_len = strlen(sz_key_md5);
 
