@@ -21,7 +21,9 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <assert.h>
+#ifdef OS_LINUX
 #include <linux/fs.h>
+#endif
 
 static uint32_t total_sessions = 0;
 

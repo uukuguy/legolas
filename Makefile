@@ -17,9 +17,9 @@ LSM_OBJS = base/kvdb_lsm.o
 
 KVDB_OBJS += ${LSM_OBJS}
 
-KVDB_CFLAGS += -DHAS_ROCKSDB
-ROCKSDB_OBJS = base/kvdb_rocksdb.o 
-KVDB_OBJS += ${ROCKSDB_OBJS}
+#KVDB_CFLAGS += -DHAS_ROCKSDB
+#ROCKSDB_OBJS = base/kvdb_rocksdb.o 
+#KVDB_OBJS += ${ROCKSDB_OBJS}
 
 KVDB_CFLAGS += -DHAS_LEVELDB
 LEVELDB_OBJS = base/kvdb_leveldb.o 
@@ -85,7 +85,8 @@ client: ${CLIENT}
 # ---------------- deps ----------------
 .PHONY: jemalloc libuv leveldb liblmdb zeromq czmq zyre liblfds pcl colib
 
-deps: jemalloc libuv leveldb liblmdb rocksdb lsm-sqlite4 zeromq czmq zyre msgpack
+deps: jemalloc libuv leveldb liblmdb lsm-sqlite4 zeromq czmq zyre msgpack
+#rocksdb
 #pcl 
 #colib
 
@@ -131,7 +132,8 @@ deps/libuv:
 # ................ leveldb ................
 
 CFLAGS_LEVELDB=-I./deps/leveldb/include
-LDFLAGS_LEVELDB=./deps/leveldb/libleveldb.a
+#LDFLAGS_LEVELDB=./deps/leveldb/libleveldb.a
+LDFLAGS_LEVELDB=-L./deps/leveldb -lleveldb
 
 leveldb: deps/leveldb
 
@@ -160,7 +162,8 @@ deps/liblmdb:
 # ................ rocksdb ................
 
 CFLAGS_ROCKSDB=-I./deps/rocksdb/include
-LDFLAGS_ROCKSDB=./deps/rocksdb/librocksdb.a -lbz2
+#LDFLAGS_ROCKSDB=./deps/rocksdb/librocksdb.a -lbz2
+LDFLAGS_ROCKSDB=-L./deps/rocksdb -lrocksdb -lsnappy -lpthread -lstdc++ -lbz2
 
 rocksdb: deps/rocksdb
 
@@ -170,7 +173,11 @@ deps/rocksdb:
 	ln -sf ${ROCKSDB} rocksdb && \
 	cd ${ROCKSDB} && \
 	sed -i -e 's/()\s*;/(void);/g' include/rocksdb/c.h && \
-	MAKECMDGOALS=static_lib make 
+	sed -i -e 's/rocksdb::GetDeletedKey/(size_t)rocksdb::GetDeletedKey/' tools/sst_dump.cc && \
+	make
+	#MAKECMDGOALS=static_lib make 
+	#sed -i -e 's/keys: %zd/keys: %zu/' tools/sst_dump.cc && \
+	#sed -i -e 's/\$\(TESTS\)/\x23\$\(TESTS\)/' Makefile && \
 
 # ................ lsm-sqlite4 ................
 
@@ -316,8 +323,7 @@ FINAL_CFLAGS = -Wstrict-prototypes \
 #-DUSE_PRCTL
 FINAL_CXXFLAGS=${COMMON_CFLAGS} ${CXXFLAGS}
 
-FINAL_LDFLAGS = -static \
-				${LDFLAGS_LIBUV} \
+FINAL_LDFLAGS = ${LDFLAGS_LIBUV} \
 				${LDFLAGS_JEMALLOC} \
 				${LDFLAGS_LEVELDB} \
 				${LDFLAGS_ROCKSDB} \
@@ -336,9 +342,12 @@ FINAL_LDFLAGS = -static \
 ifeq (${UNAME}, Linux)
 	FINAL_CFLAGS += -DOS_LINUX
 	FINAL_LDFLAGS += /usr/lib/x86_64-linux-gnu/libuuid.a -lrt
+	FINAL_LDFLAGS += -static
 endif
 ifeq (${UNAME}, Darwin)
 	FINAL_CFLAGS += -DOS_DARWIN
+	CFLAGS_UCONTEXT=-D_XOPEN_SOURCE # ucontext.h error: The deprecated ucontext routines require _XOPEN_SOURCE to be defined.
+	FINAL_CFLAGS += ${CFLAGS_UCONTEXT}
 endif
 
 #${SERVER}: deps ${BASE_OBJS} ${SERVER_OBJS} ${LEGOLAS_OBJS} bin

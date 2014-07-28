@@ -272,7 +272,8 @@ int session_handle_write(session_t *session, message_t *request)
         response_to_write(session, RESULT_SUCCESS);
         /*__sync_add_and_fetch(&session->finished_works, 1);*/
 
-        pthread_yield();
+        /*pthread_yield();*/
+        sched_yield();
     }
 
     return 0;

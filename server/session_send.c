@@ -97,7 +97,8 @@ void send_queue_process_sockbuf(sockbuf_t *sockbuf)
         /*}*/
     /*}*/
 
-    pthread_yield();
+    /*pthread_yield();*/
+    sched_yield();
 
 }
 

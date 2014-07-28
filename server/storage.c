@@ -93,8 +93,8 @@ storage_file_t *__storage_open_file(storage_t *storage, const char *filename, co
     /*FILE *f = fopen(filename, fmode);*/
     /*if ( f == NULL ){*/
 
-    int f = open(filename, O_CREAT | O_TRUNC | O_WRONLY | O_DIRECT, 0640);
-    /*int f = open(filename, O_CREAT | O_TRUNC | O_WRONLY, 0640);*/
+    int f = open(filename, O_CREAT | O_TRUNC | O_WRONLY, 0640);
+    /*int f = open(filename, O_CREAT | O_TRUNC | O_WRONLY | O_DIRECT, 0640);*/
     if ( f == -1 ){
         error_log("Open file failed. errno:%d filename:%s", errno, filename);
     } else {
