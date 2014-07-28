@@ -17,9 +17,9 @@ LSM_OBJS = base/kvdb_lsm.o
 
 KVDB_OBJS += ${LSM_OBJS}
 
-KVDB_CFLAGS += -DHAS_ROCKSDB
-ROCKSDB_OBJS = base/kvdb_rocksdb.o 
-KVDB_OBJS += ${ROCKSDB_OBJS}
+#KVDB_CFLAGS += -DHAS_ROCKSDB
+#ROCKSDB_OBJS = base/kvdb_rocksdb.o 
+#KVDB_OBJS += ${ROCKSDB_OBJS}
 
 KVDB_CFLAGS += -DHAS_LEVELDB
 LEVELDB_OBJS = base/kvdb_leveldb.o 
@@ -73,6 +73,14 @@ LIBLFDS=liblfds-6.1.1
 
 UNAME := $(shell uname)
 
+ifeq (${UNAME}, Linux)
+	SO=so
+endif
+
+ifeq (${UNAME}, Darwin)
+	SO=dylib
+endif
+
 .PHONY: server client deps data
 
 all: bin lib deps server client
@@ -107,14 +115,14 @@ deps/jemalloc:
 	./autogen.sh && \
 	./configure --with-jemalloc-prefix=je_ && \
 	make build_lib && \
-	cp lib/* ../../lib/
+	cp -f lib/* ../../lib/
 
 # ................ libuv ................
 
 CFLAGS_LIBUV=-I./deps/libuv/include
 #LDFLAGS_LIBUV=./deps/libuv/.libs/libuv.a  
 #LDFLAGS_LIBUV=-L./deps/libuv/.libs -luv -lpthread -lrt
-LDFLAGS_LIBUV=-luv -lpthread -lrt
+LDFLAGS_LIBUV=-luv -lpthread 
 
 libuv: deps/libuv
 
@@ -126,7 +134,7 @@ deps/libuv:
 	./autogen.sh && \
 	./configure && \
 	make && \
-	cp .libs/* ../../lib/
+	cp -f .libs/* ../../lib/
 
 	#./gyp_uv.py -f make && \
 	#BUILDTYPE=Release make -C out
@@ -147,7 +155,7 @@ deps/leveldb:
 	cd ${LEVELDB} && \
 	sed -i -e 's/()\s*;/(void);/g' include/leveldb/c.h && \
 	make && \
-	cp *.so* *.a ../../lib/
+	cp -f *.${SO}* *.a ../../lib/
 
 # ................ liblmdb ................
 
@@ -164,7 +172,9 @@ deps/liblmdb:
 	ln -sf ${LIBLMDB} liblmdb && \
 	cd ${LIBLMDB} && \
 	make && \
-	cp *.so* *.a ../../lib/
+	cp -f *.so* *.a ../../lib/
+
+	cp -f *.${SO}* *.a ../../lib/
 
 # ................ rocksdb ................
 
@@ -183,7 +193,7 @@ deps/rocksdb:
 	sed -i -e 's/()\s*;/(void);/g' include/rocksdb/c.h && \
 	sed -i -e 's/rocksdb::GetDeletedKey/(size_t)rocksdb::GetDeletedKey/' tools/sst_dump.cc && \
 	make && \
-	cp *.a ../../lib/
+	cp -f *.a ../../lib/
 
 	#MAKECMDGOALS=static_lib make 
 	#sed -i -e 's/keys: %zd/keys: %zu/' tools/sst_dump.cc && \
@@ -204,7 +214,9 @@ deps/lsm:
 	ln -sf ${LSM_SQLITE4} lsm && \
 	cd ${LSM_SQLITE4} && \
 	make && \
-	cp *.so* *.a ../../lib/
+	cp -f *.so* *.a ../../lib/
+
+	#cp -f *.${SO}* *.a ../../lib/
 
 # ................ zeromq ................
 
@@ -223,7 +235,7 @@ deps/zeromq:
 	./configure && \
 	make && \
 	ln -s src/.libs lib && \
-	cp lib/*.so* lib/*.a ../../lib/
+	cp -f lib/*.${SO}* lib/*.a ../../lib/
 
 # ................ czmq ................
 
@@ -242,7 +254,7 @@ deps/czmq:
 	ZeroMQ_CFLAGS=-I`pwd`/../zeromq/include ZeroMQ_LIBS=-L`pwd`/../zeromq/src/.libs ./configure && \
 	make && \
 	ln -s src/.libs lib && \
-	cp lib/*.so* lib/*.a ../../lib/
+	cp -f lib/*.${SO}* lib/*.a ../../lib/
 
 # ................ zyre ................
 
@@ -262,7 +274,7 @@ deps/zyre:
 	./configure --with-libzmq=`pwd`/../zeromq --with-libczmq=`pwd`/../czmq  && \
 	make && \
 	ln -s src/.libs lib && \
-	cp lib/*.so* lib/*.a ../../lib/
+	cp -f lib/*.${SO}* lib/*.a ../../lib/
 
 # ................ msgpack ................
 
@@ -282,7 +294,7 @@ deps/msgpack:
 	./configure && \
 	make && \
 	ln -s src/.libs lib && \
-	cp lib/*.so* lib/*.a ../../lib/
+	cp -f lib/*.${SO}* lib/*.a ../../lib/
 
 # ................ liblfds ................
 
@@ -337,8 +349,11 @@ FINAL_CFLAGS = -std=c11 -Wstrict-prototypes \
 #-DUSE_PRCTL
 FINAL_CXXFLAGS=${COMMON_CFLAGS} ${CXXFLAGS}
 
-FINAL_LDFLAGS = -L./lib -Wl,-rpath=../lib,-rpath=./lib \
-				${LDFLAGS_LIBUV} \
+FINAL_LDFLAGS = -L./lib 
+ifeq (${UNAME}, Linux)
+FINAL_LDFLAGS += -Wl,-rpath=../lib,-rpath=./lib
+endif
+FINAL_LDFLAGS += ${LDFLAGS_LIBUV} \
 				${LDFLAGS_JEMALLOC} \
 				${LDFLAGS_LEVELDB} \
 				${LDFLAGS_ROCKSDB} \
@@ -423,6 +438,7 @@ clean-deps:
 		deps/${MSGPACK} deps/msgpack 
 
 cleanall: clean clean-deps
+	rm -f lib/*
 
 # ---------------- run ----------------
 
