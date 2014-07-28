@@ -20,15 +20,50 @@
 #include "session.h"
 #include "client.h"
 
-/*void on_close(uv_handle_t* handle); [> in client.c <]*/
-
 void read_file(session_t* session);
 
-/*  ==================== start_next_read_loop() ==================== */ 
-void start_next_read_loop(session_t *session)
+/*  ==================== handle_read_response() ==================== */ 
+int handle_read_response(session_t *session, message_t *response)
 {
+    assert(response->msg_type == MSG_TYPE_RESPONSE);
+
+    int ret = 0;
+
     client_t *client = CLIENT(session);
     client_args_t *client_args = CLIENT_ARGS(session);
+
+    message_arg_t *arg = (message_arg_t*)response->data;
+
+    if ( response->result == RESULT_SUCCESS ) {
+        /* ---------- key ---------- */
+        message_arg_t *argKey = arg;
+        /* ---------- object_size ---------- */
+        message_arg_t *argObjectSize = message_next_arg(argKey);
+        uint32_t object_size = *(uint32_t*)argObjectSize->data;
+        /* ---------- seq_num ---------- */
+        message_arg_t *arg_seq_num = message_next_arg(argObjectSize);
+        uint32_t seq_num = *(uint32_t*)arg_seq_num->data;
+        /* ---------- nslices ---------- */
+        message_arg_t *arg_nslices = message_next_arg(arg_seq_num);
+        uint32_t nslices = *(uint32_t*)arg_nslices->data;
+        /* ---------- data ---------- */
+        message_arg_t *arg_data = message_next_arg(arg_nslices);
+        UNUSED char *data = arg_data->data;
+        uint32_t data_size = arg_data->size;
+
+        if ( client_args->total_recv % 100 == 0 ){
+            notice_log("Key Found! key=%s object_size=%d seq:%d/%d data_size:%d", argKey->data, object_size, seq_num + 1, nslices, data_size);
+        }
+
+    } else if ( response->result == RESULT_ERR_NOTFOUND ) {
+        /* ---------- key ---------- */
+        message_arg_t *argKey = arg;
+        warning_log("NOT FOUND! key=%s", argKey->data);
+        ret = 0;
+    } else {
+        error_log("Error response code! result=%d", response->result);
+        ret = -1;
+    }
 
     if ( client_args->total_recv < client->total_files ){
         session->id = 0;
@@ -45,75 +80,12 @@ void start_next_read_loop(session_t *session)
         session_shutdown(session);
         /*uv_close(&session->connection.handle.handle, on_close);*/
     }
+
+    return ret;
 }
 
-/*  ==================== after_read_response() ==================== */ 
-static void after_read_response(uv_stream_t *handle, ssize_t nread, const uv_buf_t *buf) 
-{
-    session_t *session = (session_t*)handle->data;
-    UNUSED client_args_t *client_args = CLIENT_ARGS(session);
-
-    if ( nread > 0 ){
-        message_t *response = (message_t*)buf->base; 
-        message_arg_t *arg = (message_arg_t*)response->data;
-        message_arg_t *argKey = arg;
-
-        /*int file = open("client.dat", O_CREAT | O_TRUNC | O_RDWR, 0644);*/
-        /*write(file, buf->base, nread);*/
-        /*close(file);*/
-
-        trace_log("nread:%zu result: %d", nread, response->result);
-
-        if ( response->result == RESULT_SUCCESS ) {
-            message_arg_t *argObjectSize = message_next_arg(argKey);
-            uint32_t object_size = *(uint32_t*)argObjectSize->data;
-            /*message_arg_t *arg_seq_num = message_next_arg(argObjectSize);*/
-            /*uint32_t seq_num = *(uint32_t*)arg_seq_num->data;*/
-            /*message_arg_t *arg_nslices = message_next_arg(arg_seq_num);*/
-            /*uint32_t nslices = *(uint32_t*)arg_nslices->data;*/
-            /*message_arg_t *arg_data = message_next_arg(arg_nslices);*/
-            /*UNUSED char *data = arg_data->data;*/
-            /*uint32_t data_size = arg_data->size;*/
-
-
-            if ( client_args->total_recv % 100 == 0 ){
-                /*notice_log("Key Found! key=%s object_size=%d seq:%d/%d data_size:%d", argKey->data, object_size, seq_num, nslices, data_size);*/
-                notice_log("Key Found! key=%s object_size=%d ", argKey->data, object_size);
-            }
-
-        } else if ( response->result == RESULT_ERR_NOTFOUND ) {
-            warning_log("NOT FOUND! key=%s", argKey->data);
-        } else {
-            error_log("Error response code!");
-        }
-
-        zfree(buf->base);
-
-        start_next_read_loop(session);
-
-        /*pthread_cond_signal(&client->recv_pending_cond);*/
-    }
-
-}
-
-/* ==================== client_read_alloc() ==================== */ 
-static void client_read_alloc( uv_handle_t *handle, size_t suggested_size, uv_buf_t *buf) 
-{
-    buf->base = zmalloc(64 * 1024);
-    buf->len = 64 * 1024;
-
-    /* -------- sockbuf -------- */
-    /*uint32_t buf_len = sizeof(sockbuf_t);*/
-    /*sockbuf_t *sockbuf = (sockbuf_t *)zmalloc(buf_len);*/
-    /*sockbuf_init(sockbuf);*/
-
-    /* -------- set uv_buf -------- */
-    /*buf->base = sockbuf->base;*/
-    /*buf->len = sockbuf->len;*/
-}
-
-/* ==================== after_read_block() ==================== */ 
-static void after_read_block(uv_write_t *read_req, int status) 
+/* ==================== after_read_request() ==================== */ 
+static void after_read_request(uv_write_t *read_req, int status) 
 {
     session_t *session = (session_t*)read_req->data;
     client_t *client = CLIENT(session);
@@ -128,17 +100,12 @@ static void after_read_block(uv_write_t *read_req, int status)
         trace_log("========> End loop %d/%d. clientid:%d key:%s", client_args->total_recv, client->total_files, client_args->session_id, client_args->key);
     }
 
-    int ret = uv_read_start((uv_stream_t*)&session->connection.handle.handle, client_read_alloc, after_read_response);
-    if ( ret != 0 ) { 
-        session_free(session);
-        error_log("uv_read_start() failed. ret = %d", ret); 
-        return ; 
-    }
-    
+    session_waiting_message(session);
+
 }
 
-/* ==================== do_read_block() ==================== */ 
-static int do_read_block(session_t *session)
+/* ==================== do_read_request() ==================== */ 
+static int do_read_request(session_t *session)
 {
     client_args_t *client_args = CLIENT_ARGS(session);
     uint32_t head_size = 0;
@@ -177,7 +144,7 @@ static int do_read_block(session_t *session)
             &session->connection.handle.stream,
             &ubuf,
             1,
-            after_read_block);
+            after_read_request);
 
     zfree(read_request);
 
@@ -203,6 +170,6 @@ void read_file(session_t* session)
     sprintf(client_args->key, "/test/%s/%04d/%08d-%s", client->key_prefix, client_args->session_id, client_args->total_recv, file_name);
     trace_log("read_file(): %s", client_args->key);
 
-    do_read_block(session);
+    do_read_request(session);
 }
 

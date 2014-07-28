@@ -28,7 +28,7 @@ byte_block_t *byte_block_attach(void *data, uint32_t size);
 void byte_block_init(byte_block_t *bb);
 void byte_block_release(byte_block_t *bb);
 void byte_block_free(void *bb);
-int byte_block_write(byte_block_t *bb, void *data, uint32_t size);
+int byte_block_write(byte_block_t *bb, const void *data, uint32_t size);
 
 #endif /* __BYTE_BLOCK_H__ */
 

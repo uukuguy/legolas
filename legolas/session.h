@@ -20,8 +20,6 @@
 #include "message.h"
 #include <time.h>
 
-#define STORAGE_LSM 
-
 #define MAX_CACHED_BYTES 1024 * 1024 * 1024
 
 #define DEFAULT_SOCKBUF_SIZE 64 * 1024
@@ -167,7 +165,6 @@ extern void session_free(session_t *session);
 extern int session_accept(session_t *session, uv_tcp_t *parent_tcp);
 
 int session_waiting_message(session_t *session);
-extern int session_response_data(session_t *session, char *buf, uint32_t buf_size);
 
 extern int session_rx_on(session_t *session);
 extern void session_rx_off(session_t *session);
@@ -178,7 +175,7 @@ extern void after_shutdown(uv_shutdown_t *shutdown_req, int status);
 extern int too_many_requests(session_t *session);
 
 extern int session_send_data(session_t *session, char *buf, uint32_t buf_size, void *user_data, uv_write_cb after_write);
-
+extern int session_response_data(session_t *session, char *buf, uint32_t buf_size);
 extern void session_response(session_t *session, enum MSG_RESULT result); 
 
 

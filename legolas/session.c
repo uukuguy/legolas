@@ -45,7 +45,10 @@ void connection_destroy(connection_t *connection)
 }
 
 /* ******************** Private Functions ******************** */
-void session_free(session_t *session);
+static void after_session_send_data(uv_write_t *write_rsp, int status) 
+{
+    zfree(write_rsp);
+}
 
 int session_send_data(session_t *session, char *buf, uint32_t buf_size, void *user_data, uv_write_cb after_write)
 {
@@ -64,7 +67,7 @@ int session_send_data(session_t *session, char *buf, uint32_t buf_size, void *us
             &session_stream(session),
             &rbuf,
             1,
-            after_write);
+            after_write != NULL ? after_write : after_session_send_data);
 
     if ( ret != 0 ) {
         error_log("response failed");
@@ -73,26 +76,13 @@ int session_send_data(session_t *session, char *buf, uint32_t buf_size, void *us
     return ret;
 }
 
-static void after_response_to_client(uv_write_t *write_rsp, int status) 
-{
-    zfree(write_rsp);
-}
-
 int session_response_data(session_t *session, char *buf, uint32_t buf_size)
 {
     int ret;
 
-    ret = session_send_data(session, buf, buf_size, (void*)session, after_response_to_client);
+    ret = session_send_data(session, buf, buf_size, (void*)session, NULL);
 
     return ret;
-
-    /*byte_block_t *bb = byte_block_attach(buf, buf_size);*/
-
-    /*pthread_mutex_lock(&session->server->send_pending_lock);*/
-    /*listAddNodeTail(session->responseQueue, bb);*/
-    /*pthread_mutex_unlock(&session->server->send_pending_lock);*/
-
-    /*return 0;*/
 }
 
 /* ==================== session_response() ==================== */ 

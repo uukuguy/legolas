@@ -8,6 +8,7 @@
 #include <string.h>
 #include <stdint.h>
 #include "md5.h" 
+#include "logger.h"
 
 #include <openssl/md5.h>
 #include "zmalloc.h"
@@ -214,6 +215,10 @@ int check_md5(md5_value_t *md5Keep, md5_value_t *md5Data)
         return -1;
     } else 
         return 0;
+}
+
+void notice_log_key_md5(const char *title, md5_value_t key_md5){
+    notice_log("%s key_md5: %2.2x%2.2x%2.2x%2.2x", title, key_md5.h0, key_md5.h1, key_md5.h2, key_md5.h3); 
 }
 
 /*int main(int argc, char **argv) {*/

@@ -1,4 +1,5 @@
 bin/*
+lib/*
 data/*
 deps/*/*
 *.beam

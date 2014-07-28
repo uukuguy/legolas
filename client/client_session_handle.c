@@ -12,9 +12,42 @@
 #include "session.h"
 #include "logger.h"
 
-/*int session_handle_write(session_t *session, message_t *message);*/
-/*int session_handle_read(session_t *session, message_t *message);*/
-/*int session_handle_delete(session_t *session, message_t *message);*/
+int handle_write_response(session_t *session, message_t *response);
+int handle_read_response(session_t *session, message_t *response);
+int handle_delete_response(session_t *session, message_t *response);
+/* ==================== client_session_handle_message() ==================== */ 
+int client_session_handle_message(session_t *session, message_t *message)
+{
+    int ret = 0;
+    client_args_t *client_args = CLIENT_ARGS(session);
+
+    switch ( client_args->op_code ){
+        case MSG_OP_WRITE:
+            {
+                if ( message->msg_type == MSG_TYPE_REQUEST ){
+                } else if ( message->msg_type == MSG_TYPE_RESPONSE ) {
+                    ret = handle_write_response(session, message);
+                }
+            } break;
+        case MSG_OP_READ:
+            {
+                if ( message->msg_type == MSG_TYPE_REQUEST ){
+                } else if ( message->msg_type == MSG_TYPE_RESPONSE ) {
+                    ret = handle_read_response(session, message);
+                }
+            } break;
+        case MSG_OP_DEL:
+            {
+                if ( message->msg_type == MSG_TYPE_REQUEST ){
+                } else if ( message->msg_type == MSG_TYPE_RESPONSE ) {
+                    ret = handle_delete_response(session, message);
+                }
+            } break;
+    }
+
+
+    return ret;
+}
 
 /* ==================== client_session_is_idle() ==================== */ 
 int client_session_is_idle(session_t *session)

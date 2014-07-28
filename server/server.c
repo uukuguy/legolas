@@ -12,6 +12,7 @@
 #include "server.h"
 #include "vnode.h"
 #include "session.h"
+#include "session_handle.h"
 #include "list.h"
 #include "work.h"
 #include "filesystem.h"
@@ -22,15 +23,6 @@
 int server_init(server_t *server);
 int init_server_work_queue(server_t *server);
 int exit_server_work_queue(server_t *server);
-
-/* in session_handle.c */
-void session_idle_cb(uv_idle_t *idle_handle, int status);
-void session_timer_cb(uv_timer_t *timer_handle, int status);
-void session_async_cb(uv_async_t *async_handle, int status);
-int session_is_idle(session_t *session);
-int session_handle_message(session_t *session, message_t *message);
-int session_init(session_t *session);
-void session_destroy(session_t *session);
 
 /* ==================== on_connection() ==================== */ 
 static void on_connection(uv_stream_t *stream, int status)

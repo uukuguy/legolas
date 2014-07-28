@@ -28,5 +28,7 @@ int md5_final(void *md5_ctx, md5_value_t *md5_value);
 
 void md5_value_to_string(md5_value_t *md5_value, char *buf);
 
+void notice_log_key_md5(const char *title, md5_value_t key_md5);
+
 #endif /* __MD5_H__ */
 

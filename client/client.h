@@ -22,6 +22,7 @@
 
 typedef struct client_args_t {
     int session_id;
+    int op_code;
     uint32_t file_size;
     FILE* file;
     int total_send;

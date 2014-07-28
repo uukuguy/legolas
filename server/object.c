@@ -35,18 +35,17 @@ void slice_free(void *ptr)
 }
 
 /* -------------------- object_t -------------------- */
-object_t *object_new(const char *key)
+object_t *object_new(const char *key, uint32_t keylen)
 {
     object_t *object = (object_t*)zmalloc(sizeof(object_t));
     memset(object, 0, sizeof(object_t));
 
     if ( key != NULL ){
-        uint32_t keylen = strlen(key);
-        object->key = zmalloc(keylen+1);
+        object->key = zmalloc(keylen);
+        object->keylen = keylen;
         memcpy(object->key, key, keylen);
-        object->key[keylen] = '\0';
 
-        md5(&object->key_md5, (uint8_t *)object->key, keylen);
+        md5(&object->key_md5, (uint8_t *)object->key, object->keylen);
     }
 
     object->slices = listCreate();
@@ -119,9 +118,9 @@ int unpack_object_key(msgpack_unpacker *unpacker, object_t *object)
     msgpack_object_raw *mobj_raw = &mobj->via.raw;
     trace_log("key: %s ", mobj_raw->ptr);
 
-    object->key = zmalloc(mobj_raw->size + 1);
+    object->key = zmalloc(mobj_raw->size);
+    object->keylen = mobj_raw->size;
     memcpy(object->key, mobj_raw->ptr, mobj_raw->size);
-    object->key[mobj_raw->size] = '\0';
     
     msgpack_unpacked_destroy(&result);
 
@@ -195,7 +194,7 @@ int object_put_into_kvdb(kvdb_t *kvdb, object_t *object)
     msgpack_pack_uint32(packer, object->key_md5.h3);
 
     /* key */
-    uint32_t key_len = strlen(object->key);
+    uint32_t key_len = object->keylen;
     msgpack_pack_raw(packer, key_len);
     msgpack_pack_raw_body(packer, object->key, key_len);
 
@@ -205,9 +204,9 @@ int object_put_into_kvdb(kvdb_t *kvdb, object_t *object)
     /* nSlices */
     msgpack_pack_uint32(packer, nSlices);
 
-    char sz_key_md5[64];
+    char sz_key_md5[32];
     sprintf(sz_key_md5, "%2.2x%2.2x%2.2x%2.2x", key_md5.h0, key_md5.h1, key_md5.h2, key_md5.h3);
-    uint32_t key_md5_len = strlen(sz_key_md5);
+    uint32_t key_md5_len = 32;
 
     int rc = kvdb_put(kvdb, sz_key_md5, key_md5_len, sbuf->data, sbuf->size);
     msgpack_sbuffer_free(sbuf);
@@ -229,16 +228,17 @@ int object_put_into_kvdb(kvdb_t *kvdb, object_t *object)
         char *buf = slice->byteblock.buf;
         uint32_t buf_size = slice->byteblock.size;
 
-        char key[64];
+        char key[41];
         sprintf(key, "%2.2x%2.2x%2.2x%2.2x-%08d", object->key_md5.h0, object->key_md5.h1, object->key_md5.h2, object->key_md5.h3, seq_num);
 
-        int rc = kvdb_put(kvdb, key, strlen(key), buf, buf_size);
+        int rc = kvdb_put(kvdb, key, 41, buf, buf_size);
         if ( rc != 0 ) {
-            error_log("Storage save by kvdb_put() failed. key=%s seq_num=%d buf_size=%d", key, seq_num, buf_size);
+            error_log("Storage save by kvdb_put() failed. key=%s seq_num=%d/%d buf_size=%d", key, seq_num + 1, nSlices, buf_size);
             return -1;
         } else {
-            trace_log("Storage save by kvdb_put() OK. key=%s seq_num=%d buf_size=%d", key, seq_num, buf_size);
+            trace_log("Storage save by kvdb_put() OK. key=%s seq_num=%d/%d buf_size=%d", key, seq_num + 1, nSlices, buf_size);
         }
+        seq_num++;
     }
     listReleaseIterator(iter);
 
@@ -264,9 +264,9 @@ int object_put_into_kvdb(kvdb_t *kvdb, object_t *object)
 
 int object_get_slice_from_kvdb(kvdb_t *kvdb, md5_value_t key_md5, uint32_t seq_num, void** ppbuf, uint32_t *pbuf_size)
 {
-    char key[64];
+    char key[41];
     sprintf(key, "%2.2x%2.2x%2.2x%2.2x-%08d", key_md5.h0, key_md5.h1, key_md5.h2, key_md5.h3, seq_num);
-    uint32_t key_len = strlen(key);
+    uint32_t key_len = 41;
 
     char *buf = NULL;
     uint32_t buf_size = 0;
@@ -283,9 +283,9 @@ object_t *object_get_from_kvdb(kvdb_t *kvdb, md5_value_t key_md5)
     UNUSED int object_found = 0;
     object_t *object = NULL;
 
-    char sz_key_md5[64];
+    char sz_key_md5[32];
     sprintf(sz_key_md5, "%2.2x%2.2x%2.2x%2.2x", key_md5.h0, key_md5.h1, key_md5.h2, key_md5.h3);
-    uint32_t key_md5_len = strlen(sz_key_md5);
+    uint32_t key_md5_len = 32;
 
     char *buf = NULL;
     uint32_t buf_size = 0;
@@ -298,7 +298,7 @@ object_t *object_get_from_kvdb(kvdb_t *kvdb, md5_value_t key_md5)
         memcpy(msgpack_unpacker_buffer(&unpacker), buf, buf_size);
         msgpack_unpacker_buffer_consumed(&unpacker, buf_size);
 
-        object = object_new(NULL);
+        object = object_new(NULL, 0);
 
 
         if ( unpack_object_key_md5(&unpacker, object) == 0 ){
@@ -326,17 +326,17 @@ int object_del_from_kvdb(kvdb_t *kvdb, md5_value_t key_md5)
 
     object_t *object = object_get_from_kvdb(kvdb, key_md5);
     if ( object != NULL ){
-        char sz_key_md5[64];
+        char sz_key_md5[32];
         sprintf(sz_key_md5, "%2.2x%2.2x%2.2x%2.2x", key_md5.h0, key_md5.h1, key_md5.h2, key_md5.h3);
-        uint32_t key_md5_len = strlen(sz_key_md5);
+        uint32_t key_md5_len = 32;
 
         rc = kvdb_del(kvdb, sz_key_md5, key_md5_len);
         if ( rc == 0 ){
             uint32_t n;
             for ( n = 0 ; n < object->nslices ; n++ ) {
-                char key[64];
+                char key[41];
                 sprintf(key, "%2.2x%2.2x%2.2x%2.2x-%08d", object->key_md5.h0, object->key_md5.h1, object->key_md5.h2, object->key_md5.h3, n);
-                uint32_t key_len = strlen(key);
+                uint32_t key_len = 41;
                 int rc = kvdb_del(kvdb, key, key_len);
                 if ( rc == 0 ){
                 } else {

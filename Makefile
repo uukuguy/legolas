@@ -17,9 +17,9 @@ LSM_OBJS = base/kvdb_lsm.o
 
 KVDB_OBJS += ${LSM_OBJS}
 
-#KVDB_CFLAGS += -DHAS_ROCKSDB
-#ROCKSDB_OBJS = base/kvdb_rocksdb.o 
-#KVDB_OBJS += ${ROCKSDB_OBJS}
+KVDB_CFLAGS += -DHAS_ROCKSDB
+ROCKSDB_OBJS = base/kvdb_rocksdb.o 
+KVDB_OBJS += ${ROCKSDB_OBJS}
 
 KVDB_CFLAGS += -DHAS_LEVELDB
 LEVELDB_OBJS = base/kvdb_leveldb.o 
@@ -69,34 +69,32 @@ ZYRE=zyre-1.0.0
 MSGPACK=msgpack-c-cpp-0.5.9
 
 PCL=pcl-1.12
-COLIB=colib-20140530
 LIBLFDS=liblfds-6.1.1
 
 UNAME := $(shell uname)
 
 .PHONY: server client deps data
 
-all: deps bin server client
+all: bin lib deps server client
 
 server: ${SERVER}
 
 client: ${CLIENT}
 
 # ---------------- deps ----------------
-.PHONY: jemalloc libuv leveldb liblmdb zeromq czmq zyre liblfds pcl colib
+.PHONY: jemalloc libuv leveldb liblmdb zeromq czmq zyre liblfds pcl 
 
-deps: jemalloc libuv leveldb liblmdb lsm-sqlite4 zeromq czmq zyre msgpack
-#rocksdb
+deps: jemalloc libuv leveldb liblmdb lsm-sqlite4 zeromq czmq zyre msgpack rocksdb
 #pcl 
-#colib
 
 # ................ jemalloc ................
 
 CFLAGS_JEMALLOC=-DUSE_JEMALLOC -DHAVE_ATOMIC  -I./deps/jemalloc/include
 #-DJEMALLOC_MANGLE
 #-DJEMALLOC_NO_DEMANGLE 
-LDFLAGS_JEMALLOC=./deps/jemalloc/lib/libjemalloc.a
-#LDFLAGS_JEMALLOC=-L./deps/jemalloc/lib -ljemalloc
+#LDFLAGS_JEMALLOC=./deps/jemalloc/lib/libjemalloc.a
+LDFLAGS_JEMALLOC=-L./deps/jemalloc/lib -ljemalloc
+LDFLAGS_JEMALLOC=-ljemalloc
 
 jemalloc: deps/jemalloc
 
@@ -108,13 +106,15 @@ deps/jemalloc:
 	echo 3.6.0 > VERSION && \
 	./autogen.sh && \
 	./configure --with-jemalloc-prefix=je_ && \
-	make build_lib
+	make build_lib && \
+	cp lib/* ../../lib/
 
 # ................ libuv ................
 
 CFLAGS_LIBUV=-I./deps/libuv/include
+#LDFLAGS_LIBUV=./deps/libuv/.libs/libuv.a  
 #LDFLAGS_LIBUV=-L./deps/libuv/.libs -luv -lpthread -lrt
-LDFLAGS_LIBUV=./deps/libuv/.libs/libuv.a  
+LDFLAGS_LIBUV=-luv -lpthread -lrt
 
 libuv: deps/libuv
 
@@ -125,7 +125,9 @@ deps/libuv:
 	cd ${LIBUV} && \
 	./autogen.sh && \
 	./configure && \
-	make
+	make && \
+	cp .libs/* ../../lib/
+
 	#./gyp_uv.py -f make && \
 	#BUILDTYPE=Release make -C out
 
@@ -133,7 +135,8 @@ deps/libuv:
 
 CFLAGS_LEVELDB=-I./deps/leveldb/include
 #LDFLAGS_LEVELDB=./deps/leveldb/libleveldb.a
-LDFLAGS_LEVELDB=-L./deps/leveldb -lleveldb
+#LDFLAGS_LEVELDB=-L./deps/leveldb -lleveldb
+LDFLAGS_LEVELDB=-lleveldb
 
 leveldb: deps/leveldb
 
@@ -143,12 +146,15 @@ deps/leveldb:
 	ln -sf ${LEVELDB} leveldb && \
 	cd ${LEVELDB} && \
 	sed -i -e 's/()\s*;/(void);/g' include/leveldb/c.h && \
-	make 
+	make && \
+	cp *.so* *.a ../../lib/
 
 # ................ liblmdb ................
 
 CFLAGS_LIBLMDB=-I./deps/liblmdb
-LDFLAGS_LIBLMDB=./deps/liblmdb/liblmdb.a
+#LDFLAGS_LIBLMDB=./deps/liblmdb/liblmdb.a
+#LDFLAGS_LIBLMDB=-L./deps/liblmdb -llmdb
+LDFLAGS_LIBLMDB=-llmdb
 
 liblmdb: deps/liblmdb
 
@@ -157,13 +163,15 @@ deps/liblmdb:
 	tar zxvf ${LIBLMDB}.tar.gz && \
 	ln -sf ${LIBLMDB} liblmdb && \
 	cd ${LIBLMDB} && \
-	make 
+	make && \
+	cp *.so* *.a ../../lib/
 
 # ................ rocksdb ................
 
 CFLAGS_ROCKSDB=-I./deps/rocksdb/include
 #LDFLAGS_ROCKSDB=./deps/rocksdb/librocksdb.a -lbz2
-LDFLAGS_ROCKSDB=-L./deps/rocksdb -lrocksdb -lsnappy -lpthread -lstdc++ -lbz2
+#LDFLAGS_ROCKSDB=-L./deps/rocksdb -lrocksdb -lpthread -lstdc++ -lbz2
+LDFLAGS_ROCKSDB=-lrocksdb -lpthread -lstdc++ -lbz2
 
 rocksdb: deps/rocksdb
 
@@ -174,7 +182,9 @@ deps/rocksdb:
 	cd ${ROCKSDB} && \
 	sed -i -e 's/()\s*;/(void);/g' include/rocksdb/c.h && \
 	sed -i -e 's/rocksdb::GetDeletedKey/(size_t)rocksdb::GetDeletedKey/' tools/sst_dump.cc && \
-	make
+	make && \
+	cp *.a ../../lib/
+
 	#MAKECMDGOALS=static_lib make 
 	#sed -i -e 's/keys: %zd/keys: %zu/' tools/sst_dump.cc && \
 	#sed -i -e 's/\$\(TESTS\)/\x23\$\(TESTS\)/' Makefile && \
@@ -182,7 +192,9 @@ deps/rocksdb:
 # ................ lsm-sqlite4 ................
 
 CFLAGS_LSM_SQLITE4=-I./deps/lsm
-LDFLAGS_LSM_SQLITE4=./deps/lsm/liblsm-sqlite4.a
+#LDFLAGS_LSM_SQLITE4=./deps/lsm/liblsm-sqlite4.a
+#LDFLAGS_LSM_SQLITE4=-L./deps/lsm -llsm-sqlite4
+LDFLAGS_LSM_SQLITE4=-llsm-sqlite4
 
 lsm-sqlite4: deps/lsm
 
@@ -191,12 +203,15 @@ deps/lsm:
 	tar zxvf ${LSM_SQLITE4}.tar.gz && \
 	ln -sf ${LSM_SQLITE4} lsm && \
 	cd ${LSM_SQLITE4} && \
-	make
+	make && \
+	cp *.so* *.a ../../lib/
 
 # ................ zeromq ................
 
 CFLAGS_ZEROMQ=-I./deps/zeromq/include
-LDFLAGS_ZEROMQ=./deps/zeromq/src/.libs/libzmq.a  
+#LDFLAGS_ZEROMQ=./deps/zeromq/src/.libs/libzmq.a  
+#LDFLAGS_ZEROMQ=-L./deps/zeromq/src/.libs -lzmq  
+LDFLAGS_ZEROMQ=-lzmq  
 
 zeromq: deps/zeromq
 
@@ -207,12 +222,15 @@ deps/zeromq:
 	cd ${ZEROMQ} && \
 	./configure && \
 	make && \
-	ln -s src/.libs lib
+	ln -s src/.libs lib && \
+	cp lib/*.so* lib/*.a ../../lib/
 
 # ................ czmq ................
 
 CFLAGS_CZMQ=-I./deps/czmq/include
-LDFLAGS_CZMQ=./deps/czmq/src/.libs/libczmq.a  
+#LDFLAGS_CZMQ=./deps/czmq/src/.libs/libczmq.a  
+#LDFLAGS_CZMQ=-L./deps/czmq/src/.libs -lczmq  
+LDFLAGS_CZMQ=-lczmq  
 
 czmq: deps/czmq
 
@@ -223,12 +241,15 @@ deps/czmq:
 	cd ${CZMQ} && \
 	ZeroMQ_CFLAGS=-I`pwd`/../zeromq/include ZeroMQ_LIBS=-L`pwd`/../zeromq/src/.libs ./configure && \
 	make && \
-	ln -s src/.libs lib
+	ln -s src/.libs lib && \
+	cp lib/*.so* lib/*.a ../../lib/
 
 # ................ zyre ................
 
 CFLAGS_ZYRE=-I./deps/zyre/include
-LDFLAGS_ZYRE=./deps/zyre/src/.libs/libzyre.a  
+#LDFLAGS_ZYRE=./deps/zyre/src/.libs/libzyre.a  
+#LDFLAGS_ZYRE=-L./deps/zyre/src/.libs -lzyre  
+LDFLAGS_ZYRE=-lzyre  
 
 zyre: deps/zyre
 
@@ -240,12 +261,15 @@ deps/zyre:
 	./autogen.sh && \
 	./configure --with-libzmq=`pwd`/../zeromq --with-libczmq=`pwd`/../czmq  && \
 	make && \
-	ln -s src/.libs lib
+	ln -s src/.libs lib && \
+	cp lib/*.so* lib/*.a ../../lib/
 
 # ................ msgpack ................
 
 CFLAGS_MSGPACK=-I./deps/msgpack/src
-LDFLAGS_MSGPACK=./deps/msgpack/src/.libs/libmsgpack.a  
+#LDFLAGS_MSGPACK=./deps/msgpack/src/.libs/libmsgpack.a  
+#LDFLAGS_MSGPACK=-L./deps/msgpack/src/.libs -lmsgpack  
+LDFLAGS_MSGPACK=-lmsgpack  
 
 msgpack: deps/msgpack
 
@@ -256,12 +280,15 @@ deps/msgpack:
 	cd ${MSGPACK} && \
 	./bootstrap && \
 	./configure && \
-	make 
+	make && \
+	ln -s src/.libs lib && \
+	cp lib/*.so* lib/*.a ../../lib/
 
 # ................ liblfds ................
 
 CFLAGS_LIBLFDS=-I./deps/liblfds/inc
-LDFLAGS_LIBLFDS=./deps/liblfds/bin/liblfds611.a 
+#LDFLAGS_LIBLFDS=./deps/liblfds/bin/liblfds611.a 
+LDFLAGS_LIBLFDS=-L./deps/liblfds/bin -llfds611 
 
 liblfds: deps/liblfds
 
@@ -275,7 +302,8 @@ deps/liblfds:
 # ................ pcl ................
 
 CFLAGS_PCL=-I./deps/pcl/include
-LDFLAGS_PCL=./deps/pcl/pcl/.libs/libpcl.a  
+#LDFLAGS_PCL=./deps/pcl/pcl/.libs/libpcl.a  
+LDFLAGS_PCL=-L./deps/pcl/pcl/.libs -lpcl  
 
 pcl: deps/pcl
 
@@ -285,20 +313,6 @@ deps/pcl:
 	ln -sf ${PCL} pcl && \
 	cd ${PCL} && \
 	./configure && \
-	make 
-
-# ................ colib ................
-
-CFLAGS_COLIB=-I./deps/colib
-LDFLAGS_COLIB=./deps/colib/lib/libcolib.a -lstdc++ -lpthread -ldl 
-
-colib: deps/colib
-
-deps/colib:
-	cd deps && \
-	tar zxvf ${COLIB}.tar.gz && \
-	ln -sf ${COLIB} colib && \
-	cd ${COLIB} && \
 	make 
 
 # ---------------- all ----------------
@@ -313,7 +327,7 @@ COMMON_CFLAGS += ${CFLAGS_LIBUV} \
 				 ${CFLAGS_LIBLMDB} \
 				 ${CFLAGS_ZYRE} ${CFLAGS_CZMQ} ${CFLAGS_ZEROMQ} \
 				 ${CFLAGS_MSGPACK} 
-FINAL_CFLAGS = -Wstrict-prototypes \
+FINAL_CFLAGS = -std=c11 -Wstrict-prototypes \
 			   ${COMMON_CFLAGS} \
 			   ${CFLAGS}
 
@@ -323,7 +337,8 @@ FINAL_CFLAGS = -Wstrict-prototypes \
 #-DUSE_PRCTL
 FINAL_CXXFLAGS=${COMMON_CFLAGS} ${CXXFLAGS}
 
-FINAL_LDFLAGS = ${LDFLAGS_LIBUV} \
+FINAL_LDFLAGS = -L./lib -Wl,-rpath=../lib,-rpath=./lib \
+				${LDFLAGS_LIBUV} \
 				${LDFLAGS_JEMALLOC} \
 				${LDFLAGS_LEVELDB} \
 				${LDFLAGS_ROCKSDB} \
@@ -342,7 +357,7 @@ FINAL_LDFLAGS = ${LDFLAGS_LIBUV} \
 ifeq (${UNAME}, Linux)
 	FINAL_CFLAGS += -DOS_LINUX
 	FINAL_LDFLAGS += /usr/lib/x86_64-linux-gnu/libuuid.a -lrt
-	FINAL_LDFLAGS += -static
+	#FINAL_LDFLAGS += -static
 endif
 ifeq (${UNAME}, Darwin)
 	FINAL_CFLAGS += -DOS_DARWIN
@@ -369,6 +384,9 @@ ${CLIENT}: ${BASE_OBJS} ${CLIENT_OBJS} ${LEGOLAS_OBJS}
 
 bin:
 	mkdir -p bin
+
+lib:
+	mkdir -p lib
 
 %.oo: %.cpp
 	${CC} ${FINAL_CXXFLAGS} -o $*.oo -c  $*.cpp
@@ -401,7 +419,8 @@ clean-deps:
 		deps/${LSM_SQLITE4} deps/lsm \
 		deps/${ZEROMQ} deps/zeromq \
 		deps/${CZMQ} deps/czmq \
-		deps/${ZYRE} deps/zyre  
+		deps/${ZYRE} deps/zyre  \
+		deps/${MSGPACK} deps/msgpack 
 
 cleanall: clean clean-deps
 

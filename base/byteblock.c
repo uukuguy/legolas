@@ -50,7 +50,7 @@ void byte_block_free(void *ptr)
     }
 }
 
-int byte_block_write(byte_block_t *bb, void *data, uint32_t size)
+int byte_block_write(byte_block_t *bb, const void *data, uint32_t size)
 {
     if ( bb->capacity - bb->size < size ){
         uint32_t total_size = (bb->capacity) ? bb->capacity * 2 : BYTE_BLOCK_INIT_SIZE;

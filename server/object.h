@@ -18,17 +18,6 @@
 #include "byteblock.h"
 #include <pthread.h>
 
-typedef struct block_t {
-    uint32_t id;
-
-    char key[NAME_MAX];
-    md5_value_t key_md5;
-    uint32_t object_size;
-
-    char *data;
-    uint32_t data_size;
-} block_t;
-
 /* -------------------- slice_t -------------------- */
 typedef struct slice_t {
     uint32_t seq_num;
@@ -42,6 +31,7 @@ void slice_free(void *slice);
 typedef struct object_t
 {
     char *key;
+    uint32_t keylen;
     md5_value_t key_md5;
     uint32_t object_size;
     uint32_t nslices;
@@ -50,7 +40,7 @@ typedef struct object_t
     uint32_t unfinished_size;
 } object_t;
 
-object_t *object_new(const char *key);
+object_t *object_new(const char *key, uint32_t keylen);
 void object_free(object_t *object);
 
 int object_put_into_kvdb(kvdb_t *kvdb, object_t *object);

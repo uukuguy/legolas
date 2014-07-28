@@ -18,10 +18,6 @@
 #include "md5.h"
 
 
-void write_file(session_t *session);
-void read_file(session_t *session);
-void delete_file(session_t *session);
-
 /* ==================== client_new() ==================== */ 
 client_t *client_new(const char *ip, int port, int op_code, const char *key, const char *filename, int total_files, int nthreads) 
 {
@@ -69,6 +65,10 @@ void client_free(client_t *client){
     /*trace_log("on_close() Session id:%d", client_args->session_id);*/
     /*handle->data = NULL;*/
 /*}*/
+
+void write_file(session_t *session);
+void read_file(session_t *session);
+void delete_file(session_t *session);
 
 /* ==================== on_connect() ==================== */ 
 static void on_connect(uv_connect_t *req, int status) 
@@ -127,7 +127,9 @@ int start_connect(client_t *client, int session_id)
 
     session->user_data = zmalloc(sizeof(client_args_t));
     client_args_t *client_args = (client_args_t*)session->user_data;
+    memset(client_args, 0, sizeof(client_args_t));
     client_args->session_id = session_id;
+    client_args->op_code = client->op_code;
     client_args->file_size = 0;
     client_args->file = NULL;
     client_args->total_send = 0;

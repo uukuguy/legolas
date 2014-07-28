@@ -20,18 +20,26 @@
 #include "session.h"
 #include "client.h"
 
-static int do_write_block(session_t *session);
+static int do_write_request(session_t *session);
 void write_file(session_t* session);
 
-/*void on_close(uv_handle_t* handle); [> in client.c <]*/
-
-/**
- * Start next write loop ?
- */
-void start_next_write_loop(session_t *session)
+/* ==================== handle_write_response() ==================== */ 
+int handle_write_response(session_t *session, message_t *response)
 {
+    assert(response->msg_type == MSG_TYPE_RESPONSE);
+
+    int ret = 0;
+
+    if ( response->result != RESULT_SUCCESS ) {
+        warning_log("return message is not SUCCESS. result: %d", response->result);
+        return -1;
+    }
+
     client_t *client = CLIENT(session);
     client_args_t *client_args = CLIENT_ARGS(session);
+
+    /*if ( client_args->total_send % 100 == 0 ){*/
+    /*}*/
 
     if ( client_args->total_send < client->total_files ){
         session->id = 0;
@@ -48,54 +56,12 @@ void start_next_write_loop(session_t *session)
         session_shutdown(session);
         /*uv_close(&session->connection.handle.handle, on_close);*/
     }
-}
-
-/* TODO ==================== after_write_response() ==================== */ 
-UNUSED static void after_write_response(uv_stream_t *handle, ssize_t nread, const uv_buf_t *buf) 
-{
-    session_t *session = (session_t*)handle->data;
-
-    if ( nread > 0 ) {
-        start_next_write_loop(session);
-        /*if ( nread >= sizeof(message_t) ){*/
-            /*message_t *msg = (message_t*)buf->base;*/
-            /*if ( msg->result == RESULT_SUCCESS ) {*/
-                /*start_next_write_loop(session);*/
-            /*} else {*/
-                /*error_log("Write_file to server failed!");*/
-            /*}*/
-        /*}*/
-    }
-
-}
-
-/* ==================== client_write_alloc() ==================== */ 
-UNUSED static void client_write_alloc( uv_handle_t *handle, size_t suggested_size, uv_buf_t *buf) 
-{
-    buf->base = zmalloc(1024);
-    buf->len = 1024;
-}
-
-/* ==================== client_session_handle_message() ==================== */ 
-int client_session_handle_message(session_t *session, message_t *message)
-{
-    int ret = 0;
-
-    if ( message->msg_type == MSG_TYPE_REQUEST ){
-    } else if ( message->msg_type == MSG_TYPE_RESPONSE ) {
-        if ( message->result == RESULT_SUCCESS ) {
-            start_next_write_loop(session);
-        } else {
-            warning_log("return message is not SUCCESS.");
-            ret = -1;
-        }
-    }
 
     return ret;
 }
 
-/* ==================== after_write_block() ==================== */ 
-static void after_write_block(uv_write_t *write_req, int status) 
+/* ==================== after_write_request() ==================== */ 
+static void after_write_request(uv_write_t *write_req, int status) 
 {
     session_t *session = (session_t*)write_req->data;
     client_t *client = CLIENT(session);
@@ -106,7 +72,7 @@ static void after_write_block(uv_write_t *write_req, int status)
 
     /* Keep write next block? */
     if ( session->total_readed < client_args->file_size ){
-        do_write_block(session);
+        do_write_request(session);
     } else { /* Write finished. */
         /**
          * End the write task.
@@ -122,19 +88,12 @@ static void after_write_block(uv_write_t *write_req, int status)
         }
 
         session_waiting_message(session);
-        /*start_next_write_loop(session);*/
-        /*int ret = uv_read_start((uv_stream_t*)&session->connection.handle.handle, client_write_alloc, after_write_response);*/
-        /*if ( ret != 0 ) { */
-            /*session_free(session);*/
-            /*error_log("uv_read_start() failed. ret = %d", ret); */
-            /*return ; */
-        /*}*/
     }
     
 }
 
-/* ==================== do_write_block() ==================== */ 
-static int do_write_block(session_t *session)
+/* ==================== do_write_request() ==================== */ 
+static int do_write_request(session_t *session)
 {
     /**
      * Read DEFAULT_CONN_BUF_SIZE bytes into buf from file.
@@ -171,26 +130,25 @@ static int do_write_block(session_t *session)
 
     head_size += sizeof(message_t);
 
-    /*if ( session->id == 0 ) {*/
-        uint32_t keylen = strlen(client_args->key);
-        debug_log("client_args->key=%s, keylen=%d", client_args->key, keylen);
+    uint32_t keylen = strlen(client_args->key);
+    debug_log("client_args->key=%s, keylen=%d", client_args->key, keylen);
 
-        /* -------- key -------- */
-        write_request = add_message_arg(write_request, client_args->key, keylen > 128 ? 128 : keylen);
-        head_size += sizeof(uint32_t) + keylen;
+    /* -------- key -------- */
+    write_request = add_message_arg(write_request, client_args->key, keylen > 128 ? 128 : keylen);
+    head_size += sizeof(uint32_t) + keylen;
 
-        /* -------- key_md5 -------- */
-        md5_value_t md5Value;
-        md5(&md5Value, (const uint8_t*)client_args->key, keylen);
-        write_request = add_message_arg(write_request, &md5Value, sizeof(md5_value_t));
-        head_size += sizeof(uint32_t) + sizeof(md5_value_t);
+    /* -------- key_md5 -------- */
+    md5_value_t md5Value;
+    md5(&md5Value, (const uint8_t*)client_args->key, keylen);
 
-        /* -------- file_size -------- */
-        uint32_t file_size = client_args->file_size;
-        write_request = add_message_arg(write_request, &file_size, sizeof(file_size));
-        head_size += sizeof(uint32_t) + sizeof(file_size);
+    write_request = add_message_arg(write_request, &md5Value, sizeof(md5_value_t));
+    head_size += sizeof(uint32_t) + sizeof(md5_value_t);
 
-    /*}*/
+    /* -------- file_size -------- */
+    uint32_t file_size = client_args->file_size;
+    write_request = add_message_arg(write_request, &file_size, sizeof(file_size));
+    head_size += sizeof(uint32_t) + sizeof(file_size);
+
 
     /*head_size += sizeof(uint32_t) + sizeof(md5_value_t);*/
     head_size += sizeof(uint32_t) + sizeof(uint32_t); /* CRC32 */
@@ -209,15 +167,7 @@ static int do_write_block(session_t *session)
     /* -------- data -------- */
     write_request = add_message_arg(write_request, (uint8_t *)buf, readed);
     session->id++;
-    /*client->write_request = write_request;*/
 
-    /**
-     *
-     * Write ubuf to server, and set after_wirte_block callback.
-     *
-     */
-
-    /*TRACE_DATA_TO_FILE("data/client.dat", (char*)write_request, sizeof(msg_header_t) + write_request->data_length);*/
 
     /* -------- ubuf -------- */
     uint32_t msg_size = sizeof(message_t) + write_request->data_length;
@@ -236,7 +186,7 @@ static int do_write_block(session_t *session)
             &session->connection.handle.stream,
             &ubuf,
             1,
-            after_write_block);
+            after_write_request);
 
     zfree(write_request);
 
@@ -282,6 +232,6 @@ void write_file(session_t* session)
         /*fclose(f);*/
 
 
-    do_write_block(session);
+    do_write_request(session);
 
 }

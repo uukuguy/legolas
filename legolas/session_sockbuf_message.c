@@ -300,13 +300,13 @@ void after_read(uv_stream_t *handle, ssize_t nread, const uv_buf_t *buf)
         /*session_finish_saving_buffer(session);*/
 
         /*pthread_yield();*/
-        sched_yield();
+        /*sched_yield();*/
 
         /* FIXME */
         /*while ( server->cached_bytes > MAX_CACHED_BYTES ) {*/
             /*usleep(10 * 1000);*/
             /*pthread_yield();*/
-        /*sched_yield();*/
+            /*sched_yield();*/
         /*}*/
 
 
