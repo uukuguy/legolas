@@ -13,7 +13,7 @@
 #include "message.h"
 #include "uv.h"
 #include "md5.h"
-#include "coroutine.h"
+/*#include "coroutine.h"*/
 #include "crc32.h"
 #include "byteblock.h"
 #include <uuid/uuid.h>

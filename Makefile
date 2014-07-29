@@ -3,7 +3,8 @@ CLIENT = bin/legolas
 
 LEGOLAS_OBJS = legolas/legolas.o legolas/message.o 
 
-BASE_OBJS = base/logger.o base/daemon.o base/coroutine.o 
+BASE_OBJS = base/logger.o base/daemon.o 
+#base/coroutine.o 
 BASE_OBJS += base/zmalloc.o base/work.o base/md5.o base/byteblock.o base/filesystem.o
 BASE_OBJS += base/skiplist.o base/adlist.o base/crc32.o base/http_parser.o
 
@@ -34,7 +35,7 @@ COMMON_CFLAGS += ${KVDB_CFLAGS}
 SERVER_OBJS = server/main.o \
 			  server/server.o \
 			  legolas/session.o \
-			  legolas/session_sockbuf_message.o \
+			  legolas/sockbuf_message.o \
 			  server/session_handle.o \
 			  server/session_handle_write.o \
 			  server/session_handle_read.o \
@@ -50,7 +51,7 @@ SERVER_OBJS = server/main.o \
 CLIENT_OBJS = client/main.o \
 			  client/client.o \
 			  legolas/session.o \
-			  legolas/session_sockbuf_message.o \
+			  legolas/sockbuf_message.o \
 			  client/client_write.o \
 			  client/client_read.o \
 			  client/client_delete.o \
@@ -67,6 +68,7 @@ ZEROMQ=zeromq-4.0.4
 CZMQ=czmq-2.2.0
 ZYRE=zyre-1.0.0
 MSGPACK=msgpack-c-cpp-0.5.9
+CGREENLET=cgreenlet-20140730
 
 PCL=pcl-1.12
 LIBLFDS=liblfds-6.1.1
@@ -92,7 +94,7 @@ client: ${CLIENT}
 # ---------------- deps ----------------
 .PHONY: jemalloc libuv leveldb lmdb zeromq czmq zyre liblfds pcl 
 
-deps: jemalloc libuv leveldb lmdb lsm-sqlite4 zeromq czmq zyre msgpack rocksdb
+deps: jemalloc libuv leveldb lmdb lsm-sqlite4 zeromq czmq zyre msgpack cgreenlet rocksdb
 #pcl 
 
 # ................ jemalloc ................
@@ -297,6 +299,21 @@ deps/msgpack:
 	ln -s src/.libs lib && \
 	cp -f lib/*.${SO}* lib/*.a ../../lib/
 
+# ................ cgreenlet ................
+
+CFLAGS_CGREENLET=-I./deps/cgreenlet/src
+LDFLAGS_CGREENLET=-lgreenlet
+
+cgreenlet: deps/cgreenlet
+
+deps/cgreenlet:
+	cd deps && \
+	tar zxvf ${CGREENLET}.tar.gz && \
+	ln -sf ${CGREENLET} cgreenlet && \
+	cd ${CGREENLET} && \
+	make && \
+	cp -f src/*.a ../../lib/
+
 # ................ liblfds ................
 
 CFLAGS_LIBLFDS=-I./deps/liblfds/inc
@@ -339,7 +356,8 @@ COMMON_CFLAGS += ${CFLAGS_LIBUV} \
 				 ${CFLAGS_LSM_SQLITE4} \
 				 ${CFLAGS_LMDB} \
 				 ${CFLAGS_ZYRE} ${CFLAGS_CZMQ} ${CFLAGS_ZEROMQ} \
-				 ${CFLAGS_MSGPACK} 
+				 ${CFLAGS_MSGPACK} \
+				 ${CFLAGS_CGREENLET}
 FINAL_CFLAGS = -std=c11 -Wstrict-prototypes \
 			   ${COMMON_CFLAGS} \
 			   ${CFLAGS}
@@ -364,6 +382,7 @@ FINAL_LDFLAGS += ${LDFLAGS_LIBUV} \
 				${LDFLAGS_CZMQ} \
 				${LDFLAGS_ZEROMQ} \
 				${LDFLAGS_MSGPACK} \
+				${LDFLAGS_CGREENLET} \
 				${LDFLAGS} -lpthread -lssl -lcrypto -lstdc++ -lm -lz
 
 #${LDFLAGS_LIBLFDS} 
@@ -436,7 +455,8 @@ clean-deps:
 		deps/${ZEROMQ} deps/zeromq \
 		deps/${CZMQ} deps/czmq \
 		deps/${ZYRE} deps/zyre  \
-		deps/${MSGPACK} deps/msgpack 
+		deps/${MSGPACK} deps/msgpack \
+		deps/${CGREENLET} deps/cgreenlet 
 
 cleanall: clean clean-deps
 	rm -f lib/*

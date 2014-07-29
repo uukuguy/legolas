@@ -29,7 +29,11 @@
 typedef struct network_instance_t network_instance_t;
 typedef struct session_t session_t;
 typedef struct storage_file_t storage_file_t;
-typedef struct coroutine_t coroutine_t;
+
+//typedef struct coroutine_t coroutine_t;
+#include "greenlet.h"
+typedef greenlet_t coroutine_t;
+
 
 /* -------------------- sockbuf_t -------------------- */
 typedef struct sockbuf_t {

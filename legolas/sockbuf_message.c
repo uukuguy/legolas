@@ -15,10 +15,33 @@
 #include "common.h"
 /*#include "server.h"*/
 #include "session.h"
-#include "coroutine.h"
 #include "work.h"
 #include "logger.h"
 
+/*#include "coroutine.h"*/
+
+void coroutine_set_data(coroutine_t *coroutine, void *data)
+{
+    coroutine->gr_arg = data;
+}
+
+void* coroutine_self_data(void)
+{
+    greenlet_t *current = greenlet_current();
+    return current->gr_arg;
+}
+
+void coroutine_enter(coroutine_t *coroutine, void *opaque)
+{
+    greenlet_switch_to(coroutine, opaque);
+}
+
+void coroutine_yield(void)
+{
+    greenlet_t *current = greenlet_current();
+    greenlet_t *parent = greenlet_parent(current);
+    greenlet_switch_to(parent, NULL);
+}
 
 #define YIELD_AND_CONTINUE0 \
     trace_log("Ready to yield and continue."); \
@@ -219,11 +242,10 @@ void *session_rx_coroutine(void *opaque)
 /* ==================== create_session_coroutine() ==================== */ 
 int create_session_coroutine(session_t *session)
 {
-    /*session->tiny_schedule = coroutine_open();*/
-    /*session->tiny_co = coroutine_new(session->tiny_schedule, session_rx_coroutine, session);*/
-
     /*info_log("Create session coroutine.");*/
-    session->rx_coroutine = coroutine_create(session_rx_coroutine);
+    /*session->rx_coroutine = coroutine_create(session_rx_coroutine);*/
+    session->rx_coroutine = greenlet_new(session_rx_coroutine, greenlet_current(), 0);
+
     if ( session->rx_coroutine == NULL ) {
         error_log("Cann't create coroutine session->rx_coroutine");
         return -1;
@@ -241,10 +263,10 @@ int create_session_coroutine(session_t *session)
 /* ==================== destroy_session_coroutine() ==================== */ 
 int destroy_session_coroutine(session_t *session)
 {
-    /*coroutine_close(session->tiny_schedule);*/
     /*info_log("Destroy session coroutine.");*/
     if ( session->rx_coroutine != NULL ){
-        coroutine_delete(session->rx_coroutine);
+        /*coroutine_delete(session->rx_coroutine);*/
+        greenlet_destroy(session->rx_coroutine);
         session->rx_coroutine = NULL;
     }
 

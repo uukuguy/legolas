@@ -209,6 +209,7 @@ int object_put_into_kvdb(kvdb_t *kvdb, object_t *object)
     uint32_t key_md5_len = 32;
 
     int rc = kvdb_put(kvdb, sz_key_md5, key_md5_len, sbuf->data, sbuf->size);
+
     msgpack_sbuffer_free(sbuf);
     msgpack_packer_free(packer);
 

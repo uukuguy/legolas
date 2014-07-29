@@ -9,6 +9,7 @@
  */
 #include "message.h"
 #include "logger.h"
+#include "crc32.h"
 
 message_t *alloc_request_message(uint32_t id, enum MSG_OPERATION op_code)
 {
