@@ -17,9 +17,9 @@ LSM_OBJS = base/kvdb_lsm.o
 
 KVDB_OBJS += ${LSM_OBJS}
 
-#KVDB_CFLAGS += -DHAS_ROCKSDB
-#ROCKSDB_OBJS = base/kvdb_rocksdb.o 
-#KVDB_OBJS += ${ROCKSDB_OBJS}
+KVDB_CFLAGS += -DHAS_ROCKSDB
+ROCKSDB_OBJS = base/kvdb_rocksdb.o 
+KVDB_OBJS += ${ROCKSDB_OBJS}
 
 KVDB_CFLAGS += -DHAS_LEVELDB
 LEVELDB_OBJS = base/kvdb_leveldb.o 
@@ -174,7 +174,7 @@ deps/liblmdb:
 	make && \
 	cp -f *.so* *.a ../../lib/
 
-	cp -f *.${SO}* *.a ../../lib/
+	#cp -f *.${SO}* *.a ../../lib/
 
 # ................ rocksdb ................
 
@@ -192,8 +192,9 @@ deps/rocksdb:
 	cd ${ROCKSDB} && \
 	sed -i -e 's/()\s*;/(void);/g' include/rocksdb/c.h && \
 	sed -i -e 's/rocksdb::GetDeletedKey/(size_t)rocksdb::GetDeletedKey/' tools/sst_dump.cc && \
-	make && \
-	cp -f *.a ../../lib/
+	MAKECMDGOALS=static_lib JEMALLOC_INCLUDE="-I../jemalloc/include" JEMALLOC_LIB="-L../jemalloc/lib -ljemalloc" make static_lib && \
+	MAKECMDGOALS=shared_lib JEMALLOC_INCLUDE="-I../jemalloc/include" JEMALLOC_LIB="-L../jemalloc/lib -ljemalloc" make shared_lib && \
+	cp -f *.${SO}* *.a ../../lib/
 
 	#MAKECMDGOALS=static_lib make 
 	#sed -i -e 's/keys: %zd/keys: %zu/' tools/sst_dump.cc && \

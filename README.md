@@ -87,3 +87,15 @@ dependences:
 libgoogle-glog-dev
 libpopt-dev
 libjson-c-dev
+
+libgflags-dev
+libssl-dev
+uuid-dev
+libbz2-dev
+
+g++ cscope exuberant-ctags git subversion automake cmake gnome-do vim-gtk cdargs
+fcitx fcitx-table-wbpy fcitx-tools fcitx-m17n fcitx-config-gtk2 fcitx-googlepinyin fcitx-ui-classic fcitx-module-dbus fcitx-module-cloudpinyin  fcitx-table-wubi
+libboost1.55-all-dev liblog4cxx10-dev
+
+google-chrome-stable_current_amd64.deb
+
