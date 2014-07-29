@@ -1,5 +1,5 @@
 /**
- * @file   session_sockbuf_message.c
+ * @file   sockbuf_message.c
  * @author Jiangwen Su <uukuguy@gmail.com>
  * @date   2014-07-07 02:49:56
  * 
@@ -43,7 +43,7 @@
  */
 void do_read_data(sockbuf_t *sockbuf, void *buf, size_t count)
 {
-    UNUSED session_t *session = sockbuf->session;
+    session_t *session = sockbuf->session;
 
     assert(sockbuf != NULL);
     assert(buf != NULL);
