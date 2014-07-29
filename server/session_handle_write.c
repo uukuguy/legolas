@@ -54,14 +54,12 @@ int parse_write_request(session_t *session, message_t *request, msgidx_t *msgidx
     /* -------- argData -------- */
     message_arg_t *argData = message_next_arg(argCRC32);
 
-    if ( argData->size > 0 ) {
-
-         /* ---------- Check data md5 value. ---------- */
-        if ( check_data_crc32(request->id, argCRC32, argData) != 0 ){
-            error_log("fd(%d) request message id(%d) Check buffer crc32 failed.", session_fd(session), request->id);
-            return -1;
-        }
-    } 
+    /*if ( argData->size > 0 ) {*/
+        /*if ( check_data_crc32(request->id, argCRC32, argData) != 0 ){*/
+            /*error_log("fd(%d) request message id(%d) Check buffer crc32 failed.", session_fd(session), request->id);*/
+            /*return -1;*/
+        /*}*/
+    /*} */
 
     msgidx->data = argData->data;
     msgidx->data_size = argData->size;
@@ -136,6 +134,7 @@ int session_handle_write(session_t *session, message_t *request)
         return -1;
     }
 
+    /*session->total_writed += msgidx.data_size;*/
     /** ----------------------------------------
      *    Write cache
      *  ---------------------------------------- */
@@ -153,6 +152,7 @@ int session_handle_write(session_t *session, message_t *request)
     if ( session->total_writed >= msgidx.object_size ){
 
         session_write_to_kvdb(session, object, &msgidx);
+        /*session->total_writed = 0;*/
 
         /** ----------------------------------------
          *    Response to client 

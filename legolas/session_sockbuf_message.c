@@ -20,12 +20,20 @@
 #include "logger.h"
 
 
-#define YIELD_AND_CONTINUE \
+#define YIELD_AND_CONTINUE0 \
     trace_log("Ready to yield and continue."); \
     coroutine_yield(); \
     sockbuf = coroutine_self_data(); \
     trace_log("After YIELD coroutine_self_data(). sockbuf=%p", sockbuf); \
     session = sockbuf->session; \
+    continue; 
+
+
+#define YIELD_AND_CONTINUE \
+    trace_log("Ready to yield and continue."); \
+    coroutine_yield(); \
+    session = coroutine_self_data(); \
+    sockbuf = session->sockbuf; \
     continue; 
 
 /* ==================== do_read_data() ==================== */ 
@@ -45,6 +53,10 @@ void do_read_data(sockbuf_t *sockbuf, void *buf, size_t count)
      */
 	uint32_t done = 0;
     while ( count > 0 ) {
+        /* FIXME coroutine */
+        session = coroutine_self_data();
+        sockbuf = session->sockbuf;
+
         uint32_t len = sockbuf->write_head - sockbuf->read_head;
         /*trace_log("Next to ...: blockid(%d), len(%d), count(%zu)", sockbuf->blockid, len, count);*/
 
@@ -96,9 +108,13 @@ int session_do_read(sockbuf_t *sockbuf, message_t **p_message)
     message_t message_header;
 
     do_read_data(sockbuf, &message_header, sizeof(message_header));
+    /* FIXME coroutine */
+    session = coroutine_self_data();
+    sockbuf = session->sockbuf;
 
-    sockbuf = coroutine_self_data();
-    session = sockbuf->session;
+    /* FIXME coroutine */
+    /*sockbuf = coroutine_self_data();*/
+    /*session = sockbuf->session;*/
 
     /* -------- check message message_header -------- */
     if ( check_message((message_t*)&message_header) != 0) {
@@ -117,10 +133,14 @@ int session_do_read(sockbuf_t *sockbuf, message_t **p_message)
 
     do_read_data(sockbuf, message->data, message->data_length);
 
-    sockbuf = coroutine_self_data();
-    session = sockbuf->session;
+    /* FIXME coroutine */
+    /*sockbuf = coroutine_self_data();*/
+    /*session = sockbuf->session;*/
 
     *p_message = message;
+
+    pthread_yield();
+    /*sched_yield();*/
 
     return 0;
 }
@@ -153,8 +173,11 @@ void *session_rx_coroutine(void *opaque)
     UNUSED int ret;
 
     message_t *message = NULL;
-    sockbuf_t *sockbuf = (sockbuf_t*)opaque;
-    session_t *session = sockbuf->session;
+
+    /* FIXME coroutine */
+    session_t *session = (session_t*)opaque;
+    /*sockbuf_t *sockbuf = (sockbuf_t*)opaque;*/
+    /*session_t *session = sockbuf->session;*/
 
     while ( !session->stop ){
 
@@ -162,21 +185,27 @@ void *session_rx_coroutine(void *opaque)
          *    Keep read data
          *  ---------------------------------------- */
 
+        /* FIXME coroutine */
+        session = coroutine_self_data();
+        sockbuf_t *sockbuf = session->sockbuf;
+
         ret = session_do_read(sockbuf, &message);
-        sockbuf = coroutine_self_data();
-        session = sockbuf->session;
-        if ( ret != 0 || message == NULL ) {
-            YIELD_AND_CONTINUE;
-        }
 
-        ret = 0;
-        if ( session->callbacks.handle_message != NULL ){
-            ret = session->callbacks.handle_message(session, message);
-        /*session_response_to_client(session, RESULT_SUCCESS);*/
-        }
+        /* FIXME coroutine */
+        session = coroutine_self_data();
+        sockbuf = session->sockbuf;
 
-        zfree(message);
-        message = NULL;
+        /* FIXME coroutine */
+        /*sockbuf = coroutine_self_data();*/
+        /*session = sockbuf->session;*/
+
+        if ( ret == 0 && message != NULL ) {
+            if ( session->callbacks.handle_message != NULL ){
+                ret = session->callbacks.handle_message(session, message);
+            }
+            zfree(message);
+            message = NULL;
+        }  
 
         if ( ret != 0 ) {
             YIELD_AND_CONTINUE;
@@ -190,6 +219,9 @@ void *session_rx_coroutine(void *opaque)
 /* ==================== create_session_coroutine() ==================== */ 
 int create_session_coroutine(session_t *session)
 {
+    /*session->tiny_schedule = coroutine_open();*/
+    /*session->tiny_co = coroutine_new(session->tiny_schedule, session_rx_coroutine, session);*/
+
     /*info_log("Create session coroutine.");*/
     session->rx_coroutine = coroutine_create(session_rx_coroutine);
     if ( session->rx_coroutine == NULL ) {
@@ -209,6 +241,7 @@ int create_session_coroutine(session_t *session)
 /* ==================== destroy_session_coroutine() ==================== */ 
 int destroy_session_coroutine(session_t *session)
 {
+    /*coroutine_close(session->tiny_schedule);*/
     /*info_log("Destroy session coroutine.");*/
     if ( session->rx_coroutine != NULL ){
         coroutine_delete(session->rx_coroutine);
@@ -223,27 +256,16 @@ int destroy_session_coroutine(session_t *session)
     return 0;
 }
 
-void session_finish_saving_buffer(session_t *session){
-    __sync_add_and_fetch(&session->total_saved_buffers, 1);
-}
-
-/* ==================== recv_queue_process_sockbuf() ==================== */ 
-void recv_queue_process_sockbuf(sockbuf_t *sockbuf)
+/* ==================== session_consume_sockbuf() ==================== */ 
+void session_consume_sockbuf(sockbuf_t *sockbuf)
 {
     session_t *session = sockbuf->session;
 
     if ( likely( sockbuf->remain_bytes > 0 ) ) {
-
-        /**
-         * coroutine enter session_rx_handler() 
-         */
-        coroutine_enter(session->rx_coroutine, sockbuf);
-
-        /*trace_log("return from co_call.");*/
-
-        /**
-         * too many requests or not ?
-         */
+        /* FIXME coroutine */
+        session->sockbuf = sockbuf;
+        coroutine_enter(session->rx_coroutine, session);
+        /*coroutine_enter(session->rx_coroutine, sockbuf);*/
 
     } else {
         /* -------- remain bytes == 0 -------- */
@@ -251,15 +273,10 @@ void recv_queue_process_sockbuf(sockbuf_t *sockbuf)
 
     sockbuf_free(sockbuf);
 
-    session_finish_saving_buffer(session);
+    __sync_add_and_fetch(&session->total_saved_buffers, 1);
 
-    /*if ( session_is_waiting(session) ){*/
-        /*if ( session->waiting_for_close == 1 ) { */
-            /*pthread_cond_signal(&session->recv_pending_cond);*/
-        /*}*/
-    /*}*/
-    /*pthread_yield();*/
-    sched_yield();
+    pthread_yield();
+    /*sched_yield();*/
 
 }
 
@@ -289,18 +306,16 @@ void after_read(uv_stream_t *handle, ssize_t nread, const uv_buf_t *buf)
         trace_log("\n........\nfd(%d) block(%d) nread=%zu bytes. write_head:%d, remain_bytes=%d, total_bytes=%d\n", session_fd(session), sockbuf->blockid, nread, sockbuf->write_head, sockbuf->remain_bytes, session->connection.total_bytes);
 
 
-        /* FIXME */
-        /*enqueue_recv_queue(session, sockbuf);*/
-
         __sync_add_and_fetch(&session->total_received_buffers, 1);
-        recv_queue_process_sockbuf(sockbuf);
+        if ( session->callbacks.consume_sockbuf != NULL ){
+            session->callbacks.consume_sockbuf(sockbuf);
+        } else {
+            session_consume_sockbuf(sockbuf);
+        }
 
-        /*session_response_to_client(session, RESULT_SUCCESS);*/
+        /*session_response(session, RESULT_SUCCESS);*/
         /*sockbuf_free(sockbuf);*/
         /*session_finish_saving_buffer(session);*/
-
-        /*pthread_yield();*/
-        /*sched_yield();*/
 
         /* FIXME */
         /*while ( server->cached_bytes > MAX_CACHED_BYTES ) {*/

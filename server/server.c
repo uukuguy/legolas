@@ -24,6 +24,22 @@ int server_init(server_t *server);
 int init_server_work_queue(server_t *server);
 int exit_server_work_queue(server_t *server);
 
+/* ==================== test_session_consume_sockbuf() ==================== */ 
+void test_session_consume_sockbuf(sockbuf_t *sockbuf)
+{
+    session_t *session = sockbuf->session;
+
+    session_response(session, RESULT_SUCCESS);
+    
+    sockbuf_free(sockbuf);
+
+    __sync_add_and_fetch(&session->total_saved_buffers, 1);
+
+    /*pthread_yield();*/
+    sched_yield();
+
+}
+
 /* ==================== on_connection() ==================== */ 
 static void on_connection(uv_stream_t *stream, int status)
 {
@@ -37,7 +53,9 @@ static void on_connection(uv_stream_t *stream, int status)
         session_is_idle,
         session_handle_message,
         session_init,
-        session_destroy
+        session_destroy,
+        NULL /*consume_sockbuf_cb*/
+        /*test_session_consume_sockbuf*/
     };
     session_t *session = session_new((void*)server, callbacks);
     if ( session == NULL ){
@@ -250,12 +268,12 @@ int server_init(server_t *server)
  * Running in a thread in recv_queue.
  * One thread per session and many sessions per thread.
  */
-void recv_queue_process_sockbuf(sockbuf_t *sockbuf);
+void session_consume_sockbuf(sockbuf_t *sockbuf); /* in session_sockbuf_message.c */
 void recv_queue_handle_request(work_queue_t *wq)
 {
     void *nodeData = NULL;
     while ( (nodeData = dequeue_work(wq)) != NULL ){
-       recv_queue_process_sockbuf((sockbuf_t*)nodeData);
+       session_consume_sockbuf((sockbuf_t*)nodeData);
     }
 }
 

@@ -22,6 +22,7 @@
 client_t *client_new(const char *ip, int port, int op_code, const char *key, const char *filename, int total_files, int nthreads) 
 {
     client_t *client = (client_t*)zmalloc(sizeof(client_t));
+    memset(client, 0, sizeof(client_t));
     client->ip = ip;
     client->port = port;
     client->op_code = op_code;
@@ -121,7 +122,8 @@ int start_connect(client_t *client, int session_id)
         client_session_is_idle,
         client_session_handle_message,
         client_session_init,
-        client_session_destroy
+        client_session_destroy,
+        NULL /*consume_sockbuf_cb*/
     };
     session_t *session = session_new((void*)client, callbacks);
 
@@ -130,8 +132,11 @@ int start_connect(client_t *client, int session_id)
     memset(client_args, 0, sizeof(client_args_t));
     client_args->session_id = session_id;
     client_args->op_code = client->op_code;
-    client_args->file_size = 0;
-    client_args->file = NULL;
+    client_args->file_data = client->file_data;
+    client_args->file_size = client->file_size;
+    client_args->file_data_sended = 0;
+    /*client_args->file_size = 0;*/
+    /*client_args->file = NULL;*/
     client_args->total_send = 0;
     client_args->total_recv = 0;
     client_args->file_opened = 0;

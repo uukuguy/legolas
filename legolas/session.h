@@ -20,6 +20,8 @@
 #include "message.h"
 #include <time.h>
 
+//typedef struct schedule schedule;
+
 #define MAX_CACHED_BYTES 1024 * 1024 * 1024
 
 #define DEFAULT_SOCKBUF_SIZE 64 * 1024
@@ -93,6 +95,7 @@ typedef int (*is_idle_cb)(session_t*);
 typedef int (*handle_message_cb)(session_t*, message_t *);
 typedef int (*session_init_cb)(session_t*);
 typedef void (*session_destroy_cb)(session_t*);
+typedef void (*consume_sockbuf_cb)(sockbuf_t*);
 
 /* -------------------- session_callbacks_t -------------------- */
 typedef struct session_callbacks_t {
@@ -103,6 +106,7 @@ typedef struct session_callbacks_t {
     handle_message_cb handle_message;
     session_init_cb session_init;
     session_destroy_cb session_destroy;
+    consume_sockbuf_cb consume_sockbuf;
 } session_callbacks_t;
 
 /* -------------------- session_t -------------------- */
@@ -124,6 +128,9 @@ typedef struct session_t{
     uint32_t total_blocks; /* for build blockid */
 
 
+    sockbuf_t *sockbuf;
+
+
     uv_idle_t idle_handle;
     uv_timer_t timer_handle;
     uv_async_t async_handle;
@@ -131,6 +138,8 @@ typedef struct session_t{
     /* private fields */
     coroutine_t *rx_coroutine;
     coroutine_t *tx_coroutine; 
+    //schedule *tiny_schedule;
+    //int tiny_co;
 
 
     uint32_t total_received_buffers;

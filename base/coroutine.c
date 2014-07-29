@@ -113,20 +113,20 @@ static co_thread_state_t *coroutine_get_thread_state(void)
 
 static void coroutine_thread_cleanup(void *opaque)
 {
-	/*co_thread_state_t *s = (co_thread_state_t*)opaque;*/
-	/*coroutine_t *co;*/
-	/*coroutine_t *tmp;*/
+    /*co_thread_state_t *s = (co_thread_state_t*)opaque;*/
+    /*coroutine_t *co;*/
+    /*coroutine_t *tmp;*/
 
     /*list_for_each_entry_safe(co, tmp, &s->pool, pool_next) {*/
-        /*co_ucontext_t *ucontext = container_of(co, co_ucontext_t, base);*/
-        /*void *stack = ucontext->stack;*/
+        /*[>co_ucontext_t *ucontext = container_of(co, co_ucontext_t, base);<]*/
+        /*[>void *stack = ucontext->stack;<]*/
 
-        /*[>void *stack = container_of(co, co_ucontext_t, base)->stack;<]*/
+        /*void *stack = container_of(co, co_ucontext_t, base)->stack;*/
         /*free(stack);*/
         /*free(co);*/
     /*}*/
 
-	/*free(s);*/
+    /*free(s);*/
 }
 
 static void __attribute__((constructor)) coroutine_init(void)

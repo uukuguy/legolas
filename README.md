@@ -96,6 +96,13 @@ libbz2-dev
 g++ cscope exuberant-ctags git subversion automake cmake gnome-do vim-gtk cdargs
 fcitx fcitx-table-wbpy fcitx-tools fcitx-m17n fcitx-config-gtk2 fcitx-googlepinyin fcitx-ui-classic fcitx-module-dbus fcitx-module-cloudpinyin  fcitx-table-wubi
 libboost1.55-all-dev liblog4cxx10-dev
+python-django python-sqlite
+ipython ipython-notebook python-matplotlib ipython-qtconsole python-zmq  python-scipy
+tornado 
+from IPython.external.mathjax import install_mathjax
+install_mathjax()
+
+$ ipython notebook
 
 google-chrome-stable_current_amd64.deb
 

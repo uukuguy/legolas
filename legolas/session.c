@@ -237,11 +237,6 @@ int session_accept(session_t *session, uv_tcp_t *parent_tcp)
 {
     int ret = 0;
 
-    /*if ( create_session_coroutine(session) != 0 ) {*/
-        /*session_free(session);*/
-        /*return -1;*/
-    /*}*/
-
     /* -------- tcp_handle -------- */
     uv_tcp_t *tcp_handle = SESSION_TCP(session);
     tcp_handle->data = session;

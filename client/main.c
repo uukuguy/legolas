@@ -136,6 +136,31 @@ int runclient(program_options_t *program_options)
             program_options->total_files,
             program_options->threads);
 
+    if ( client->op_code == MSG_OP_WRITE ){
+        FILE *file = fopen(client->filename, "rb");
+        if ( file == NULL ){
+            error_log("fopen() failed. file:%s", client->filename);
+            return -1;
+        }
+
+        fseek(file, 0, SEEK_END);
+        uint32_t file_size = ftell(file);
+        fseek(file, 0, SEEK_SET);
+
+        char *buf = zmalloc(file_size);
+        uint32_t readed = fread(buf, 1, file_size, file); 
+        if ( readed != file_size ){
+            error_log("fread() failed. readed:%d file_size:%d", readed, file_size);
+            fclose(file);
+            return -1;
+        }
+
+        fclose(file);
+
+        client->file_data = buf;
+        client->file_size = file_size;
+    }
+
     /* -------- start_client (normal or thread)-------- */
 
     int ret;

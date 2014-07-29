@@ -23,8 +23,12 @@
 typedef struct client_args_t {
     int session_id;
     int op_code;
+
     uint32_t file_size;
-    FILE* file;
+    char *file_data;
+    uint32_t file_data_sended;
+
+    //FILE* file;
     int total_send;
     int total_recv;
     char key[NAME_MAX];
@@ -40,6 +44,9 @@ typedef struct client_t {
     int port;
 
     int op_code;
+
+    char *file_data;
+    uint32_t file_size;
 
     //uint32_t total_readed;
     const char *filename;

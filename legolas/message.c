@@ -70,16 +70,16 @@ int check_message(message_t *message)
 /* ==================== check_data_crc32() ==================== */ 
 int check_data_crc32(int requestid, message_arg_t *argCRC32, message_arg_t *argData)
 {
-    return 0;
-
-    /*uint32_t crc = *((uint32_t*)argCRC32->data);*/
-    /*uint32_t crc1 = crc32(0, argData->data, argData->size);*/
-
-    /*if ( crc != crc1 ) {*/
-        /*error_log("requestid(%d) upload crc32: %d, Data crc32: %d", requestid, crc, crc1);*/
-        /*return -1;*/
-    /*}*/
-
     /*return 0;*/
+
+    uint32_t crc = *((uint32_t*)argCRC32->data);
+    uint32_t crc1 = crc32(0, argData->data, argData->size);
+
+    if ( crc != crc1 ) {
+        error_log("requestid(%d) upload crc32: %d, Data crc32: %d", requestid, crc, crc1);
+        return -1;
+    }
+
+    return 0;
 }
 

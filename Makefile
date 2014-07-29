@@ -3,7 +3,7 @@ CLIENT = bin/legolas
 
 LEGOLAS_OBJS = legolas/legolas.o legolas/message.o 
 
-BASE_OBJS = base/logger.o base/daemon.o base/coroutine.o
+BASE_OBJS = base/logger.o base/daemon.o base/coroutine.o 
 BASE_OBJS += base/zmalloc.o base/work.o base/md5.o base/byteblock.o base/filesystem.o
 BASE_OBJS += base/skiplist.o base/adlist.o base/crc32.o base/http_parser.o
 
@@ -60,7 +60,7 @@ CLIENT_OBJS = client/main.o \
 LIBUV=libuv-v0.11.22
 JEMALLOC=jemalloc-3.6.0
 LEVELDB=leveldb-1.15.0
-LIBLMDB=liblmdb-0.9.14
+LMDB=lmdb-0.9.14
 ROCKSDB=rocksdb-3.2
 LSM_SQLITE4=lsm-sqlite4
 ZEROMQ=zeromq-4.0.4
@@ -90,9 +90,9 @@ server: ${SERVER}
 client: ${CLIENT}
 
 # ---------------- deps ----------------
-.PHONY: jemalloc libuv leveldb liblmdb zeromq czmq zyre liblfds pcl 
+.PHONY: jemalloc libuv leveldb lmdb zeromq czmq zyre liblfds pcl 
 
-deps: jemalloc libuv leveldb liblmdb lsm-sqlite4 zeromq czmq zyre msgpack rocksdb
+deps: jemalloc libuv leveldb lmdb lsm-sqlite4 zeromq czmq zyre msgpack rocksdb
 #pcl 
 
 # ................ jemalloc ................
@@ -157,20 +157,20 @@ deps/leveldb:
 	make && \
 	cp -f *.${SO}* *.a ../../lib/
 
-# ................ liblmdb ................
+# ................ lmdb ................
 
-CFLAGS_LIBLMDB=-I./deps/liblmdb
-#LDFLAGS_LIBLMDB=./deps/liblmdb/liblmdb.a
-#LDFLAGS_LIBLMDB=-L./deps/liblmdb -llmdb
-LDFLAGS_LIBLMDB=-llmdb
+CFLAGS_LMDB=-I./deps/lmdb
+#LDFLAGS_LMDB=./deps/lmdb/liblmdb.a
+#LDFLAGS_LMDB=-L./deps/lmdb -llmdb
+LDFLAGS_LMDB=-llmdb
 
-liblmdb: deps/liblmdb
+lmdb: deps/lmdb
 
-deps/liblmdb:
+deps/lmdb:
 	cd deps && \
-	tar zxvf ${LIBLMDB}.tar.gz && \
-	ln -sf ${LIBLMDB} liblmdb && \
-	cd ${LIBLMDB} && \
+	tar zxvf ${LMDB}.tar.gz && \
+	ln -sf ${LMDB} lmdb && \
+	cd ${LMDB} && \
 	make && \
 	cp -f *.so* *.a ../../lib/
 
@@ -337,7 +337,7 @@ COMMON_CFLAGS += ${CFLAGS_LIBUV} \
 				 ${CFLAGS_LEVELDB} \
 				 ${CFLAGS_ROCKSDB} \
 				 ${CFLAGS_LSM_SQLITE4} \
-				 ${CFLAGS_LIBLMDB} \
+				 ${CFLAGS_LMDB} \
 				 ${CFLAGS_ZYRE} ${CFLAGS_CZMQ} ${CFLAGS_ZEROMQ} \
 				 ${CFLAGS_MSGPACK} 
 FINAL_CFLAGS = -std=c11 -Wstrict-prototypes \
@@ -359,7 +359,7 @@ FINAL_LDFLAGS += ${LDFLAGS_LIBUV} \
 				${LDFLAGS_LEVELDB} \
 				${LDFLAGS_ROCKSDB} \
 				${LDFLAGS_LSM_SQLITE4} \
-				${LDFLAGS_LIBLMDB} \
+				${LDFLAGS_LMDB} \
 				${LDFLAGS_ZYRE} \
 				${LDFLAGS_CZMQ} \
 				${LDFLAGS_ZEROMQ} \
@@ -373,7 +373,7 @@ FINAL_LDFLAGS += ${LDFLAGS_LIBUV} \
 ifeq (${UNAME}, Linux)
 	FINAL_CFLAGS += -DOS_LINUX
 	FINAL_LDFLAGS += /usr/lib/x86_64-linux-gnu/libuuid.a -lrt
-	#FINAL_LDFLAGS += -static
+	FINAL_LDFLAGS += -static
 endif
 ifeq (${UNAME}, Darwin)
 	FINAL_CFLAGS += -DOS_DARWIN
@@ -430,8 +430,8 @@ clean-deps:
 		deps/${LIBUV} deps/libuv \
 		deps/${JEMALLOC} deps/jemalloc \
 		deps/${LEVELDB} deps/leveldb \
-		deps/${LIBLMDB} deps/rocksdb \
-		deps/${ROCKSDB} deps/liblmdb \
+		deps/${LMDB} deps/rocksdb \
+		deps/${ROCKSDB} deps/lmdb \
 		deps/${LSM_SQLITE4} deps/lsm \
 		deps/${ZEROMQ} deps/zeromq \
 		deps/${CZMQ} deps/czmq \
