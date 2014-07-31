@@ -115,16 +115,17 @@ int start_connect(client_t *client, int session_id)
     }
 
     /* ---------- New session ---------- */
-    session_callbacks_t callbacks = {
-        client_session_idle_cb,
-        client_session_timer_cb,
-        client_session_async_cb,
-        client_session_is_idle,
-        client_session_handle_message,
-        client_session_init,
-        client_session_destroy,
-        NULL /*consume_sockbuf_cb*/
+    static session_callbacks_t callbacks = {
+        .idle_cb = client_session_idle_cb,
+        .timer_cb = client_session_timer_cb,
+        .async_cb = client_session_async_cb,
+        .is_idle = client_session_is_idle,
+        .handle_message = client_session_handle_message,
+        .session_init = client_session_init,
+        .session_destroy = client_session_destroy,
+        .consume_sockbuf = NULL,
     };
+
     session_t *session = session_new((void*)client, callbacks);
 
     session->user_data = zmalloc(sizeof(client_args_t));

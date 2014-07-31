@@ -77,7 +77,11 @@ int runserver(program_options_t *program_options)
 
     notice_log("==> Start Legolas Server.");
 
+    pth_init();
+
     int ret = start_listen(port, data_dir);
+
+    pth_kill();
 
     notice_log("~~> End Legolas Server.");
 

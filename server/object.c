@@ -14,6 +14,7 @@
 #include "md5.h"
 #include "kvdb.h"
 #include "logger.h"
+#include "vnode.h"
 #include <msgpack.h>
 
 /* -------------------- slice_t -------------------- */
@@ -239,29 +240,13 @@ int object_put_into_kvdb(kvdb_t *kvdb, object_t *object)
         } else {
             trace_log("Storage save by kvdb_put() OK. key=%s seq_num=%d/%d buf_size=%d", key, seq_num + 1, nSlices, buf_size);
         }
+
         seq_num++;
     }
     listReleaseIterator(iter);
 
     return 0;
 }
-
-        /*uint32_t n;*/
-        /*for ( n = 0 ; n < object->nslices ; n++ ) {*/
-            /*char key[64];*/
-            /*sprintf(key, "%2.2x%2.2x%2.2x%2.2x-%08d", object->key_md5.h0, object->key_md5.h1, object->key_md5.h2, object->key_md5.h3, n);*/
-            /*char *buf = NULL;*/
-            /*uint32_t buf_size = 0;*/
-            /*int rc = kvdb_get(kvdb, sz_key_md5, key_md5_len, (void**)&buf, &buf_size);*/
-            /*if ( rc == 0 && buf != NULL && buf_size > 0 ){*/
-                /*zfree(buf);*/
-            /*} else {*/
-                /*error_log("kvdb_get() failed. key:%s, n=%d/%d", key, n, object->nSlices);*/
-                /*ret = -1;*/
-                /*break;*/
-            /*}*/
-
-        /*}*/
 
 int object_get_slice_from_kvdb(kvdb_t *kvdb, md5_value_t key_md5, uint32_t seq_num, void** ppbuf, uint32_t *pbuf_size)
 {

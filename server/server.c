@@ -35,8 +35,8 @@ void test_session_consume_sockbuf(sockbuf_t *sockbuf)
 
     __sync_add_and_fetch(&session->total_saved_buffers, 1);
 
-    /*pthread_yield();*/
-    sched_yield();
+    pthread_yield();
+    /*sched_yield();*/
 
 }
 
@@ -46,16 +46,16 @@ static void on_connection(uv_stream_t *stream, int status)
     server_t *server= (server_t*)stream->data;
 
     /* -------- create_session -------- */
-    session_callbacks_t callbacks = {
-        session_idle_cb,
-        session_timer_cb,
-        session_async_cb,
-        session_is_idle,
-        session_handle_message,
-        session_init,
-        session_destroy,
-        NULL /*consume_sockbuf_cb*/
-        /*test_session_consume_sockbuf*/
+    static session_callbacks_t callbacks = {
+        .idle_cb = session_idle_cb,
+        .timer_cb = session_timer_cb,
+        .async_cb = session_async_cb,
+        .is_idle = session_is_idle,
+        .handle_message = session_handle_message,
+        .session_init = session_init,
+        .session_destroy = session_destroy,
+        .consume_sockbuf = NULL,
+        /*.consume_sockbuf = test_session_consume_sockbuf*/
     };
     session_t *session = session_new((void*)server, callbacks);
     if ( session == NULL ){

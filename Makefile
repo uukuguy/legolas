@@ -69,6 +69,8 @@ CZMQ=czmq-2.2.0
 ZYRE=zyre-1.0.0
 MSGPACK=msgpack-c-cpp-0.5.9
 CGREENLET=cgreenlet-20140730
+LTHREAD=lthread-20140730
+PTH=pth-2.0.7
 
 PCL=pcl-1.12
 LIBLFDS=liblfds-6.1.1
@@ -94,7 +96,7 @@ client: ${CLIENT}
 # ---------------- deps ----------------
 .PHONY: jemalloc libuv leveldb lmdb zeromq czmq zyre liblfds pcl 
 
-deps: jemalloc libuv leveldb lmdb lsm-sqlite4 zeromq czmq zyre msgpack cgreenlet rocksdb
+deps: jemalloc libuv leveldb lmdb lsm-sqlite4 zeromq czmq zyre msgpack cgreenlet lthread  pth rocksdb
 #pcl 
 
 # ................ jemalloc ................
@@ -314,6 +316,40 @@ deps/cgreenlet:
 	make && \
 	cp -f src/*.a ../../lib/
 
+# ................ lthread ................
+
+CFLAGS_LTHREAD=-I./deps/lthread/src
+LDFLAGS_LTHREAD=-llthread
+
+lthread: deps/lthread
+
+deps/lthread:
+	cd deps && \
+	tar zxvf ${LTHREAD}.tar.gz && \
+	ln -sf ${LTHREAD} lthread && \
+	cd ${LTHREAD} && \
+	mkdir build && \
+	cd build && \
+	cmake .. && \
+	make && \
+	cp -f liblthread.a ../../../lib/
+
+# ................ pth ................
+
+CFLAGS_PTH=-I./deps/pth
+LDFLAGS_PTH=-lpth
+
+pth: deps/pth
+
+deps/pth:
+	cd deps && \
+	tar zxvf ${PTH}.tar.gz && \
+	ln -sf ${PTH} pth && \
+	cd ${PTH} && \
+	./configure --enable-optimize && \
+	make && \
+	cp -f .libs/*.${SO}* .libs/libpth.a ../../lib/
+
 # ................ liblfds ................
 
 CFLAGS_LIBLFDS=-I./deps/liblfds/inc
@@ -357,7 +393,9 @@ COMMON_CFLAGS += ${CFLAGS_LIBUV} \
 				 ${CFLAGS_LMDB} \
 				 ${CFLAGS_ZYRE} ${CFLAGS_CZMQ} ${CFLAGS_ZEROMQ} \
 				 ${CFLAGS_MSGPACK} \
-				 ${CFLAGS_CGREENLET}
+				 ${CFLAGS_CGREENLET} \
+				 ${CFLAGS_LTHREAD} \
+				 ${CFLAGS_PTH}
 FINAL_CFLAGS = -std=c11 -Wstrict-prototypes \
 			   ${COMMON_CFLAGS} \
 			   ${CFLAGS}
@@ -383,6 +421,8 @@ FINAL_LDFLAGS += ${LDFLAGS_LIBUV} \
 				${LDFLAGS_ZEROMQ} \
 				${LDFLAGS_MSGPACK} \
 				${LDFLAGS_CGREENLET} \
+				${LDFLAGS_LTHREAD} \
+				${LDFLAGS_PTH} \
 				${LDFLAGS} -lpthread -lssl -lcrypto -lstdc++ -lm -lz
 
 #${LDFLAGS_LIBLFDS} 
@@ -456,7 +496,9 @@ clean-deps:
 		deps/${CZMQ} deps/czmq \
 		deps/${ZYRE} deps/zyre  \
 		deps/${MSGPACK} deps/msgpack \
-		deps/${CGREENLET} deps/cgreenlet 
+		deps/${CGREENLET} deps/cgreenlet \
+		deps/${LTHREAD} deps/lthread \
+		deps/${PTH} deps/pth 
 
 cleanall: clean clean-deps
 	rm -f lib/*

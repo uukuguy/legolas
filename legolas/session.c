@@ -103,7 +103,7 @@ void session_response(session_t *session, enum MSG_RESULT result)
  */
 static void on_close(uv_handle_t *tcp_handle) 
 {
-    session_t *session = (struct session_t *)tcp_handle->data; 
+    session_t *session = (session_t *)tcp_handle->data; 
 
     total_sessions++;
     info_log("on_close(). total_sessions: %d", total_sessions);
@@ -118,7 +118,7 @@ static void on_close(uv_handle_t *tcp_handle)
 
 void after_shutdown(uv_shutdown_t *shutdown_req, int status) 
 {
-    session_t *session = (struct session_t *)shutdown_req->data; 
+    session_t *session = (session_t *)shutdown_req->data; 
 
     /*pthread_mutex_lock(&session->recv_pending_lock);{*/
 

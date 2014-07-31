@@ -111,9 +111,10 @@ int session_write_to_kvdb(session_t *session, object_t *object, msgidx_t *msgidx
     vnode_t *vnode = get_vnode_by_key(SERVER(session), msgidx->key_md5);
     assert(vnode != NULL);
 
+    /* FIXME */
     object_put_into_kvdb(vnode->kvdb, object);
-
     object_queue_remove(vnode->caching_objects, object);
+
     session->total_writed = 0;
 
     return 0;
@@ -133,6 +134,7 @@ int session_handle_write(session_t *session, message_t *request)
         error_log("parse_write_request() failed. key:%s", msgidx.key);
         return -1;
     }
+
 
     /*session->total_writed += msgidx.data_size;*/
     /** ----------------------------------------
