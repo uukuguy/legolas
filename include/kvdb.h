@@ -45,6 +45,7 @@ extern "C" {
     int kvdb_put(kvdb_t *kvdb, void *key, uint32_t klen, void *value, uint32_t vlen);
     int kvdb_get(kvdb_t *kvdb, void *key, uint32_t klen, void **value, uint32_t *vlen);
     int kvdb_del(kvdb_t *kvdb, void *key, uint32_t klen);
+    void kvdb_flush(kvdb_t *kvdb);
 
     void undefined_kvdb_function(kvdb_t *);
     int undefined_transaction_function(kvdb_t *, int);

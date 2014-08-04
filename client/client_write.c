@@ -221,7 +221,7 @@ void write_file(session_t* session)
     char file_name[NAME_MAX];
     get_path_file_name(client->filename, file_name, NAME_MAX - 1);
 
-    sprintf(client_args->key, "/test/%s/%04d/%08d-%s", client->key_prefix, client_args->session_id, client_args->total_send, file_name);
+    sprintf(client_args->key, "/test/%s/%04d/%08d-%s", client->key_prefix, client_args->session_id, client_args->total_send + client_args->start_index, file_name);
     trace_log("write_file(): %s", client_args->key);
 
     /*FILE *file = fopen(client->filename, "rb");*/

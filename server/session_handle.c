@@ -12,6 +12,10 @@
 #include "session.h"
 #include "logger.h"
 
+#include "server.h"
+#include "kvdb.h"
+#include "vnode.h"
+
 int session_handle_write(session_t *session, message_t *message);
 int session_handle_read(session_t *session, message_t *message);
 int session_handle_delete(session_t *session, message_t *message);
@@ -129,6 +133,14 @@ void session_idle_cb(uv_idle_t *idle_handle, int status)
 /* ==================== session_timer_cb() ==================== */ 
 void session_timer_cb(uv_timer_t *timer_handle, int status) 
 {
+    /*session_t *session = timer_handle->data;*/
+
+    /*server_t *server = SERVER(session);*/
+
+    /*int n;*/
+    /*for ( n = 0 ; n < VNODES ; n++ ){*/
+        /*kvdb_flush(server->vnodes[n]->kvdb);*/
+    /*}*/
 }
 
 /* ==================== session_async_cb() ==================== */ 

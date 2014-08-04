@@ -29,6 +29,7 @@ typedef struct{
     int op_code;
     const char *key;
     const char *filename;
+    int start_index;
     int total_files;
 
     int is_daemon;
@@ -158,6 +159,7 @@ int runclient(program_options_t *program_options)
             program_options->op_code,  
             program_options->key, 
             program_options->filename, 
+            program_options->start_index,
             program_options->total_files,
             program_options->threads);
 
@@ -239,6 +241,7 @@ static void usage(int status)
                 -r, --read              download file from server\n\
                 -x, --delete            delete file in server\n\
                 -k, --key               key of the file\n\
+                -b, --start             start of count\n\
                 -n, --count             count of loop\n\
                 -u, --threads           count of threads\n\
                 -d, --daemon            run in the daemon mode. \n\
@@ -259,6 +262,7 @@ static struct option const long_options[] = {
 	{"read", no_argument, NULL, 'r'},
 	{"delete", no_argument, NULL, 'x'},
 	{"key", required_argument, NULL, 'k'},
+	{"start", required_argument, NULL, 'b'},
 	{"count", required_argument, NULL, 'n'},
 	{"threads", required_argument, NULL, 'u'},
 	{"daemon", no_argument, NULL, 'd'},
@@ -268,7 +272,7 @@ static struct option const long_options[] = {
 
 	{NULL, 0, NULL, 0},
 };
-static const char *short_options = "es:p:wrxk:n:u:dvth";
+static const char *short_options = "es:p:wrxk:b:n:u:dvth";
 
 /* ==================== main() ==================== */ 
 int main(int argc, char *argv[])
@@ -282,6 +286,7 @@ int main(int argc, char *argv[])
     program_options.filename = "data/32K.dat";
     program_options.key = "default";
     program_options.threads = 0;
+    program_options.start_index = 0;
     program_options.is_daemon = 0;
     program_options.log_level = LOG_INFO;
     program_options.op_code = MSG_OP_NONE;
@@ -310,6 +315,9 @@ int main(int argc, char *argv[])
                 break;
             case 'k':
                 program_options.key = optarg;
+                break;
+            case 'b':
+                program_options.start_index = atoi(optarg);
                 break;
             case 'n':
                 program_options.total_files = atoi(optarg);

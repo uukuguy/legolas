@@ -19,7 +19,7 @@
 
 
 /* ==================== client_new() ==================== */ 
-client_t *client_new(const char *ip, int port, int op_code, const char *key, const char *filename, int total_files, int nthreads) 
+client_t *client_new(const char *ip, int port, int op_code, const char *key, const char *filename, int start_index, int total_files, int nthreads) 
 {
     client_t *client = (client_t*)zmalloc(sizeof(client_t));
     memset(client, 0, sizeof(client_t));
@@ -33,6 +33,7 @@ client_t *client_new(const char *ip, int port, int op_code, const char *key, con
     /*client->key[keylen] = '\0';*/
 
     client->filename = filename;
+    client->start_index = start_index;
     client->total_files = total_files;
     client->nthreads = nthreads;
     client->write_request = NULL;
@@ -118,6 +119,7 @@ int start_connect(client_t *client, session_callbacks_t *callbacks, int session_
     client_args->file_data_sended = 0;
     /*client_args->file_size = 0;*/
     /*client_args->file = NULL;*/
+    client_args->start_index = client->start_index;
     client_args->total_send = 0;
     client_args->total_recv = 0;
     client_args->file_opened = 0;

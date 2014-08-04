@@ -117,6 +117,14 @@ int session_write_to_kvdb(session_t *session, object_t *object, msgidx_t *msgidx
 
     session->total_writed = 0;
 
+    uint32_t total_kvdb_committed = __sync_add_and_fetch(&vnode->total_kvdb_committed, 1);
+    /*if ( server->cached_bytes > MAX_CACHED_BYTES ) {*/
+    if ( total_kvdb_committed > 600 ) {
+        __sync_sub_and_fetch(&vnode->total_kvdb_committed, total_kvdb_committed);
+        /*notice_log("vnode total_kvdb_committed:%d > 100. Flush vnode kvdb.", total_kvdb_committed);*/
+        kvdb_flush(vnode->kvdb);
+    }
+
     return 0;
 }
 

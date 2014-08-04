@@ -29,6 +29,7 @@ typedef struct vnode_t {
     datazone_t *datazones[MAX_DATAZONES];
 
     kvdb_t *kvdb;
+    uint32_t total_kvdb_committed;
 
     object_queue_t *caching_objects;
 

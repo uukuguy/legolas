@@ -441,7 +441,7 @@ FINAL_LDFLAGS += ${LDFLAGS_LIBUV} \
 				${LDFLAGS_LTHREAD} \
 				${LDFLAGS_PTH} \
 				${LDFLAGS_LIBCORO} \
-				${LDFLAGS} -lpthread -lssl -lcrypto -lstdc++ -lm -lz
+				${LDFLAGS} -lsnappy -lpthread -lssl -lcrypto -lstdc++ -lm -lz
 
 #${LDFLAGS_LIBLFDS} 
 #${LDFLAGS_PCL} 
@@ -450,7 +450,7 @@ FINAL_LDFLAGS += ${LDFLAGS_LIBUV} \
 ifeq (${UNAME}, Linux)
 	FINAL_CFLAGS += -DOS_LINUX
 	FINAL_LDFLAGS += /usr/lib/x86_64-linux-gnu/libuuid.a -lrt
-	FINAL_LDFLAGS += -static
+	#FINAL_LDFLAGS += -static
 endif
 ifeq (${UNAME}, Darwin)
 	FINAL_CFLAGS += -DOS_DARWIN

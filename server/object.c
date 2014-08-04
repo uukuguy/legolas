@@ -217,11 +217,6 @@ int object_put_into_kvdb(kvdb_t *kvdb, object_t *object)
 
     MAKE_META_KEY(key_md5);
 
-    /*if ( memcmp(object->key, "/test/default/0005/00000732-32K.dat", key_len) == 0 ) {*/
-        /*notice_log("key_md5:<%s> h0:%x h1:%x h2:%x h3:%x", sz_key_md5, key_md5.h0, key_md5.h1, key_md5.h2, key_md5.h3);*/
-        /*break_me(object->key);*/
-    /*}*/
-
     int rc = kvdb_put(kvdb, meta_key, meta_key_len, sbuf->data, sbuf->size);
 
     msgpack_sbuffer_free(sbuf);

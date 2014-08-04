@@ -10,22 +10,27 @@ if [ -z $threads ]; then
     threads=0
 fi
 
-count=$3
+start_index=$3
+if [ -z $start_index ]; then
+    start_index=0
+fi
+
+count=$4
 if [ -z $count ]; then
     count=1
 fi
 
-server=$4
+server=$5
 if [ -z $server ]; then
     server=127.0.0.1
 fi
 
-file=$5
+file=$6
 if [ -z $file ]; then
     file=32K
 fi
 
-operation=$6
+operation=$7
 if [ -z $operation ]; then
     operation=write
 fi
@@ -33,7 +38,7 @@ fi
 start=$(date "+%s")
 for (( i = 0; i < $num ; i++ ))
 do
-    bin/legolas --$operation --threads $threads --count $count --server $server data/samples/$file.dat 
+    bin/legolas --$operation --threads $threads --start $start_index --count $count --server $server data/samples/$file.dat 
     echo ++++++++ $i ++++++++++
 done
 

@@ -23,7 +23,7 @@
 
 //typedef struct schedule schedule;
 
-#define MAX_CACHED_BYTES 1024 * 1024 * 1024
+#define MAX_CACHED_BYTES 200 * 1024 * 1024
 
 #define DEFAULT_SOCKBUF_SIZE 64 * 1024
 
