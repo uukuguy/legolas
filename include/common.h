@@ -32,6 +32,7 @@
 #include <uuid/uuid.h>
 #include "pth.h"
 #include "lthread.h"
+#include "coro.h"
 
 #ifndef UNUSED
 #if defined(__clang__) ||                                \

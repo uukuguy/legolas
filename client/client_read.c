@@ -29,8 +29,8 @@ int handle_read_response(session_t *session, message_t *response)
 
     int ret = 0;
 
-    client_t *client = CLIENT(session);
-    client_args_t *client_args = CLIENT_ARGS(session);
+    UNUSED client_t *client = CLIENT(session);
+    UNUSED client_args_t *client_args = CLIENT_ARGS(session);
 
     message_arg_t *arg = (message_arg_t*)response->data;
 
@@ -51,6 +51,20 @@ int handle_read_response(session_t *session, message_t *response)
         UNUSED char *data = arg_data->data;
         uint32_t data_size = arg_data->size;
 
+        if ( session->callbacks.handle_read_response != NULL ){
+            msgidx_t *msgidx = zmalloc(sizeof(msgidx_t));
+            msgidx->message = response;
+            msgidx->object_size = object_size;
+            msgidx->slice_idx = seq_num;
+            msgidx->nslices = nslices;
+            msgidx->key = argKey->data;
+            msgidx->keylen = argKey->size;
+            msgidx->data = arg_data->data;
+            msgidx->data_size = arg_data->size;
+            session->callbacks.handle_read_response(session, msgidx);
+            zfree(msgidx);
+        }
+
         if ( client_args->total_recv % 100 == 0 ){
             notice_log("Key Found! key=%s object_size=%d seq:%d/%d data_size:%d", argKey->data, object_size, seq_num + 1, nslices, data_size);
         }
@@ -59,11 +73,41 @@ int handle_read_response(session_t *session, message_t *response)
         /* ---------- key ---------- */
         message_arg_t *argKey = arg;
         warning_log("NOT FOUND! key=%s", argKey->data);
+        if ( session->callbacks.handle_read_response != NULL ){
+            msgidx_t *msgidx = zmalloc(sizeof(msgidx_t));
+            msgidx->message = response;
+            msgidx->key = argKey->data;
+            session->callbacks.handle_read_response(session, msgidx);
+            zfree(msgidx);
+        }
         ret = 0;
     } else {
-        error_log("Error response code! result=%d", response->result);
+        /* ---------- key ---------- */
+        message_arg_t *argKey = arg;
+        error_log("Error response code! result=%d key=%s", response->result, argKey->data);
+        if ( session->callbacks.handle_read_response != NULL ){
+            msgidx_t *msgidx = zmalloc(sizeof(msgidx_t));
+            msgidx->message = response;
+            msgidx->key = argKey->data;
+            session->callbacks.handle_read_response(session, msgidx);
+            zfree(msgidx);
+        }
         ret = -1;
     }
+
+    return ret;
+}
+
+/*  ==================== client_handle_read_response() ==================== */ 
+int client_handle_read_response(session_t *session, message_t *response)
+{
+    client_t *client = CLIENT(session);
+    client_args_t *client_args = CLIENT_ARGS(session);
+
+    int ret;
+    ret = handle_read_response(session, response);
+
+    __sync_add_and_fetch(&client_args->total_recv, 1);
 
     if ( client_args->total_recv < client->total_files ){
         session->id = 0;
@@ -94,7 +138,7 @@ static void after_read_request(uv_write_t *read_req, int status)
     assert(client != NULL);
     zfree(read_req);
 
-    __sync_add_and_fetch(&client_args->total_recv, 1);
+    /*__sync_add_and_fetch(&client_args->total_recv, 1);*/
 
     if ( client_args->total_recv % 100 == 0 ){
         trace_log("========> End loop %d/%d. clientid:%d key:%s", client_args->total_recv, client->total_files, client_args->session_id, client_args->key);
@@ -105,7 +149,7 @@ static void after_read_request(uv_write_t *read_req, int status)
 }
 
 /* ==================== do_read_request() ==================== */ 
-static int do_read_request(session_t *session)
+int do_read_request(session_t *session)
 {
     client_args_t *client_args = CLIENT_ARGS(session);
     uint32_t head_size = 0;

@@ -55,7 +55,8 @@ CLIENT_OBJS = client/main.o \
 			  client/client_write.o \
 			  client/client_read.o \
 			  client/client_delete.o \
-			  client/client_session_handle.o
+			  client/client_session_handle.o \
+			  client/client_execute.o
 
 
 LIBUV=libuv-v0.11.22
@@ -71,6 +72,7 @@ MSGPACK=msgpack-c-cpp-0.5.9
 CGREENLET=cgreenlet-20140730
 LTHREAD=lthread-20140730
 PTH=pth-2.0.7
+LIBCORO=libcoro-1.67
 
 PCL=pcl-1.12
 LIBLFDS=liblfds-6.1.1
@@ -96,7 +98,7 @@ client: ${CLIENT}
 # ---------------- deps ----------------
 .PHONY: jemalloc libuv leveldb lmdb zeromq czmq zyre liblfds pcl 
 
-deps: jemalloc libuv leveldb lmdb lsm-sqlite4 zeromq czmq zyre msgpack cgreenlet lthread  pth rocksdb
+deps: jemalloc libuv leveldb lmdb lsm-sqlite4 zeromq czmq zyre msgpack cgreenlet lthread  pth libcoro rocksdb
 #pcl 
 
 # ................ jemalloc ................
@@ -350,6 +352,20 @@ deps/pth:
 	make && \
 	cp -f .libs/*.${SO}* .libs/libpth.a ../../lib/
 
+# ................ libcoro ................
+
+CFLAGS_LIBCORO=-I./deps/libcoro
+LDFLAGS_LIBCORO=-lcoro
+
+libcoro: deps/libcoro
+
+deps/libcoro:
+	cd deps && \
+	tar zxvf ${LIBCORO}.tar.gz && \
+	ln -sf ${LIBCORO} libcoro && \
+	cd ${LIBCORO} && \
+	make && \
+	cp -f libcoro.a ../../lib/
 # ................ liblfds ................
 
 CFLAGS_LIBLFDS=-I./deps/liblfds/inc
@@ -395,7 +411,8 @@ COMMON_CFLAGS += ${CFLAGS_LIBUV} \
 				 ${CFLAGS_MSGPACK} \
 				 ${CFLAGS_CGREENLET} \
 				 ${CFLAGS_LTHREAD} \
-				 ${CFLAGS_PTH}
+				 ${CFLAGS_PTH} \
+				 ${CFLAGS_LIBCORO}
 FINAL_CFLAGS = -std=c11 -Wstrict-prototypes \
 			   ${COMMON_CFLAGS} \
 			   ${CFLAGS}
@@ -423,6 +440,7 @@ FINAL_LDFLAGS += ${LDFLAGS_LIBUV} \
 				${LDFLAGS_CGREENLET} \
 				${LDFLAGS_LTHREAD} \
 				${LDFLAGS_PTH} \
+				${LDFLAGS_LIBCORO} \
 				${LDFLAGS} -lpthread -lssl -lcrypto -lstdc++ -lm -lz
 
 #${LDFLAGS_LIBLFDS} 
@@ -498,7 +516,8 @@ clean-deps:
 		deps/${MSGPACK} deps/msgpack \
 		deps/${CGREENLET} deps/cgreenlet \
 		deps/${LTHREAD} deps/lthread \
-		deps/${PTH} deps/pth 
+		deps/${PTH} deps/pth \
+		deps/${LIBCORO} deps/libcoro
 
 cleanall: clean clean-deps
 	rm -f lib/*

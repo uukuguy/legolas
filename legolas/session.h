@@ -18,6 +18,7 @@
 #include "work.h"
 #include "logger.h"
 #include "message.h"
+#include "coro.h"
 #include <time.h>
 
 //typedef struct schedule schedule;
@@ -30,9 +31,15 @@ typedef struct network_instance_t network_instance_t;
 typedef struct session_t session_t;
 typedef struct storage_file_t storage_file_t;
 
+#define USE_CGREENLET
+//#define USE_LIBCORO
+
 //typedef struct coroutine_t coroutine_t;
+/* -------- cgreenlet -------- */
+#ifdef USE_CGREENLET
 #include "greenlet.h"
 typedef greenlet_t coroutine_t;
+#endif
 
 
 /* -------------------- sockbuf_t -------------------- */
@@ -100,6 +107,8 @@ typedef int (*handle_message_cb)(session_t*, message_t *);
 typedef int (*session_init_cb)(session_t*);
 typedef void (*session_destroy_cb)(session_t*);
 typedef void (*consume_sockbuf_cb)(sockbuf_t*);
+typedef void (*on_connect_cb)(uv_connect_t*, int); 
+typedef int (*handle_read_response_cb)(session_t*, msgidx_t*);
 
 /* -------------------- session_callbacks_t -------------------- */
 typedef struct session_callbacks_t {
@@ -111,6 +120,8 @@ typedef struct session_callbacks_t {
     session_init_cb session_init;
     session_destroy_cb session_destroy;
     consume_sockbuf_cb consume_sockbuf;
+    on_connect_cb on_connect;
+    handle_read_response_cb handle_read_response;
 } session_callbacks_t;
 
 /* -------------------- session_t -------------------- */
@@ -140,10 +151,19 @@ typedef struct session_t{
     uv_async_t async_handle;
 
     /* private fields */
+#ifdef USE_CGREENLET
     coroutine_t *rx_coroutine;
     coroutine_t *tx_coroutine; 
-    //schedule *tiny_schedule;
-    //int tiny_co;
+#endif
+
+#ifdef USE_LIBCORO
+    coro_context main_coctx;
+    //struct coro_stack main_stack;
+    char main_stack[64*1024]; 
+    coro_context rx_coctx;
+    //struct coro_stack rx_stack;
+    char rx_stack[64*1024];
+#endif
 
 
     uint32_t total_received_buffers;
@@ -173,7 +193,7 @@ typedef struct session_t{
 #define session_udp(session) \
     session->connection.handle.udp
 
-extern session_t* session_new(void *parent, session_callbacks_t callbacks);
+extern session_t* session_new(void *parent, session_callbacks_t *callbacks);
 extern void session_free(session_t *session);
 extern int session_accept(session_t *session, uv_tcp_t *parent_tcp);
 

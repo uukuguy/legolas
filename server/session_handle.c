@@ -147,31 +147,10 @@ void session_destroy(session_t *session)
 {
 }
 
-/* ==================== msgidx_new() ==================== */ 
-msgidx_t *msgidx_new(void)
-{
-    msgidx_t *msgidx = (msgidx_t*)zmalloc(sizeof(msgidx_t));
-    msgidx_init(msgidx);
-    return msgidx;
-}
-
-/* ==================== msgidx_init() ==================== */ 
-void msgidx_init(msgidx_t *msgidx)
-{
-    memset(msgidx, 0, sizeof(msgidx_t));
-}
-
-/* ==================== msgidx_free() ==================== */ 
-void msgidx_free(msgidx_t *msgidx)
-{
-    zfree(msgidx);
-}
-
 /* ==================== response_with_key() ==================== */ 
 void response_with_key(session_t *session, msgidx_t *msgidx, int result)
 {
     message_t *response = alloc_response_message(0, result);
-    warning_log("key:%s NOT FOUND.", msgidx->key);
     response = add_message_arg(response, msgidx->key, msgidx->keylen);
     uint32_t msg_size = sizeof(message_t) + response->data_length;
 

@@ -16,22 +16,7 @@
 
 typedef struct session_t session_t;
 typedef struct message_t message_t;
-
-typedef struct msgidx_t {
-    message_t *message;
-    md5_value_t *key_md5;
-    uint32_t object_size;
-
-    const char *key;
-    uint32_t keylen;
-    const char *data;
-    uint32_t data_size;
-
-} msgidx_t;
-
-msgidx_t *msgidx_new(void);
-void msgidx_init(msgidx_t *msgidx);
-void msgidx_free(msgidx_t *msgidx);
+typedef struct msgidx_t msgidx_t;
 
 void session_idle_cb(uv_idle_t *idle_handle, int status);
 void session_timer_cb(uv_timer_t *timer_handle, int status);

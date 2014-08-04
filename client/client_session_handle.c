@@ -13,7 +13,7 @@
 #include "logger.h"
 
 int handle_write_response(session_t *session, message_t *response);
-int handle_read_response(session_t *session, message_t *response);
+int client_handle_read_response(session_t *session, message_t *response);
 int handle_delete_response(session_t *session, message_t *response);
 /* ==================== client_session_handle_message() ==================== */ 
 int client_session_handle_message(session_t *session, message_t *message)
@@ -33,7 +33,7 @@ int client_session_handle_message(session_t *session, message_t *message)
             {
                 if ( message->msg_type == MSG_TYPE_REQUEST ){
                 } else if ( message->msg_type == MSG_TYPE_RESPONSE ) {
-                    ret = handle_read_response(session, message);
+                    ret = client_handle_read_response(session, message);
                 }
             } break;
         case MSG_OP_DEL:

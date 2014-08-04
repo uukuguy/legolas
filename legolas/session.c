@@ -163,7 +163,12 @@ void session_shutdown(session_t *session)
         /*}*/
 
         if ( session->waiting_for_close == 1 ) {
-            if ( session->callbacks.is_idle(session)) {
+            int is_idle = 1;
+            if ( session->callbacks.is_idle != NULL &&
+                    session->callbacks.is_idle(session) != 1 ) 
+                is_idle = 0;
+            if ( is_idle == 1 ) {
+            /*if ( session->callbacks.is_idle(session)) {*/
                 session->stop = 1;
 
                 info_log("Start to close session in session_idle_cb()");
@@ -184,7 +189,7 @@ int create_session_coroutine(session_t *session);
 int destroy_session_coroutine(session_t *session);
 
 /* ==================== session_new() ==================== */ 
-session_t* session_new(void *parent, session_callbacks_t callbacks)
+session_t* session_new(void *parent, session_callbacks_t *callbacks)
 {
     static uint32_t seq_no = 0;
 
@@ -193,7 +198,7 @@ session_t* session_new(void *parent, session_callbacks_t callbacks)
     memset(session, 0, sizeof(session_t));
     session->parent = parent;
 	session->sid.seq_no = seq_no++;
-    session->callbacks = callbacks;
+    session->callbacks = *callbacks;
 	pthread_mutex_init(&session->recv_pending_lock, NULL);
 	pthread_cond_init(&session->recv_pending_cond, NULL);
 	pthread_mutex_init(&session->send_pending_lock, NULL);
@@ -222,8 +227,8 @@ session_t* session_new(void *parent, session_callbacks_t callbacks)
         return NULL;
     }
 
-    if ( callbacks.session_init != NULL ) {
-        if ( callbacks.session_init(session) != 0 ) {
+    if ( callbacks->session_init != NULL ) {
+        if ( callbacks->session_init(session) != 0 ) {
             session_free(session);
             return NULL;
         }

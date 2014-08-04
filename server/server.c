@@ -56,8 +56,10 @@ static void on_connection(uv_stream_t *stream, int status)
         .session_destroy = session_destroy,
         .consume_sockbuf = NULL,
         /*.consume_sockbuf = test_session_consume_sockbuf*/
+        .on_connect = NULL,
+        .handle_read_response = NULL,
     };
-    session_t *session = session_new((void*)server, callbacks);
+    session_t *session = session_new((void*)server, &callbacks);
     if ( session == NULL ){
         error_log("session_new() failed. session == NULL.");
         return;

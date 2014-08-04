@@ -178,6 +178,16 @@ int unpack_object_nslices(msgpack_unpacker *unpacker, object_t *object)
     return 0;
 }
 
+#define MAKE_META_KEY(key_md5) \
+    char meta_key[37]; \
+    sprintf(meta_key, "%08x-%08x-%08x-%08x", key_md5.h0, key_md5.h1, key_md5.h2, key_md5.h3); \
+    uint32_t meta_key_len = 36;
+
+#define MAKE_SLICE_KEY(key_md5, slice_idx) \
+        char slice_key[45]; \
+        sprintf(slice_key, "%08x-%08x-%08x-%08x-%08d", key_md5.h0, key_md5.h1, key_md5.h2, key_md5.h3, slice_idx); \
+        uint32_t slice_key_len = 44;
+
 int object_put_into_kvdb(kvdb_t *kvdb, object_t *object)
 {
     md5_value_t key_md5 = object->key_md5;
@@ -205,23 +215,26 @@ int object_put_into_kvdb(kvdb_t *kvdb, object_t *object)
     /* nSlices */
     msgpack_pack_uint32(packer, nSlices);
 
-    char sz_key_md5[32];
-    sprintf(sz_key_md5, "%2.2x%2.2x%2.2x%2.2x", key_md5.h0, key_md5.h1, key_md5.h2, key_md5.h3);
-    uint32_t key_md5_len = 32;
+    MAKE_META_KEY(key_md5);
 
-    int rc = kvdb_put(kvdb, sz_key_md5, key_md5_len, sbuf->data, sbuf->size);
+    /*if ( memcmp(object->key, "/test/default/0005/00000732-32K.dat", key_len) == 0 ) {*/
+        /*notice_log("key_md5:<%s> h0:%x h1:%x h2:%x h3:%x", sz_key_md5, key_md5.h0, key_md5.h1, key_md5.h2, key_md5.h3);*/
+        /*break_me(object->key);*/
+    /*}*/
+
+    int rc = kvdb_put(kvdb, meta_key, meta_key_len, sbuf->data, sbuf->size);
 
     msgpack_sbuffer_free(sbuf);
     msgpack_packer_free(packer);
 
     if ( rc != 0 ) {
-        error_log("Storage save key_md5 by kvdb_put() failed. key_md5=%s, key=%s, object_size=%d, slices=%d", sz_key_md5, object->key, object->object_size, nSlices);
+        error_log("Storage save key_md5 by kvdb_put() failed. meta_key=%s, key=%s, object_size=%d, slices=%d", meta_key, object->key, object->object_size, nSlices);
         return -1;
     } else {
-        trace_log("Storage save key_md5 by kvdb_put() failed. key_md5=%s, key=%s, object_size=%d, slices=%d", sz_key_md5, object->key, object->object_size, nSlices);
+        trace_log("Storage save key_md5 by kvdb_put() failed. meta_key=%s, key=%s, object_size=%d, slices=%d", meta_key, object->key, object->object_size, nSlices);
     }
 
-    uint32_t seq_num = 0;
+    uint32_t slice_idx = 0;
 
     listIter *iter = listGetIterator(object->slices, AL_START_HEAD);
     listNode *node = NULL;
@@ -230,33 +243,30 @@ int object_put_into_kvdb(kvdb_t *kvdb, object_t *object)
         char *buf = slice->byteblock.buf;
         uint32_t buf_size = slice->byteblock.size;
 
-        char key[41];
-        sprintf(key, "%2.2x%2.2x%2.2x%2.2x-%08d", object->key_md5.h0, object->key_md5.h1, object->key_md5.h2, object->key_md5.h3, seq_num);
+        MAKE_SLICE_KEY(object->key_md5, slice_idx);
 
-        int rc = kvdb_put(kvdb, key, 41, buf, buf_size);
+        int rc = kvdb_put(kvdb, slice_key, slice_key_len, buf, buf_size);
         if ( rc != 0 ) {
-            error_log("Storage save by kvdb_put() failed. key=%s seq_num=%d/%d buf_size=%d", key, seq_num + 1, nSlices, buf_size);
+            error_log("Storage save by kvdb_put() failed. slice_key=%s slice_idx=%d/%d buf_size=%d", slice_key, slice_idx + 1, nSlices, buf_size);
             return -1;
         } else {
-            trace_log("Storage save by kvdb_put() OK. key=%s seq_num=%d/%d buf_size=%d", key, seq_num + 1, nSlices, buf_size);
+            trace_log("Storage save by kvdb_put() OK. slice_key=%s slice_idx=%d/%d buf_size=%d", slice_key, slice_idx + 1, nSlices, buf_size);
         }
 
-        seq_num++;
+        slice_idx++;
     }
     listReleaseIterator(iter);
 
     return 0;
 }
 
-int object_get_slice_from_kvdb(kvdb_t *kvdb, md5_value_t key_md5, uint32_t seq_num, void** ppbuf, uint32_t *pbuf_size)
+int object_get_slice_from_kvdb(kvdb_t *kvdb, md5_value_t key_md5, uint32_t slice_idx, void** ppbuf, uint32_t *pbuf_size)
 {
-    char key[41];
-    sprintf(key, "%2.2x%2.2x%2.2x%2.2x-%08d", key_md5.h0, key_md5.h1, key_md5.h2, key_md5.h3, seq_num);
-    uint32_t key_len = 41;
+    MAKE_SLICE_KEY(key_md5, slice_idx);
 
     char *buf = NULL;
     uint32_t buf_size = 0;
-    int rc = kvdb_get(kvdb, key, key_len, (void**)&buf, &buf_size);
+    int rc = kvdb_get(kvdb, slice_key, slice_key_len, (void**)&buf, &buf_size);
     if ( rc == 0 && buf != NULL && buf_size > 0 ){
         *ppbuf = buf;
         *pbuf_size = buf_size;
@@ -269,13 +279,11 @@ object_t *object_get_from_kvdb(kvdb_t *kvdb, md5_value_t key_md5)
     UNUSED int object_found = 0;
     object_t *object = NULL;
 
-    char sz_key_md5[32];
-    sprintf(sz_key_md5, "%2.2x%2.2x%2.2x%2.2x", key_md5.h0, key_md5.h1, key_md5.h2, key_md5.h3);
-    uint32_t key_md5_len = 32;
+    MAKE_META_KEY(key_md5);
 
     char *buf = NULL;
     uint32_t buf_size = 0;
-    int rc = kvdb_get(kvdb, sz_key_md5, key_md5_len, (void**)&buf, &buf_size);
+    int rc = kvdb_get(kvdb, meta_key, meta_key_len, (void**)&buf, &buf_size);
     if ( rc == 0 && buf != NULL && buf_size > 0 ){
         msgpack_unpacker unpacker;
         msgpack_unpacker_init(&unpacker, buf_size);
@@ -312,21 +320,18 @@ int object_del_from_kvdb(kvdb_t *kvdb, md5_value_t key_md5)
 
     object_t *object = object_get_from_kvdb(kvdb, key_md5);
     if ( object != NULL ){
-        char sz_key_md5[32];
-        sprintf(sz_key_md5, "%2.2x%2.2x%2.2x%2.2x", key_md5.h0, key_md5.h1, key_md5.h2, key_md5.h3);
-        uint32_t key_md5_len = 32;
+        MAKE_META_KEY(key_md5);
 
-        rc = kvdb_del(kvdb, sz_key_md5, key_md5_len);
+        rc = kvdb_del(kvdb, meta_key, meta_key_len);
         if ( rc == 0 ){
             uint32_t n;
             for ( n = 0 ; n < object->nslices ; n++ ) {
-                char key[41];
-                sprintf(key, "%2.2x%2.2x%2.2x%2.2x-%08d", object->key_md5.h0, object->key_md5.h1, object->key_md5.h2, object->key_md5.h3, n);
-                uint32_t key_len = 41;
-                int rc = kvdb_del(kvdb, key, key_len);
+                MAKE_SLICE_KEY(object->key_md5, n);
+
+                int rc = kvdb_del(kvdb, slice_key, slice_key_len);
                 if ( rc == 0 ){
                 } else {
-                    error_log("kvdb_del() failed. key:%s, n=%d/%d", key, n, object->nslices);
+                    error_log("kvdb_del() failed. slice_key:%s, slice_idx=%d/%d", slice_key, n, object->nslices);
                     ret = -1;
                     break;
                 }

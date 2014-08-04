@@ -90,17 +90,8 @@ static void on_connect(uv_connect_t *req, int status)
     }
 }
 
-/* in client_session_handle.c */
-void client_session_idle_cb(uv_idle_t *idle_handle, int status);
-void client_session_timer_cb(uv_timer_t *timer_handle, int status);
-void client_session_async_cb(uv_async_t *async_handle, int status);
-int client_session_is_idle(session_t *session);
-int client_session_handle_message(session_t *session, message_t *message);
-int client_session_init(session_t *session);
-void client_session_destroy(session_t *session);
-
 /* ==================== start_connect() ==================== */ 
-int start_connect(client_t *client, int session_id)
+int start_connect(client_t *client, session_callbacks_t *callbacks, int session_id)
 {
     trace_log("Enter start_connect(). session_id:%d ip=%s, port=%d, op_code=%d", session_id, client->ip, client->port, client->op_code);
 
@@ -115,17 +106,6 @@ int start_connect(client_t *client, int session_id)
     }
 
     /* ---------- New session ---------- */
-    static session_callbacks_t callbacks = {
-        .idle_cb = client_session_idle_cb,
-        .timer_cb = client_session_timer_cb,
-        .async_cb = client_session_async_cb,
-        .is_idle = client_session_is_idle,
-        .handle_message = client_session_handle_message,
-        .session_init = client_session_init,
-        .session_destroy = client_session_destroy,
-        .consume_sockbuf = NULL,
-    };
-
     session_t *session = session_new((void*)client, callbacks);
 
     session->user_data = zmalloc(sizeof(client_args_t));
@@ -162,7 +142,8 @@ int start_connect(client_t *client, int session_id)
     r = uv_tcp_connect(&client_args->connect_req,
             tcp_handle,
             (const struct sockaddr*) &server_addr,
-            on_connect);
+            callbacks->on_connect != NULL ? callbacks->on_connect : on_connect);
+            /*on_connect);*/
     if ( r ) {
         error_log("uv_tcp_connect() failed.");
         client_free(client);

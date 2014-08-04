@@ -84,3 +84,23 @@ int check_data_crc32(int requestid, message_arg_t *argCRC32, message_arg_t *argD
     return 0;
 }
 
+/* ==================== msgidx_new() ==================== */ 
+msgidx_t *msgidx_new(void)
+{
+    msgidx_t *msgidx = (msgidx_t*)zmalloc(sizeof(msgidx_t));
+    msgidx_init(msgidx);
+    return msgidx;
+}
+
+/* ==================== msgidx_init() ==================== */ 
+void msgidx_init(msgidx_t *msgidx)
+{
+    memset(msgidx, 0, sizeof(msgidx_t));
+}
+
+/* ==================== msgidx_free() ==================== */ 
+void msgidx_free(msgidx_t *msgidx)
+{
+    zfree(msgidx);
+}
+

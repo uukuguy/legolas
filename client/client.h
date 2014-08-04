@@ -72,5 +72,7 @@ typedef struct client_t {
 client_t *client_new(const char *ip, int port, int op_code, const char *key, const char *file, int total_files, int nthreads);
 void client_free(client_t *client);
 
+int start_connect(client_t *client, session_callbacks_t *callbacks, int session_id);
+
 #endif /* __CLIENT_H__ */
 
