@@ -9,6 +9,7 @@
  */
 #include "message.h"
 #include "logger.h"
+#include "crc32.h"
 
 message_t *alloc_request_message(uint32_t id, enum MSG_OPERATION op_code)
 {
@@ -70,16 +71,36 @@ int check_message(message_t *message)
 /* ==================== check_data_crc32() ==================== */ 
 int check_data_crc32(int requestid, message_arg_t *argCRC32, message_arg_t *argData)
 {
-    return 0;
-
-    /*uint32_t crc = *((uint32_t*)argCRC32->data);*/
-    /*uint32_t crc1 = crc32(0, argData->data, argData->size);*/
-
-    /*if ( crc != crc1 ) {*/
-        /*error_log("requestid(%d) upload crc32: %d, Data crc32: %d", requestid, crc, crc1);*/
-        /*return -1;*/
-    /*}*/
-
     /*return 0;*/
+
+    uint32_t crc = *((uint32_t*)argCRC32->data);
+    uint32_t crc1 = crc32(0, argData->data, argData->size);
+
+    if ( crc != crc1 ) {
+        error_log("requestid(%d) upload crc32: %d, Data crc32: %d", requestid, crc, crc1);
+        return -1;
+    }
+
+    return 0;
+}
+
+/* ==================== msgidx_new() ==================== */ 
+msgidx_t *msgidx_new(void)
+{
+    msgidx_t *msgidx = (msgidx_t*)zmalloc(sizeof(msgidx_t));
+    msgidx_init(msgidx);
+    return msgidx;
+}
+
+/* ==================== msgidx_init() ==================== */ 
+void msgidx_init(msgidx_t *msgidx)
+{
+    memset(msgidx, 0, sizeof(msgidx_t));
+}
+
+/* ==================== msgidx_free() ==================== */ 
+void msgidx_free(msgidx_t *msgidx)
+{
+    zfree(msgidx);
 }
 

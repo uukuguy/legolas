@@ -14,6 +14,7 @@
 #include "common.h"
 #include "util.h"
 #include "zmalloc.h"
+#include "md5.h"
 
 #define PROTOCAL_VERSION 1
 
@@ -39,7 +40,8 @@ enum MSG_RESULT {
 	/* unknown */
 	RESULT_ERR_UNKNOWN = 0x10,
 
-    RESULT_ERR_NOTFOUND = 0x20
+    RESULT_ERR_NOTFOUND = 0x20,
+    RESULT_ERR_STORAGE_FAILED = 0x40
 };
 
 /* -------------------- MESSAGE_HEADER_FIELDS -------------------- */ 
@@ -76,6 +78,25 @@ extern message_t *alloc_response_message(uint32_t id, enum MSG_RESULT result);
 extern message_t *add_message_arg(message_t *message, const void *data, uint32_t data_len);
 extern int check_message(message_t *message);
 extern int check_data_crc32(int requestid, message_arg_t *argCRC32, message_arg_t *argData);
+
+
+typedef struct msgidx_t {
+    message_t *message;
+    md5_value_t *key_md5;
+    uint32_t object_size;
+    uint32_t slice_idx;
+    uint32_t nslices;
+
+    const char *key;
+    uint32_t keylen;
+    const char *data;
+    uint32_t data_size;
+
+} msgidx_t;
+
+msgidx_t *msgidx_new(void);
+void msgidx_init(msgidx_t *msgidx);
+void msgidx_free(msgidx_t *msgidx);
 
 #endif /* __MESSAGE_H__ */
 

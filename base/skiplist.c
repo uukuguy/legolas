@@ -27,6 +27,8 @@
 #include "skiplist.h"
 #include "skiplist_macros_internal.h"
 
+extern int object_compare_md5_func(void *first, void *second);
+
 typedef struct skiplist {
     skiplist_count_t count;
     struct skiplist_node *head;

@@ -13,7 +13,7 @@
 #include "message.h"
 #include "uv.h"
 #include "md5.h"
-#include "coroutine.h"
+/*#include "coroutine.h"*/
 #include "crc32.h"
 #include "byteblock.h"
 #include <uuid/uuid.h>
@@ -103,7 +103,7 @@ void session_response(session_t *session, enum MSG_RESULT result)
  */
 static void on_close(uv_handle_t *tcp_handle) 
 {
-    session_t *session = (struct session_t *)tcp_handle->data; 
+    session_t *session = (session_t *)tcp_handle->data; 
 
     total_sessions++;
     info_log("on_close(). total_sessions: %d", total_sessions);
@@ -118,7 +118,7 @@ static void on_close(uv_handle_t *tcp_handle)
 
 void after_shutdown(uv_shutdown_t *shutdown_req, int status) 
 {
-    session_t *session = (struct session_t *)shutdown_req->data; 
+    session_t *session = (session_t *)shutdown_req->data; 
 
     /*pthread_mutex_lock(&session->recv_pending_lock);{*/
 
@@ -154,16 +154,14 @@ void after_shutdown(uv_shutdown_t *shutdown_req, int status)
 void session_shutdown(session_t *session)
 {
     if ( !session->stop ){
-        /*uint32_t finished_works = session->finished_works;*/
-        /*if ( finished_works > 0 ) {*/
-        /*__sync_sub_and_fetch(&session->finished_works, finished_works);*/
-        /*while ( finished_works-- > 0 ) {*/
-        /*session_response(session, RESULT_SUCCESS);*/
-        /*}*/
-        /*}*/
 
         if ( session->waiting_for_close == 1 ) {
-            if ( session->callbacks.is_idle(session)) {
+            int is_idle = 1;
+            if ( session->callbacks.is_idle != NULL &&
+                    session->callbacks.is_idle(session) != 1 ) 
+                is_idle = 0;
+            if ( is_idle == 1 ) {
+            /*if ( session->callbacks.is_idle(session)) {*/
                 session->stop = 1;
 
                 info_log("Start to close session in session_idle_cb()");
@@ -184,7 +182,7 @@ int create_session_coroutine(session_t *session);
 int destroy_session_coroutine(session_t *session);
 
 /* ==================== session_new() ==================== */ 
-session_t* session_new(void *parent, session_callbacks_t callbacks)
+session_t* session_new(void *parent, session_callbacks_t *callbacks)
 {
     static uint32_t seq_no = 0;
 
@@ -193,7 +191,7 @@ session_t* session_new(void *parent, session_callbacks_t callbacks)
     memset(session, 0, sizeof(session_t));
     session->parent = parent;
 	session->sid.seq_no = seq_no++;
-    session->callbacks = callbacks;
+    session->callbacks = *callbacks;
 	pthread_mutex_init(&session->recv_pending_lock, NULL);
 	pthread_cond_init(&session->recv_pending_cond, NULL);
 	pthread_mutex_init(&session->send_pending_lock, NULL);
@@ -222,8 +220,8 @@ session_t* session_new(void *parent, session_callbacks_t callbacks)
         return NULL;
     }
 
-    if ( callbacks.session_init != NULL ) {
-        if ( callbacks.session_init(session) != 0 ) {
+    if ( callbacks->session_init != NULL ) {
+        if ( callbacks->session_init(session) != 0 ) {
             session_free(session);
             return NULL;
         }
@@ -236,11 +234,6 @@ session_t* session_new(void *parent, session_callbacks_t callbacks)
 int session_accept(session_t *session, uv_tcp_t *parent_tcp)
 {
     int ret = 0;
-
-    /*if ( create_session_coroutine(session) != 0 ) {*/
-        /*session_free(session);*/
-        /*return -1;*/
-    /*}*/
 
     /* -------- tcp_handle -------- */
     uv_tcp_t *tcp_handle = SESSION_TCP(session);

@@ -18,16 +18,30 @@
 #include "work.h"
 #include "logger.h"
 #include "message.h"
+#include "coro.h"
 #include <time.h>
 
-#define MAX_CACHED_BYTES 1024 * 1024 * 1024
+//typedef struct schedule schedule;
+
+#define MAX_CACHED_BYTES 200 * 1024 * 1024
 
 #define DEFAULT_SOCKBUF_SIZE 64 * 1024
 
 typedef struct network_instance_t network_instance_t;
 typedef struct session_t session_t;
 typedef struct storage_file_t storage_file_t;
-typedef struct coroutine_t coroutine_t;
+typedef struct object_t object_t;
+
+#define USE_CGREENLET
+//#define USE_LIBCORO
+
+//typedef struct coroutine_t coroutine_t;
+/* -------- cgreenlet -------- */
+#ifdef USE_CGREENLET
+#include "greenlet.h"
+typedef greenlet_t coroutine_t;
+#endif
+
 
 /* -------------------- sockbuf_t -------------------- */
 typedef struct sockbuf_t {
@@ -93,6 +107,9 @@ typedef int (*is_idle_cb)(session_t*);
 typedef int (*handle_message_cb)(session_t*, message_t *);
 typedef int (*session_init_cb)(session_t*);
 typedef void (*session_destroy_cb)(session_t*);
+typedef void (*consume_sockbuf_cb)(sockbuf_t*);
+typedef void (*on_connect_cb)(uv_connect_t*, int); 
+typedef int (*handle_read_response_cb)(session_t*, msgidx_t*);
 
 /* -------------------- session_callbacks_t -------------------- */
 typedef struct session_callbacks_t {
@@ -103,6 +120,9 @@ typedef struct session_callbacks_t {
     handle_message_cb handle_message;
     session_init_cb session_init;
     session_destroy_cb session_destroy;
+    consume_sockbuf_cb consume_sockbuf;
+    on_connect_cb on_connect;
+    handle_read_response_cb handle_read_response;
 } session_callbacks_t;
 
 /* -------------------- session_t -------------------- */
@@ -124,13 +144,27 @@ typedef struct session_t{
     uint32_t total_blocks; /* for build blockid */
 
 
+    sockbuf_t *sockbuf;
+
+
     uv_idle_t idle_handle;
     uv_timer_t timer_handle;
     uv_async_t async_handle;
 
     /* private fields */
+#ifdef USE_CGREENLET
     coroutine_t *rx_coroutine;
     coroutine_t *tx_coroutine; 
+#endif
+
+#ifdef USE_LIBCORO
+    coro_context main_coctx;
+    //struct coro_stack main_stack;
+    char main_stack[64*1024]; 
+    coro_context rx_coctx;
+    //struct coro_stack rx_stack;
+    char rx_stack[64*1024];
+#endif
 
 
     uint32_t total_received_buffers;
@@ -160,7 +194,7 @@ typedef struct session_t{
 #define session_udp(session) \
     session->connection.handle.udp
 
-extern session_t* session_new(void *parent, session_callbacks_t callbacks);
+extern session_t* session_new(void *parent, session_callbacks_t *callbacks);
 extern void session_free(session_t *session);
 extern int session_accept(session_t *session, uv_tcp_t *parent_tcp);
 
@@ -177,7 +211,7 @@ extern int too_many_requests(session_t *session);
 extern int session_send_data(session_t *session, char *buf, uint32_t buf_size, void *user_data, uv_write_cb after_write);
 extern int session_response_data(session_t *session, char *buf, uint32_t buf_size);
 extern void session_response(session_t *session, enum MSG_RESULT result); 
-
+extern int session_write_to_kvdb(session_t *session, object_t *object);
 
 #define WARNING_LOG_SESSION_SOCKBUF(msg) \
     warning_log("\n........\n %s fd(%d) block(%d) read_head=%d write_head=%d, remain_bytes=%d\n", msg, session_fd(session), sockbuf->blockid, sockbuf->read_head, sockbuf->write_head, sockbuf->remain_bytes);

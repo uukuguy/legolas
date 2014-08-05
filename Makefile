@@ -3,7 +3,8 @@ CLIENT = bin/legolas
 
 LEGOLAS_OBJS = legolas/legolas.o legolas/message.o 
 
-BASE_OBJS = base/logger.o base/daemon.o base/coroutine.o
+BASE_OBJS = base/logger.o base/daemon.o 
+#base/coroutine.o 
 BASE_OBJS += base/zmalloc.o base/work.o base/md5.o base/byteblock.o base/filesystem.o
 BASE_OBJS += base/skiplist.o base/adlist.o base/crc32.o base/http_parser.o
 
@@ -34,7 +35,7 @@ COMMON_CFLAGS += ${KVDB_CFLAGS}
 SERVER_OBJS = server/main.o \
 			  server/server.o \
 			  legolas/session.o \
-			  legolas/session_sockbuf_message.o \
+			  legolas/sockbuf_message.o \
 			  server/session_handle.o \
 			  server/session_handle_write.o \
 			  server/session_handle_read.o \
@@ -50,23 +51,28 @@ SERVER_OBJS = server/main.o \
 CLIENT_OBJS = client/main.o \
 			  client/client.o \
 			  legolas/session.o \
-			  legolas/session_sockbuf_message.o \
+			  legolas/sockbuf_message.o \
 			  client/client_write.o \
 			  client/client_read.o \
 			  client/client_delete.o \
-			  client/client_session_handle.o
+			  client/client_session_handle.o \
+			  client/client_execute.o
 
 
 LIBUV=libuv-v0.11.22
 JEMALLOC=jemalloc-3.6.0
 LEVELDB=leveldb-1.15.0
-LIBLMDB=liblmdb-0.9.14
+LMDB=lmdb-0.9.14
 ROCKSDB=rocksdb-3.2
 LSM_SQLITE4=lsm-sqlite4
 ZEROMQ=zeromq-4.0.4
 CZMQ=czmq-2.2.0
 ZYRE=zyre-1.0.0
 MSGPACK=msgpack-c-cpp-0.5.9
+CGREENLET=cgreenlet-20140730
+LTHREAD=lthread-20140730
+PTH=pth-2.0.7
+LIBCORO=libcoro-1.67
 
 PCL=pcl-1.12
 LIBLFDS=liblfds-6.1.1
@@ -90,9 +96,9 @@ server: ${SERVER}
 client: ${CLIENT}
 
 # ---------------- deps ----------------
-.PHONY: jemalloc libuv leveldb liblmdb zeromq czmq zyre liblfds pcl 
+.PHONY: jemalloc libuv leveldb lmdb zeromq czmq zyre liblfds pcl 
 
-deps: jemalloc libuv leveldb liblmdb lsm-sqlite4 zeromq czmq zyre msgpack rocksdb
+deps: jemalloc libuv leveldb lmdb lsm-sqlite4 zeromq czmq zyre msgpack cgreenlet lthread  pth libcoro rocksdb
 #pcl 
 
 # ................ jemalloc ................
@@ -157,20 +163,20 @@ deps/leveldb:
 	make && \
 	cp -f *.${SO}* *.a ../../lib/
 
-# ................ liblmdb ................
+# ................ lmdb ................
 
-CFLAGS_LIBLMDB=-I./deps/liblmdb
-#LDFLAGS_LIBLMDB=./deps/liblmdb/liblmdb.a
-#LDFLAGS_LIBLMDB=-L./deps/liblmdb -llmdb
-LDFLAGS_LIBLMDB=-llmdb
+CFLAGS_LMDB=-I./deps/lmdb
+#LDFLAGS_LMDB=./deps/lmdb/liblmdb.a
+#LDFLAGS_LMDB=-L./deps/lmdb -llmdb
+LDFLAGS_LMDB=-llmdb
 
-liblmdb: deps/liblmdb
+lmdb: deps/lmdb
 
-deps/liblmdb:
+deps/lmdb:
 	cd deps && \
-	tar zxvf ${LIBLMDB}.tar.gz && \
-	ln -sf ${LIBLMDB} liblmdb && \
-	cd ${LIBLMDB} && \
+	tar zxvf ${LMDB}.tar.gz && \
+	ln -sf ${LMDB} lmdb && \
+	cd ${LMDB} && \
 	make && \
 	cp -f *.so* *.a ../../lib/
 
@@ -297,6 +303,69 @@ deps/msgpack:
 	ln -s src/.libs lib && \
 	cp -f lib/*.${SO}* lib/*.a ../../lib/
 
+# ................ cgreenlet ................
+
+CFLAGS_CGREENLET=-I./deps/cgreenlet/src
+LDFLAGS_CGREENLET=-lgreenlet
+
+cgreenlet: deps/cgreenlet
+
+deps/cgreenlet:
+	cd deps && \
+	tar zxvf ${CGREENLET}.tar.gz && \
+	ln -sf ${CGREENLET} cgreenlet && \
+	cd ${CGREENLET} && \
+	make && \
+	cp -f src/*.a ../../lib/
+
+# ................ lthread ................
+
+CFLAGS_LTHREAD=-I./deps/lthread/src
+LDFLAGS_LTHREAD=-llthread
+
+lthread: deps/lthread
+
+deps/lthread:
+	cd deps && \
+	tar zxvf ${LTHREAD}.tar.gz && \
+	ln -sf ${LTHREAD} lthread && \
+	cd ${LTHREAD} && \
+	mkdir build && \
+	cd build && \
+	cmake .. && \
+	make && \
+	cp -f liblthread.a ../../../lib/
+
+# ................ pth ................
+
+CFLAGS_PTH=-I./deps/pth
+LDFLAGS_PTH=-lpth
+
+pth: deps/pth
+
+deps/pth:
+	cd deps && \
+	tar zxvf ${PTH}.tar.gz && \
+	ln -sf ${PTH} pth && \
+	cd ${PTH} && \
+	./configure --enable-optimize && \
+	make && \
+	cp -f .libs/*.${SO}* .libs/libpth.a ../../lib/
+
+# ................ libcoro ................
+
+CFLAGS_LIBCORO=-I./deps/libcoro
+LDFLAGS_LIBCORO=-lcoro
+
+libcoro: deps/libcoro
+
+deps/libcoro:
+	cd deps && \
+	tar zxvf ${LIBCORO}.tar.gz && \
+	ln -sf ${LIBCORO} libcoro && \
+	cd ${LIBCORO} && \
+	make && \
+	cp -f libcoro.a ../../lib/
 # ................ liblfds ................
 
 CFLAGS_LIBLFDS=-I./deps/liblfds/inc
@@ -337,9 +406,13 @@ COMMON_CFLAGS += ${CFLAGS_LIBUV} \
 				 ${CFLAGS_LEVELDB} \
 				 ${CFLAGS_ROCKSDB} \
 				 ${CFLAGS_LSM_SQLITE4} \
-				 ${CFLAGS_LIBLMDB} \
+				 ${CFLAGS_LMDB} \
 				 ${CFLAGS_ZYRE} ${CFLAGS_CZMQ} ${CFLAGS_ZEROMQ} \
-				 ${CFLAGS_MSGPACK} 
+				 ${CFLAGS_MSGPACK} \
+				 ${CFLAGS_CGREENLET} \
+				 ${CFLAGS_LTHREAD} \
+				 ${CFLAGS_PTH} \
+				 ${CFLAGS_LIBCORO}
 FINAL_CFLAGS = -std=c11 -Wstrict-prototypes \
 			   ${COMMON_CFLAGS} \
 			   ${CFLAGS}
@@ -359,12 +432,16 @@ FINAL_LDFLAGS += ${LDFLAGS_LIBUV} \
 				${LDFLAGS_LEVELDB} \
 				${LDFLAGS_ROCKSDB} \
 				${LDFLAGS_LSM_SQLITE4} \
-				${LDFLAGS_LIBLMDB} \
+				${LDFLAGS_LMDB} \
 				${LDFLAGS_ZYRE} \
 				${LDFLAGS_CZMQ} \
 				${LDFLAGS_ZEROMQ} \
 				${LDFLAGS_MSGPACK} \
-				${LDFLAGS} -lpthread -lssl -lcrypto -lstdc++ -lm -lz
+				${LDFLAGS_CGREENLET} \
+				${LDFLAGS_LTHREAD} \
+				${LDFLAGS_PTH} \
+				${LDFLAGS_LIBCORO} \
+				${LDFLAGS} -lsnappy -lpthread -lssl -lcrypto -lstdc++ -lm -lz
 
 #${LDFLAGS_LIBLFDS} 
 #${LDFLAGS_PCL} 
@@ -430,13 +507,17 @@ clean-deps:
 		deps/${LIBUV} deps/libuv \
 		deps/${JEMALLOC} deps/jemalloc \
 		deps/${LEVELDB} deps/leveldb \
-		deps/${LIBLMDB} deps/rocksdb \
-		deps/${ROCKSDB} deps/liblmdb \
+		deps/${LMDB} deps/rocksdb \
+		deps/${ROCKSDB} deps/lmdb \
 		deps/${LSM_SQLITE4} deps/lsm \
 		deps/${ZEROMQ} deps/zeromq \
 		deps/${CZMQ} deps/czmq \
 		deps/${ZYRE} deps/zyre  \
-		deps/${MSGPACK} deps/msgpack 
+		deps/${MSGPACK} deps/msgpack \
+		deps/${CGREENLET} deps/cgreenlet \
+		deps/${LTHREAD} deps/lthread \
+		deps/${PTH} deps/pth \
+		deps/${LIBCORO} deps/libcoro
 
 cleanall: clean clean-deps
 	rm -f lib/*

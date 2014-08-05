@@ -23,8 +23,13 @@
 typedef struct client_args_t {
     int session_id;
     int op_code;
+
     uint32_t file_size;
-    FILE* file;
+    char *file_data;
+    uint32_t file_data_sended;
+
+    //FILE* file;
+    int start_index;
     int total_send;
     int total_recv;
     char key[NAME_MAX];
@@ -41,10 +46,14 @@ typedef struct client_t {
 
     int op_code;
 
+    char *file_data;
+    uint32_t file_size;
+
     //uint32_t total_readed;
     const char *filename;
     const char *key_prefix;
 
+    uint32_t start_index;
     uint32_t total_files;
     int nthreads;
 
@@ -62,8 +71,10 @@ typedef struct client_t {
 #define CLIENT(session) (client_t*)(session->parent)
 #define CLIENT_ARGS(session) (client_args_t*)(session->user_data)
 
-client_t *client_new(const char *ip, int port, int op_code, const char *key, const char *file, int total_files, int nthreads);
+client_t *client_new(const char *ip, int port, int op_code, const char *key, const char *file, int start_index, int total_files, int nthreads);
 void client_free(client_t *client);
+
+int start_connect(client_t *client, session_callbacks_t *callbacks, int session_id);
 
 #endif /* __CLIENT_H__ */
 

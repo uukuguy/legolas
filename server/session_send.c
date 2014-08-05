@@ -13,7 +13,7 @@
 #include "message.h"
 #include "md5.h"
 #include "uv.h"
-#include "coroutine.h"
+/*#include "coroutine.h"*/
 /*#include "pcl.h"*/
 /*#include "co_routine.h"*/
 
@@ -71,7 +71,7 @@ void send_queue_process_sockbuf(sockbuf_t *sockbuf)
         /**
          * coroutine enter session_rx_handler() 
          */
-        coroutine_enter(session->tx_coroutine, sockbuf);
+        /*coroutine_enter(session->tx_coroutine, sockbuf);*/
 
         /**
          * too many requests or not ?

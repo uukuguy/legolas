@@ -102,17 +102,24 @@ int session_handle_read(session_t *session, message_t *request)
     /** ----------------------------------------
      *    Response to client 
      *  ---------------------------------------- */
+    int ret = 0;
     if ( object != NULL ){
         uint32_t n;
         for ( n = 0 ; n < object->nslices ; n++ ){
-            response_object_slice(session, vnode->kvdb, object, n);
+            if ( response_object_slice(session, vnode->kvdb, object, n) != 0 ) {
+                warning_log("key:%s Slice %d storage failed.", msgidx.key, n);
+                ret = -1;
+                response_with_key(session, &msgidx, RESULT_ERR_STORAGE_FAILED);
+            }
         }
         object_free(object);
         object = NULL;
     } else {
+        warning_log("key:%s NOT FOUND.", msgidx.key);
+        ret = -1;
         response_with_key(session, &msgidx, RESULT_ERR_NOTFOUND);
     }
 
-    return 0;
+    return ret;
 }
 

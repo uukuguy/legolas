@@ -1,5 +1,5 @@
 /**
- * @file   session_sockbuf_message.c
+ * @file   sockbuf_message.c
  * @author Jiangwen Su <uukuguy@gmail.com>
  * @date   2014-07-07 02:49:56
  * 
@@ -15,18 +15,64 @@
 #include "common.h"
 /*#include "server.h"*/
 #include "session.h"
-#include "coroutine.h"
 #include "work.h"
 #include "logger.h"
 
+/*#include "coroutine.h"*/
+
+/* -------- libcoro -------- */
+#ifdef USE_LIBCORO
+void coroutine_enter(session_t *session)
+{
+    coro_transfer(&session->main_coctx, &session->rx_coctx);
+}
+
+void coroutine_yield(session_t *session)
+{
+    coro_transfer(&session->rx_coctx, &session->main_coctx);
+}
 
 #define YIELD_AND_CONTINUE \
-    trace_log("Ready to yield and continue."); \
+    coroutine_yield(session); \
+    sockbuf = session->sockbuf; \
+    continue;
+
+#endif
+
+
+/* -------- cgreenlet -------- */
+#ifdef USE_CGREENLET
+/*void coroutine_set_data(coroutine_t *coroutine, void *data)*/
+/*{*/
+    /*coroutine->gr_arg = data;*/
+/*}*/
+
+/*void* coroutine_self_data(void)*/
+/*{*/
+    /*greenlet_t *current = greenlet_current();*/
+    /*return current->gr_arg;*/
+/*}*/
+
+    
+void coroutine_enter(coroutine_t *coroutine, void *opaque)
+{
+    greenlet_switch_to(coroutine, opaque);
+}
+
+void coroutine_yield(void)
+{
+    greenlet_t *current = greenlet_current();
+    greenlet_t *parent = greenlet_parent(current);
+    greenlet_switch_to(parent, NULL);
+}
+
+#define YIELD_AND_CONTINUE \
     coroutine_yield(); \
-    sockbuf = coroutine_self_data(); \
-    trace_log("After YIELD coroutine_self_data(). sockbuf=%p", sockbuf); \
-    session = sockbuf->session; \
-    continue; 
+    sockbuf = session->sockbuf; \
+    continue;
+
+#endif
+
 
 /* ==================== do_read_data() ==================== */ 
 /*
@@ -35,7 +81,7 @@
  */
 void do_read_data(sockbuf_t *sockbuf, void *buf, size_t count)
 {
-    UNUSED session_t *session = sockbuf->session;
+    session_t *session = sockbuf->session;
 
     assert(sockbuf != NULL);
     assert(buf != NULL);
@@ -45,6 +91,10 @@ void do_read_data(sockbuf_t *sockbuf, void *buf, size_t count)
      */
 	uint32_t done = 0;
     while ( count > 0 ) {
+        /* FIXME coroutine */
+        /*session = coroutine_self_data();*/
+        sockbuf = session->sockbuf;
+
         uint32_t len = sockbuf->write_head - sockbuf->read_head;
         /*trace_log("Next to ...: blockid(%d), len(%d), count(%zu)", sockbuf->blockid, len, count);*/
 
@@ -77,9 +127,6 @@ void do_read_data(sockbuf_t *sockbuf, void *buf, size_t count)
             count -= len; 
         }
 
-        /**
-         * coroutine swap to parent. (coroutine_enter in recv_request())
-         */ 
         TRACE_LOG_SESSION_SOCKBUF("Called do_read_data().");
         YIELD_AND_CONTINUE;
     }
@@ -96,9 +143,13 @@ int session_do_read(sockbuf_t *sockbuf, message_t **p_message)
     message_t message_header;
 
     do_read_data(sockbuf, &message_header, sizeof(message_header));
+    /* FIXME coroutine */
+    /*session = coroutine_self_data();*/
+    sockbuf = session->sockbuf;
 
-    sockbuf = coroutine_self_data();
-    session = sockbuf->session;
+    /* FIXME coroutine */
+    /*sockbuf = coroutine_self_data();*/
+    /*session = sockbuf->session;*/
 
     /* -------- check message message_header -------- */
     if ( check_message((message_t*)&message_header) != 0) {
@@ -117,10 +168,14 @@ int session_do_read(sockbuf_t *sockbuf, message_t **p_message)
 
     do_read_data(sockbuf, message->data, message->data_length);
 
-    sockbuf = coroutine_self_data();
-    session = sockbuf->session;
+    /* FIXME coroutine */
+    /*sockbuf = coroutine_self_data();*/
+    /*session = sockbuf->session;*/
 
     *p_message = message;
+
+    /*pthread_yield();*/
+    /*sched_yield();*/
 
     return 0;
 }
@@ -148,13 +203,15 @@ int session_do_read(sockbuf_t *sockbuf, message_t **p_message)
  *              uint8_t data[];
  */
 
+#ifdef USE_CGREENLET
 void *session_rx_coroutine(void *opaque)
+#endif
+#ifdef USE_LIBCORO
+void session_rx_coroutine(void *opaque)
+#endif
 {
     UNUSED int ret;
-
-    message_t *message = NULL;
-    sockbuf_t *sockbuf = (sockbuf_t*)opaque;
-    session_t *session = sockbuf->session;
+    session_t *session = (session_t*)opaque;
 
     while ( !session->stop ){
 
@@ -162,28 +219,36 @@ void *session_rx_coroutine(void *opaque)
          *    Keep read data
          *  ---------------------------------------- */
 
+        /* FIXME coroutine */
+        /*session = coroutine_self_data();*/
+        sockbuf_t *sockbuf = session->sockbuf;
+        message_t *message = NULL;
         ret = session_do_read(sockbuf, &message);
-        sockbuf = coroutine_self_data();
-        session = sockbuf->session;
-        if ( ret != 0 || message == NULL ) {
-            YIELD_AND_CONTINUE;
-        }
 
-        ret = 0;
-        if ( session->callbacks.handle_message != NULL ){
-            ret = session->callbacks.handle_message(session, message);
-        /*session_response_to_client(session, RESULT_SUCCESS);*/
-        }
+        /* FIXME coroutine */
+        /*session = coroutine_self_data();*/
+        sockbuf = session->sockbuf;
 
-        zfree(message);
-        message = NULL;
+        /* FIXME coroutine */
+        /*sockbuf = coroutine_self_data();*/
+        /*session = sockbuf->session;*/
 
-        if ( ret != 0 ) {
+        if ( ret == 0 ) {
+            assert(message != NULL);
+
+            if ( session->callbacks.handle_message != NULL ){
+                ret = session->callbacks.handle_message(session, message);
+            }
+            zfree(message);
+            message = NULL;
+        } else {
             YIELD_AND_CONTINUE;
         }
     }
 
+#ifdef USE_CGREENLET
     return NULL;
+#endif
 }
 
 
@@ -191,11 +256,28 @@ void *session_rx_coroutine(void *opaque)
 int create_session_coroutine(session_t *session)
 {
     /*info_log("Create session coroutine.");*/
-    session->rx_coroutine = coroutine_create(session_rx_coroutine);
+    /*session->rx_coroutine = coroutine_create(session_rx_coroutine);*/
+
+    /* -------- cgreenlet -------- */
+#ifdef USE_CGREENLET
+    session->rx_coroutine = greenlet_new(session_rx_coroutine, greenlet_current(), 0);
     if ( session->rx_coroutine == NULL ) {
         error_log("Cann't create coroutine session->rx_coroutine");
         return -1;
     }
+#endif
+
+    /* -------- libcoro -------- */
+#ifdef USE_LIBCORO
+    /*coro_stack_alloc(&session->main_stack, 1024);*/
+    /*coro_create(&session->main_coctx, NULL, NULL, session->main_stack.sptr, session->main_stack.ssze);*/
+    coro_create(&session->main_coctx, NULL, NULL, session->main_stack, 64 * 1024);
+    /*coro_create(&session->main_coctx, NULL, NULL, NULL, 0);*/
+
+    /*coro_stack_alloc(&session->rx_stack, 1024);*/
+    /*coro_create(&session->rx_coctx, session_rx_coroutine, session, session->rx_stack.sptr, session->rx_stack.ssze);*/
+    coro_create(&session->rx_coctx, session_rx_coroutine, session, session->rx_stack, 64 * 1024);
+#endif
 
     /*session->tx_coroutine = coroutine_create(session_tx_coroutine);*/
     /*if ( session->tx_coroutine == NULL ) {*/
@@ -210,10 +292,24 @@ int create_session_coroutine(session_t *session)
 int destroy_session_coroutine(session_t *session)
 {
     /*info_log("Destroy session coroutine.");*/
+
+    /*coroutine_delete(session->rx_coroutine);*/
+
+    /* -------- cgreenlet -------- */
+#ifdef USE_CGREENLET
     if ( session->rx_coroutine != NULL ){
-        coroutine_delete(session->rx_coroutine);
+        greenlet_destroy(session->rx_coroutine);
         session->rx_coroutine = NULL;
     }
+#endif
+
+    /* -------- libcoro -------- */
+#ifdef USE_LIBCORO
+    /*coro_stack_free(&session->rx_stack);*/
+    /*coro_stack_free(&session->main_stack);*/
+    /*coro_destroy(&session->rx_coctx);*/
+    /*coro_destroy(&session->main_coctx);*/
+#endif
 
     /*if ( session->tx_coroutine != NULL ){*/
         /*coroutine_delete(session->tx_coroutine);*/
@@ -223,27 +319,24 @@ int destroy_session_coroutine(session_t *session)
     return 0;
 }
 
-void session_finish_saving_buffer(session_t *session){
-    __sync_add_and_fetch(&session->total_saved_buffers, 1);
-}
-
-/* ==================== recv_queue_process_sockbuf() ==================== */ 
-void recv_queue_process_sockbuf(sockbuf_t *sockbuf)
+/* ==================== session_consume_sockbuf() ==================== */ 
+void session_consume_sockbuf(sockbuf_t *sockbuf)
 {
     session_t *session = sockbuf->session;
 
     if ( likely( sockbuf->remain_bytes > 0 ) ) {
+        /* FIXME coroutine */
+        session->sockbuf = sockbuf;
 
-        /**
-         * coroutine enter session_rx_handler() 
-         */
-        coroutine_enter(session->rx_coroutine, sockbuf);
+        /* -------- libcoro -------- */
+#ifdef USE_LIBCORO
+        coroutine_enter(session);
+#endif
 
-        /*trace_log("return from co_call.");*/
-
-        /**
-         * too many requests or not ?
-         */
+        /* -------- cgreenlent -------- */
+#ifdef USE_CGREENLET
+        coroutine_enter(session->rx_coroutine, session);
+#endif
 
     } else {
         /* -------- remain bytes == 0 -------- */
@@ -251,13 +344,8 @@ void recv_queue_process_sockbuf(sockbuf_t *sockbuf)
 
     sockbuf_free(sockbuf);
 
-    session_finish_saving_buffer(session);
+    __sync_add_and_fetch(&session->total_saved_buffers, 1);
 
-    /*if ( session_is_waiting(session) ){*/
-        /*if ( session->waiting_for_close == 1 ) { */
-            /*pthread_cond_signal(&session->recv_pending_cond);*/
-        /*}*/
-    /*}*/
     /*pthread_yield();*/
     sched_yield();
 
@@ -289,18 +377,16 @@ void after_read(uv_stream_t *handle, ssize_t nread, const uv_buf_t *buf)
         trace_log("\n........\nfd(%d) block(%d) nread=%zu bytes. write_head:%d, remain_bytes=%d, total_bytes=%d\n", session_fd(session), sockbuf->blockid, nread, sockbuf->write_head, sockbuf->remain_bytes, session->connection.total_bytes);
 
 
-        /* FIXME */
-        /*enqueue_recv_queue(session, sockbuf);*/
-
         __sync_add_and_fetch(&session->total_received_buffers, 1);
-        recv_queue_process_sockbuf(sockbuf);
+        if ( session->callbacks.consume_sockbuf != NULL ){
+            session->callbacks.consume_sockbuf(sockbuf);
+        } else {
+            session_consume_sockbuf(sockbuf);
+        }
 
-        /*session_response_to_client(session, RESULT_SUCCESS);*/
+        /*session_response(session, RESULT_SUCCESS);*/
         /*sockbuf_free(sockbuf);*/
         /*session_finish_saving_buffer(session);*/
-
-        /*pthread_yield();*/
-        /*sched_yield();*/
 
         /* FIXME */
         /*while ( server->cached_bytes > MAX_CACHED_BYTES ) {*/

@@ -50,9 +50,11 @@ typedef struct object_t
 object_t *object_new(const char *key, uint32_t keylen);
 void object_free(object_t *object);
 
+int object_put_into_file(int file, object_t *object);
+
 int object_put_into_kvdb(kvdb_t *kvdb, object_t *object);
 object_t *object_get_from_kvdb(kvdb_t *kvdb, md5_value_t key_md5);
-int object_get_slice_from_kvdb(kvdb_t *kvdb, md5_value_t key_md5, uint32_t seq_num, void** ppbuf, uint32_t *pbuf_size);
+int object_get_slice_from_kvdb(kvdb_t *kvdb, md5_value_t key_md5, uint32_t slice_idx, void** ppbuf, uint32_t *pbuf_size);
 int object_del_from_kvdb(kvdb_t *kvdb, md5_value_t key_md5);
 
 /* -------------------- object_queue_t -------------------- */

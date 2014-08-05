@@ -19,9 +19,10 @@
 
 
 /* ==================== client_new() ==================== */ 
-client_t *client_new(const char *ip, int port, int op_code, const char *key, const char *filename, int total_files, int nthreads) 
+client_t *client_new(const char *ip, int port, int op_code, const char *key, const char *filename, int start_index, int total_files, int nthreads) 
 {
     client_t *client = (client_t*)zmalloc(sizeof(client_t));
+    memset(client, 0, sizeof(client_t));
     client->ip = ip;
     client->port = port;
     client->op_code = op_code;
@@ -32,6 +33,7 @@ client_t *client_new(const char *ip, int port, int op_code, const char *key, con
     /*client->key[keylen] = '\0';*/
 
     client->filename = filename;
+    client->start_index = start_index;
     client->total_files = total_files;
     client->nthreads = nthreads;
     client->write_request = NULL;
@@ -89,17 +91,8 @@ static void on_connect(uv_connect_t *req, int status)
     }
 }
 
-/* in client_session_handle.c */
-void client_session_idle_cb(uv_idle_t *idle_handle, int status);
-void client_session_timer_cb(uv_timer_t *timer_handle, int status);
-void client_session_async_cb(uv_async_t *async_handle, int status);
-int client_session_is_idle(session_t *session);
-int client_session_handle_message(session_t *session, message_t *message);
-int client_session_init(session_t *session);
-void client_session_destroy(session_t *session);
-
 /* ==================== start_connect() ==================== */ 
-int start_connect(client_t *client, int session_id)
+int start_connect(client_t *client, session_callbacks_t *callbacks, int session_id)
 {
     trace_log("Enter start_connect(). session_id:%d ip=%s, port=%d, op_code=%d", session_id, client->ip, client->port, client->op_code);
 
@@ -114,15 +107,6 @@ int start_connect(client_t *client, int session_id)
     }
 
     /* ---------- New session ---------- */
-    session_callbacks_t callbacks = {
-        client_session_idle_cb,
-        client_session_timer_cb,
-        client_session_async_cb,
-        client_session_is_idle,
-        client_session_handle_message,
-        client_session_init,
-        client_session_destroy
-    };
     session_t *session = session_new((void*)client, callbacks);
 
     session->user_data = zmalloc(sizeof(client_args_t));
@@ -130,8 +114,12 @@ int start_connect(client_t *client, int session_id)
     memset(client_args, 0, sizeof(client_args_t));
     client_args->session_id = session_id;
     client_args->op_code = client->op_code;
-    client_args->file_size = 0;
-    client_args->file = NULL;
+    client_args->file_data = client->file_data;
+    client_args->file_size = client->file_size;
+    client_args->file_data_sended = 0;
+    /*client_args->file_size = 0;*/
+    /*client_args->file = NULL;*/
+    client_args->start_index = client->start_index;
     client_args->total_send = 0;
     client_args->total_recv = 0;
     client_args->file_opened = 0;
@@ -156,7 +144,8 @@ int start_connect(client_t *client, int session_id)
     r = uv_tcp_connect(&client_args->connect_req,
             tcp_handle,
             (const struct sockaddr*) &server_addr,
-            on_connect);
+            callbacks->on_connect != NULL ? callbacks->on_connect : on_connect);
+            /*on_connect);*/
     if ( r ) {
         error_log("uv_tcp_connect() failed.");
         client_free(client);

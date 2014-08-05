@@ -22,11 +22,14 @@ static int msec0, msec1;
 typedef struct{
     int id;
 
+    int is_execute;
+
     const char *ip;
     int port;
     int op_code;
     const char *key;
     const char *filename;
+    int start_index;
     int total_files;
 
     int is_daemon;
@@ -39,14 +42,36 @@ typedef struct thread_args_t {
     client_t *client;
 } thread_args_t;
 
-/*int start_connect(int session_id, const char *ip, int port, int op_code, const char *key, const char *file, int total_files); */
-int start_connect(client_t *client, int session_id);
+/* in client_session_handle.c */
+void client_session_idle_cb(uv_idle_t *idle_handle, int status);
+void client_session_timer_cb(uv_timer_t *timer_handle, int status);
+void client_session_async_cb(uv_async_t *async_handle, int status);
+int client_session_is_idle(session_t *session);
+int client_session_handle_message(session_t *session, message_t *message);
+int client_session_init(session_t *session);
+void client_session_destroy(session_t *session);
+
+static session_callbacks_t callbacks = {
+    .idle_cb = client_session_idle_cb,
+    .timer_cb = client_session_timer_cb,
+    .async_cb = client_session_async_cb,
+    .is_idle = client_session_is_idle,
+    .handle_message = client_session_handle_message,
+    .session_init = client_session_init,
+    .session_destroy = client_session_destroy,
+    .consume_sockbuf = NULL,
+    .on_connect = NULL,
+    .handle_read_response = NULL,
+};
+
+int client_execute(client_t *client);
+
 /* ==================== client_thread() ==================== */ 
 static void* client_thread(void *arg)
 {
     thread_args_t *t_args = (thread_args_t*)arg;
     UNUSED int ret;
-    ret = start_connect(t_args->client, t_args->id);
+    ret = start_connect(t_args->client, &callbacks, t_args->id);
 
     return NULL;
 }
@@ -103,12 +128,13 @@ int start_client_threads(client_t *client)
 /*int start_client_normal(program_options_t *program_options)*/
 int start_client_normal(client_t *client)
 {
-    return start_connect(client, 0);
+    return start_connect(client, &callbacks, 0);
 }
 
 /* ==================== runclient() ==================== */ 
 int runclient(program_options_t *program_options)
 {
+    int is_execute = program_options->is_execute;
     int is_daemon = program_options->is_daemon;
     int log_level = program_options->log_level;
 
@@ -133,16 +159,46 @@ int runclient(program_options_t *program_options)
             program_options->op_code,  
             program_options->key, 
             program_options->filename, 
+            program_options->start_index,
             program_options->total_files,
             program_options->threads);
+
+    if ( client->op_code == MSG_OP_WRITE ){
+        FILE *file = fopen(client->filename, "rb");
+        if ( file == NULL ){
+            error_log("fopen() failed. file:%s", client->filename);
+            return -1;
+        }
+
+        fseek(file, 0, SEEK_END);
+        uint32_t file_size = ftell(file);
+        fseek(file, 0, SEEK_SET);
+
+        char *buf = zmalloc(file_size);
+        uint32_t readed = fread(buf, 1, file_size, file); 
+        if ( readed != file_size ){
+            error_log("fread() failed. readed:%d file_size:%d", readed, file_size);
+            fclose(file);
+            return -1;
+        }
+
+        fclose(file);
+
+        client->file_data = buf;
+        client->file_size = file_size;
+    }
 
     /* -------- start_client (normal or thread)-------- */
 
     int ret;
-    if ( program_options->threads > 0 ){
-        ret = start_client_threads(client);
+    if ( is_execute == 1 ) {
+        ret = client_execute(client);
     } else {
-        ret = start_client_normal(client);
+        if ( program_options->threads > 0 ){
+            ret = start_client_threads(client);
+        } else {
+            ret = start_client_normal(client);
+        }
     }
 
     client_free(client);
@@ -178,12 +234,14 @@ static void usage(int status)
     else {
         printf("Usage: %s [OPTION] [PATH]\n", program_name);
         printf("Legolas Client\n\
+                -e, --execute           execute single command\n\
                 -s, --server            specify the remote server\n\
                 -p, --port              specify the listen port number\n\
                 -w, --write             upload file to server\n\
                 -r, --read              download file from server\n\
-                -e, --delete            delete file in server\n\
+                -x, --delete            delete file in server\n\
                 -k, --key               key of the file\n\
+                -b, --start             start of count\n\
                 -n, --count             count of loop\n\
                 -u, --threads           count of threads\n\
                 -d, --daemon            run in the daemon mode. \n\
@@ -197,12 +255,14 @@ static void usage(int status)
 
 static struct option const long_options[] = {
 	/* common options */
+	{"execute", no_argument, NULL, 'e'},
 	{"server", required_argument, NULL, 's'},
 	{"port", required_argument, NULL, 'p'},
 	{"write", no_argument, NULL, 'w'},
 	{"read", no_argument, NULL, 'r'},
-	{"delete", no_argument, NULL, 'e'},
+	{"delete", no_argument, NULL, 'x'},
 	{"key", required_argument, NULL, 'k'},
+	{"start", required_argument, NULL, 'b'},
 	{"count", required_argument, NULL, 'n'},
 	{"threads", required_argument, NULL, 'u'},
 	{"daemon", no_argument, NULL, 'd'},
@@ -212,18 +272,21 @@ static struct option const long_options[] = {
 
 	{NULL, 0, NULL, 0},
 };
-static const char *short_options = "s:p:wrek:n:u:dvth";
+static const char *short_options = "es:p:wrxk:b:n:u:dvth";
 
 /* ==================== main() ==================== */ 
 int main(int argc, char *argv[])
 {
     program_options_t program_options;
+    memset(&program_options, 0, sizeof(program_options_t));
 
+    program_options.is_execute = 0;
     program_options.ip = "127.0.0.1";
 	program_options.port = DEFAULT_PORT;
     program_options.filename = "data/32K.dat";
     program_options.key = "default";
     program_options.threads = 0;
+    program_options.start_index = 0;
     program_options.is_daemon = 0;
     program_options.log_level = LOG_INFO;
     program_options.op_code = MSG_OP_NONE;
@@ -232,52 +295,58 @@ int main(int argc, char *argv[])
 	while ((ch = getopt_long(argc, argv, short_options, long_options,
 				 &longindex)) >= 0) {
 		switch (ch) {
-		case 's':
-			program_options.ip = optarg;
-			break;
-		case 'p':
-			program_options.port = atoi(optarg);
-			break;
-        case 'w':
-            program_options.op_code = MSG_OP_WRITE;
-            break;
-        case 'r':
-            program_options.op_code = MSG_OP_READ;
-            break;
-        case 'e':
-            program_options.op_code = MSG_OP_DEL;
-            break;
-		case 'k':
-			program_options.key = optarg;
-			break;
-		case 'n':
-			program_options.total_files = atoi(optarg);
-            if ( program_options.total_files < 0 ) {
-                program_options.total_files = 1;
-            }
-			break;
-		case 'u':
-			program_options.threads = atoi(optarg);
-            if ( program_options.threads < 0 ) {
-                program_options.threads = 1;
-            }
-			break;
-        case 'd':
-            program_options.is_daemon = 1;
-            break;
-        case 'v':
-            program_options.log_level = LOG_DEBUG;
-            break;
-        case 't':
-            program_options.log_level = LOG_TRACE;
-            break;
-		case 'h':
-			usage(0);
-			break;
-		default:
-			usage(1);
-			break;
-		}
+            case 'e':
+                program_options.is_execute = 1;
+                break;
+            case 's':
+                program_options.ip = optarg;
+                break;
+            case 'p':
+                program_options.port = atoi(optarg);
+                break;
+            case 'w':
+                program_options.op_code = MSG_OP_WRITE;
+                break;
+            case 'r':
+                program_options.op_code = MSG_OP_READ;
+                break;
+            case 'x':
+                program_options.op_code = MSG_OP_DEL;
+                break;
+            case 'k':
+                program_options.key = optarg;
+                break;
+            case 'b':
+                program_options.start_index = atoi(optarg);
+                break;
+            case 'n':
+                program_options.total_files = atoi(optarg);
+                if ( program_options.total_files < 0 ) {
+                    program_options.total_files = 1;
+                }
+                break;
+            case 'u':
+                program_options.threads = atoi(optarg);
+                if ( program_options.threads < 0 ) {
+                    program_options.threads = 1;
+                }
+                break;
+            case 'd':
+                program_options.is_daemon = 1;
+                break;
+            case 'v':
+                program_options.log_level = LOG_DEBUG;
+                break;
+            case 't':
+                program_options.log_level = LOG_TRACE;
+                break;
+            case 'h':
+                usage(0);
+                break;
+            default:
+                usage(1);
+                break;
+        }
 	}
 
 	if (optind != argc)

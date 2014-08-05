@@ -35,6 +35,8 @@ int handle_write_response(session_t *session, message_t *response)
         return -1;
     }
 
+    session_rx_off(session);
+
     client_t *client = CLIENT(session);
     client_args_t *client_args = CLIENT_ARGS(session);
 
@@ -46,7 +48,7 @@ int handle_write_response(session_t *session, message_t *response)
         session->total_readed = 0;
         session->connection.total_bytes = 0;
 
-        client_args->file_size = 0;
+        client_args->file_data_sended = 0;
 
         trace_log("Start next write_file(). session_id:%d total_send:%d/%d file_opened:%d file_closed:%d", client_args->session_id, client_args->total_send, client->total_files, client_args->file_opened, client_args->file_closed);
 
@@ -79,8 +81,9 @@ static void after_write_request(uv_write_t *write_req, int status)
          */
         trace_log("\n\nsession_id=%d, total_bytes=%d, total_readed=%d", client_args->session_id, session->connection.total_bytes, session->total_readed);
 
-        fclose(client_args->file);
-        client_args->file_closed++;
+        client_args->file_data_sended = 0;
+        /*fclose(client_args->file);*/
+        /*client_args->file_closed++;*/
 
         __sync_add_and_fetch(&client_args->total_send, 1);
         if ( client_args->total_send % 100 == 0 ){
@@ -156,8 +159,17 @@ static int do_write_request(session_t *session)
     uint32_t block_size = DEFAULT_SOCKBUF_SIZE - head_size - sizeof(uint32_t); /* data size*/
     block_size -= block_size % 512;
 
-    char buf[block_size]; 
-    uint32_t readed = fread(buf, 1, block_size, client_args->file); 
+    /*char buf[block_size]; */
+    /*uint32_t readed = fread(buf, 1, block_size, client_args->file); */
+    char *buf = &client_args->file_data[client_args->file_data_sended];
+    uint32_t readed = block_size;
+    if ( client_args->file_data_sended + block_size > client_args->file_size ){
+        readed = client_args->file_size - client_args->file_data_sended;
+        client_args->file_data_sended += readed;
+    } else {
+        client_args->file_data_sended += block_size;
+    }
+
     session->total_readed += readed;
 
     /* -------- CRC32 -------- */
@@ -209,28 +221,22 @@ void write_file(session_t* session)
     char file_name[NAME_MAX];
     get_path_file_name(client->filename, file_name, NAME_MAX - 1);
 
-    sprintf(client_args->key, "/test/%s/%04d/%08d-%s", client->key_prefix, client_args->session_id, client_args->total_send, file_name);
+    sprintf(client_args->key, "/test/%s/%04d/%08d-%s", client->key_prefix, client_args->session_id, client_args->total_send + client_args->start_index, file_name);
     trace_log("write_file(): %s", client_args->key);
 
-    FILE *file = fopen(client->filename, "rb");
-    if ( file == NULL ){
-        error_log("fopen() failed. file:%s", client->filename);
-        return;
-    }
+    /*FILE *file = fopen(client->filename, "rb");*/
+    /*if ( file == NULL ){*/
+        /*error_log("fopen() failed. file:%s", client->filename);*/
+        /*return;*/
+    /*}*/
 
-    fseek(file, 0, SEEK_END);
-    uint32_t file_size = ftell(file);
-    fseek(file, 0, SEEK_SET);
+    /*fseek(file, 0, SEEK_END);*/
+    /*uint32_t file_size = ftell(file);*/
+    /*fseek(file, 0, SEEK_SET);*/
 
-    client_args->file_size = file_size;
-    client_args->file = file;
-    client_args->file_opened++;
-
-        /*file_buffer = zmalloc(file_size);*/
-
-        /*fread(file_buffer, 1, file_size, f); */
-        /*fclose(f);*/
-
+    /*client_args->file_size = file_size;*/
+    /*client_args->file = file;*/
+    /*client_args->file_opened++;*/
 
     do_write_request(session);
 
