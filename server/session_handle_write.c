@@ -88,9 +88,7 @@ object_t *session_write_to_cache(session_t *session, msgidx_t *msgidx){
 
         assert(check_md5(&object->key_md5, msgidx->key_md5) == 0 );
 
-        pthread_mutex_lock(&caching_objects->queue_lock);
         object_queue_insert(caching_objects, object);
-        pthread_mutex_unlock(&caching_objects->queue_lock);
     }
 
     slice_t *slice = slice_new(); 
@@ -106,9 +104,9 @@ object_t *session_write_to_cache(session_t *session, msgidx_t *msgidx){
 }
 
 /* ==================== session_write_to_kvdb() ==================== */ 
-int session_write_to_kvdb(session_t *session, object_t *object, msgidx_t *msgidx)
+int session_write_to_kvdb(session_t *session, object_t *object)
 {
-    vnode_t *vnode = get_vnode_by_key(SERVER(session), msgidx->key_md5);
+    vnode_t *vnode = get_vnode_by_key(SERVER(session), &object->key_md5);
     assert(vnode != NULL);
 
     /* FIXME */
@@ -116,14 +114,7 @@ int session_write_to_kvdb(session_t *session, object_t *object, msgidx_t *msgidx
     object_queue_remove(vnode->caching_objects, object);
 
     session->total_writed = 0;
-
-    uint32_t total_kvdb_committed = __sync_add_and_fetch(&vnode->total_kvdb_committed, 1);
-    /*if ( server->cached_bytes > MAX_CACHED_BYTES ) {*/
-    if ( total_kvdb_committed > 600 ) {
-        __sync_sub_and_fetch(&vnode->total_kvdb_committed, total_kvdb_committed);
-        /*notice_log("vnode total_kvdb_committed:%d > 100. Flush vnode kvdb.", total_kvdb_committed);*/
-        kvdb_flush(vnode->kvdb);
-    }
+    __sync_add_and_fetch(&session->finished_works, 1);
 
     return 0;
 }
@@ -156,22 +147,24 @@ int session_handle_write(session_t *session, message_t *request)
     }
 
     /** ----------------------------------------
-     *    Write to kvdb..
+     *    Write to kvdb & Response to client.
      *  ---------------------------------------- */
 
     if ( session->total_writed >= msgidx.object_size ){
 
-        session_write_to_kvdb(session, object, &msgidx);
-        /*session->total_writed = 0;*/
+        /* FIXME */
+        vnode_kvdb_queue_entry_t *entry = (vnode_kvdb_queue_entry_t*)zmalloc(sizeof(vnode_kvdb_queue_entry_t));
+        entry->session = session;
+        entry->object = object;
 
-        /** ----------------------------------------
-         *    Response to client 
-         *  ---------------------------------------- */
+        vnode_t *vnode = get_vnode_by_key(SERVER(session), &object->key_md5);
+        enqueue_work(vnode->kvdb_queue, entry);
 
-        session_response(session, RESULT_SUCCESS);
+        /*session_write_to_kvdb(session, object);*/
+        /*session_response(session, RESULT_SUCCESS);*/
 
         /*pthread_yield();*/
-        sched_yield();
+        /*sched_yield();*/
     }
 
     return 0;

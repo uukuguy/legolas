@@ -390,13 +390,17 @@ void object_queue_free(object_queue_t *oq)
 
 void* object_queue_find(object_queue_t *oq, void *query_data)
 {
+    pthread_mutex_lock(&oq->queue_lock);
     void *data = skiplist_find_first(oq->objects, query_data, NULL);
+    pthread_mutex_unlock(&oq->queue_lock);
     return data;
 }
 
 int object_queue_insert(object_queue_t *oq, void *data)
 {
-    return skiplist_insert(oq->objects, data);
+    pthread_mutex_lock(&oq->queue_lock);
+    int ret = skiplist_insert(oq->objects, data);
+    pthread_mutex_unlock(&oq->queue_lock);
 }
 
 void object_queue_remove(object_queue_t *oq, void *query_data)
@@ -404,7 +408,9 @@ void object_queue_remove(object_queue_t *oq, void *query_data)
     void *node = NULL;
     void *data = skiplist_find_first(oq->objects, query_data, &node);
     if ( node != NULL ){
+        pthread_mutex_lock(&oq->queue_lock);
         skiplist_delete_node(oq->objects, node);
+        pthread_mutex_unlock(&oq->queue_lock);
     }
     if ( data != NULL ){
         object_t * object = (object_t*)data;

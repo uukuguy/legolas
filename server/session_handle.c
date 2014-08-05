@@ -126,6 +126,17 @@ int session_is_idle(session_t *session)
 void session_idle_cb(uv_idle_t *idle_handle, int status) 
 {
     session_t *session = (session_t*)idle_handle->data;
+
+    /* FIXME Response success to client. for write.*/
+    uint32_t finished_works = session->finished_works;
+    if ( finished_works > 0 ) {
+        __sync_sub_and_fetch(&session->finished_works, finished_works);
+        while ( finished_works-- > 0 ) {
+            session_response(session, RESULT_SUCCESS);
+        }
+    }
+
+    /* Check is time to shutdown now? */
     session_shutdown(session);
 
 }

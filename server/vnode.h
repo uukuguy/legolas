@@ -18,6 +18,8 @@
 #define MAX_DATAZONES 16
 
 typedef struct kvdb_t kvdb_t;
+typedef struct work_queue_t work_queue_t;
+typedef struct session_t session_t;
 
 typedef struct datazone_t datazone_t;
 
@@ -38,7 +40,14 @@ typedef struct vnode_t {
     list *standby_objects; /* objects waiting for write */
     uint32_t standby_object_size;
 
+    work_queue_t *kvdb_queue;
+
 } vnode_t;
+
+typedef struct vnode_kvdb_queue_entry_t{
+    session_t *session;
+    object_t *object;
+} vnode_kvdb_queue_entry_t;
 
 vnode_t *vnode_new(char *root_dir, uint32_t id);
 void vnode_free(vnode_t *vnode);

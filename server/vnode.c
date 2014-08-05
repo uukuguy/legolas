@@ -14,6 +14,25 @@
 #include "kvdb.h"
 #include "object.h"
 #include "zmalloc.h"
+#include "work.h"
+#include "session.h"
+
+#define VNODE_KVDB_QUEUE_INTERVAL 1 /* ms */
+
+void vnode_kvdb_queue_handle_write(work_queue_t *wq)
+{
+    void *node_data = NULL;
+    while ( (node_data = dequeue_work(wq)) != NULL ){
+        vnode_kvdb_queue_entry_t *entry = (vnode_kvdb_queue_entry_t*)node_data;
+        session_t *session = entry->session;
+        object_t *object = entry->object;
+        zfree(entry);
+        
+        session_write_to_kvdb(session, object);
+
+        sched_yield();
+    }
+}
 
 vnode_t *vnode_new(char *root_dir, uint32_t id)
 {
@@ -63,10 +82,20 @@ vnode_t *vnode_new(char *root_dir, uint32_t id)
     vnode->standby_objects = listCreate();
     vnode->standby_object_size = 0;
 
+    vnode->kvdb_queue = init_work_queue(vnode_kvdb_queue_handle_write, VNODE_KVDB_QUEUE_INTERVAL);
+
     return vnode;
 }
 
 void vnode_free(vnode_t *vnode){
+
+    work_queue_t *wq = vnode->kvdb_queue;
+    if ( wq != NULL ) {
+        exit_work_queue(wq);
+        zfree(wq);
+        vnode->kvdb_queue = NULL;
+    }
+
     if ( vnode->kvdb != NULL ){
         kvdb_close(vnode->kvdb);
         vnode->kvdb = NULL;

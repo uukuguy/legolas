@@ -154,13 +154,6 @@ void after_shutdown(uv_shutdown_t *shutdown_req, int status)
 void session_shutdown(session_t *session)
 {
     if ( !session->stop ){
-        /*uint32_t finished_works = session->finished_works;*/
-        /*if ( finished_works > 0 ) {*/
-        /*__sync_sub_and_fetch(&session->finished_works, finished_works);*/
-        /*while ( finished_works-- > 0 ) {*/
-        /*session_response(session, RESULT_SUCCESS);*/
-        /*}*/
-        /*}*/
 
         if ( session->waiting_for_close == 1 ) {
             int is_idle = 1;
