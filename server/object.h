@@ -14,9 +14,16 @@
 #include "adlist.h"
 #include "md5.h"
 #include "kvdb.h"
-#include "skiplist.h"
 #include "byteblock.h"
 #include <pthread.h>
+
+#define SKIPLIST_USE_LOCK 1
+#define SKIPLIST_CMP_CB object_compare_md5_func
+#define SKIPLIST_MALLOC zmalloc
+#define SKIPLIST_REALLOC zrealloc
+#define SKIPLIST_FREE zfree
+#include "zmalloc.h"
+#include "skiplist.h"
 
 /* -------------------- slice_t -------------------- */
 typedef struct slice_t {
@@ -61,7 +68,8 @@ typedef int (object_compare_func_t)(void *, void *);
 int object_compare_key_func(void *first, void *second);
 int object_compare_md5_func(void *first, void *second);
 
-object_queue_t *object_queue_new(object_compare_func_t *func);
+//object_queue_t *object_queue_new(object_compare_func_t *func);
+object_queue_t *object_queue_new(void);
 void object_queue_free(object_queue_t *oq);
 void* object_queue_find(object_queue_t *oq, void *query_data);
 int object_queue_insert(object_queue_t *oq, void *data);

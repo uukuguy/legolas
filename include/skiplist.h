@@ -1,163 +1,153 @@
-/************************************************************************
+/* 
+ * Copyright (c) 2011 Scott Vokes <vokes.s@gmail.com>
+ *  
+ * Permission to use, copy, modify, and/or distribute this software for any
+ * purpose with or without fee is hereby granted, provided that the above
+ * copyright notice and this permission notice appear in all copies.
+ *  
+ * THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
+ * WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
+ * MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR
+ * ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
+ * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
+ * ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
+ * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
+ */
+
+/*
+ * For more information on skiplists, see William Pugh's paper,
+ * "Skip Lists: A Probabilistic Alternative to Balanced Trees".
+ */
+
+#ifndef SKIPLIST_H
+#define SKIPLIST_H
+
+/* Opaque skiplist type. */
+typedef struct skiplist skiplist;
+
+#define T skiplist
+
+/* Comparison function, should return <0, 0, or >0 for less-than,
+ * equal, and greater-than, respectively. */
+typedef int (skiplist_cmp_cb)(void *keyA, void *keyB);
+
+/* Callback when iterating over the contents of the skiplist.
+ * If it returns nonzero, iteration will terminate immediately
+ * and return that result.
+ * UDATA is an extra void * for the callback's closure/enironment. */
+typedef int (skiplist_iter_cb)(void *key, void *value, void *udata);
+
+/* Callback when freeing keys and/or values contained by the skiplist. */
+typedef void (skiplist_free_cb)(void *key, void *value, void *udata);
+
+/* Callback to print KEY and/or VALUE inside skiplist_debug
+ * to file F, if F is non-NULL. */
+typedef void (skiplist_fprintf_kv_cb)(FILE *f, void *key,
+                                      void *value,void *udata);
+
+#ifdef SKIPLIST_CMP_CB
+#define SKIPLIST_NEW_ARGS void /* none */
+#else
+#define SKIPLIST_NEW_ARGS skiplist_cmp_cb *cmp
+#endif
+
+/* Create a new skiplist, returns NULL on error.
+ * May or may not take skiplist_cmp_cb, depending on whether
+ * SKIPLIST_CMP_CB is defined. */
+T *skiplist_new(SKIPLIST_NEW_ARGS);
+
+/* Set the random seed used when randomly constructing skiplists. */
+void skiplist_set_seed(unsigned seed);
+
+/* Randomly generate the height for the next level.
+ * Should return between 1 and SKIPLIST_MAX_HEIGHT, inclusive.
+ * Returning an illegal height is a checked error.
  *
- * SKIPLIST.H - Skiplist data structures and functions
+ * For the skiplist's invariants to hold, the propability of
+ * >= level N should be a constant proportion of the probability
+ * of the level beneath it, e.g. prob(>=1) -> 1, prob(>=2) -> 1/2,
+ * prob(>=3) -> 1/4, prob(>=4) -> 1/8, etc.
  *
+ * SKIPLIST_GEN_HEIGHT can be replaced at compile-time, but
+ * defaults to a probability of 0.5 per each additional level.
+ */
+unsigned int SKIPLIST_GEN_HEIGHT(void);
+
+/* Add a key/value pair to the skiplist. Equal keys will be kept
+ * (bag functionality). KEY and/or VALUE are allowed to be NULL,
+ * provided the cmp callback can handle it. Note that a NULL
+ * value will not be recognized by skiplist_member.
+ * If you add multiple values under the same key, they will not
+ * necessarily be stored in any particular order.
+ * Returns <0 on error, 0 on success. */
+int skiplist_add(T *sl, void *key, void *value);
+
+/* Set a key/value pair in the skiplist, replacing an existing
+ * value if present. If OLD is non-NULL, then *old will be set
+ * to the previous value, or NULL if it was not present.
+ * Otherwise behaves the same as skiplist_add. */
+int skiplist_set(T *sl, void *key, void *value, void **old);
+
+/* Get the value associated with KEY, or NULL if not present. */
+void *skiplist_get(T *sl, void *key);
+
+/* Does the skiplist contain KEY?
+ * Note - will fail if the value is NULL. */
+int skiplist_member(T *sl, void *key);
+
+/* Delete an association for KEY in the skiplist.
+ * Returns the value, or NULL if not present.
  *
- * License:
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License version 2 as
- * published by the Free Software Foundation.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
- ************************************************************************/
+ * Note: If there are multiple values for the key, only one
+ * (not necessarily the first) is deleted; see skiplist_delete_all. */
+void *skiplist_delete(T *sl, void *key);
 
-#ifndef LIBNAGIOS_skiplist_h__
-#define LIBNAGIOS_skiplist_h__
-/*#include "lnag-utils.h"*/
+/* Delete all associations for KEY in the skiplist. The callback is
+ * called for each key/value pair, and cannot be NULL. */
+void skiplist_delete_all(T *sl, void *key,
+    void *udata, skiplist_free_cb *cb);
 
-/**
- * @file skiplist.h
- * @brief Skiplist library functions
- *
- * http://en.wikipedia.org/wiki/Skiplist
- *
- * @{
- */
+/* Get the first or last pair from the skiplist.
+ * If key or value are non-NULL, the pair is returned in them.
+ * Passing in a NULL key is legal, it will be ignored.
+ * Passing in a NULL value is legal, but useless.
+ * Returns 0 on success, or <0 on error, e.g. an empty skiplist. */
+int skiplist_first(T *sl, void **key, void **value);
+int skiplist_last(T *sl, void **key, void **value);
 
-#define SKIPLIST_OK              0 /**< A ok */
-#define SKIPLIST_ERROR_ARGS      1 /**< Bad arguments */
-#define SKIPLIST_ERROR_MEMORY    2 /**< Memory error */
-#define SKIPLIST_ERROR_DUPLICATE 3 /**< Trying to insert non-unique item */
+/* Pop the key/value pair off the skiplist with the first/last key.
+ * Same return behavior as skiplist_first/last, but also deletes the pair. */
+int skiplist_pop_first(T *sl, void **key, void **value);
+int skiplist_pop_last(T *sl, void **key, void **value);
 
-/*NAGIOS_BEGIN_DECL*/
+/* How many pairs are in the skiplist?
+ * Returns <0 on error. */
+long skiplist_count(T *sl);
 
-struct skiplist_struct;
-typedef struct skiplist_struct skiplist;
+/* Is the skiplist empty? */
+int skiplist_empty(T *sl);
 
-/**
- * Return number of items currently in the skiplist
- * @param list The list to investigate
- * @return number of items in list
- */
-unsigned long skiplist_num_items(skiplist *list);
+/* Iterate over the skiplist. See the typedef comment for
+ * skiplist_iter_cb for more information. */
+int skiplist_iter(T *sl, void *udata, skiplist_iter_cb *cb);
 
-/**
- * Create a new skiplist
- * @param max_levels Number of "ups" we have.
- * This Should be kept close to lg2 of the number of items to store.
- * @param level_probability Ignored
- * @param allow_duplicates Allow duplicates in this list
- * @param append_duplicates Append rather than prepend duplicates
- * @param compare_function Comparison function for data entries
- * @return pointer to a new skiplist on success, NULL on errors
- */
-skiplist *skiplist_new(int max_levels, float level_probability, int allow_duplicates, int append_duplicates, int (*compare_function)(void *, void *));
+/* Iterate over the skiplist, beginning at KEY.
+ * Returns <0 if KEY is not present. */
+int skiplist_iter_from(T *sl, void *key,
+    void *udata, skiplist_iter_cb *cb);
 
-/**
- * Insert an item into a skiplist
- * @param list The list to insert to
- * @param data The data to insert
- * @return SKIPLIST_OK on success, or an error code
- */
-int skiplist_insert(skiplist *list, void *data);
+/* Clear the skiplist. Returns the number of pairs removed,
+ * or <0 on error. */
+long skiplist_clear(T *sl, void *udata, skiplist_free_cb *cb);
 
-/**
- * Empty the skiplist of all data
- * @param list The list to empty
- * @return ERROR on failures. OK on success
- */
-int skiplist_empty(skiplist *list);
+/* Clear and free the skiplist. Returns the number of pairs removed,
+ * or <0 on error. */
+long skiplist_free(T *sl, void *udata, skiplist_free_cb *cb);
 
-/**
- * Free all nodes (but not all data) in a skiplist
- * This is similar to skiplist_empty(), but also free()'s the head node
- * @param list The list to free
- * @return OK on success, ERROR on failures
- */
-int skiplist_free(skiplist **list);
+/* Do an internal consistency check.
+ * Prints debugging info to F (if non-NULL). */
+void skiplist_debug(T *sl, FILE *f,
+    void *udata, skiplist_fprintf_kv_cb *cb);
 
-/**
- * Get the first item in the skiplist
- * @param list The list to peek into
- * @return The first item, or NULL if there is none
- */
-void *skiplist_peek(skiplist *list);
-
-/**
- * Pop the first item from the skiplist
- * @param list The list to pop from
- */
-void *skiplist_pop(skiplist *list);
-
-/**
- * Get first node of skiplist
- * @param list The list to search
- * @param[out] node_ptr State variable for skiplist_get_next()
- * @return The data-item of the first node on success, NULL on errors
- */
-void *skiplist_get_first(skiplist *list, void **node_ptr);
-
-/**
- * Get next item from node_ptr
- * @param[out] node_ptr State variable primed from an earlier call to
- * skiplist_get_first() or skiplist_get_next()
- * @return The next data-item matching node_ptr on success, NULL on errors
- */
-void *skiplist_get_next(void **node_ptr);
-
-/**
- * Find first entry in skiplist matching data
- * @param list The list to search
- * @param data Comparison object used to search
- * @param[out] node_ptr State variable for future lookups with
- * skiplist_find_next()
- * @return The first found data-item, of NULL if none could be found
- */
-void *skiplist_find_first(skiplist *list, void *data, void **node_ptr);
-
-/**
- * Find next entry in skiplist matching data
- * @param list The list to search
- * @param data The data to compare against
- * @param[out] node_ptr State var primed from earlier call to
- * skiplist_find_next() or skiplist_find_first()
- * @return The next found data-item, or NULL if none could be found
- */
-void *skiplist_find_next(skiplist *list, void *data, void **node_ptr);
-
-/**
- * Delete all items matching 'data' from skiplist
- * @param list The list to delete from
- * @param data Comparison object used to find the real node
- * @return OK on success, ERROR on errors
- */
-int skiplist_delete(skiplist *list, void *data);
-
-/**
- * Delete first item matching 'data' from skiplist
- * @param list The list to delete from
- * @param data Comparison object used to search the list
- * @return OK on success, ERROR on errors.
- */
-int skiplist_delete_first(skiplist *list, void *data);
-
-/**
- * Delete a particular node from the skiplist
- * @param list The list to search
- * @param node_ptr The node to delete
- * @return OK on success, ERROR on errors.
- */
-int skiplist_delete_node(skiplist *list, void *node_ptr);
-
-/*NAGIOS_END_DECL*/
-
-/* @} */
+#undef T
 #endif
