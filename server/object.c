@@ -188,6 +188,62 @@ int unpack_object_nslices(msgpack_unpacker *unpacker, object_t *object)
         sprintf(slice_key, "%08x-%08x-%08x-%08x-%08d", key_md5.h0, key_md5.h1, key_md5.h2, key_md5.h3, slice_idx); \
         uint32_t slice_key_len = 44;
 
+int object_put_into_file(int file, object_t *object)
+{
+    md5_value_t key_md5 = object->key_md5;
+
+    uint32_t nSlices = listLength(object->slices);
+
+    msgpack_sbuffer *sbuf = msgpack_sbuffer_new();
+    msgpack_packer *packer = msgpack_packer_new(sbuf, msgpack_sbuffer_write);
+
+    /* key_md5 */
+    msgpack_pack_array(packer, 4);
+    msgpack_pack_uint32(packer, object->key_md5.h0);
+    msgpack_pack_uint32(packer, object->key_md5.h1);
+    msgpack_pack_uint32(packer, object->key_md5.h2);
+    msgpack_pack_uint32(packer, object->key_md5.h3);
+
+    /* key */
+    uint32_t key_len = object->keylen;
+    msgpack_pack_raw(packer, key_len);
+    msgpack_pack_raw_body(packer, object->key, key_len);
+
+    /* object_size */
+    msgpack_pack_uint32(packer, object->object_size);
+
+    /* nSlices */
+    msgpack_pack_uint32(packer, nSlices);
+
+    MAKE_META_KEY(key_md5);
+
+    write(file, meta_key, meta_key_len);
+    write(file, sbuf->data, sbuf->size);
+
+    msgpack_sbuffer_free(sbuf);
+    msgpack_packer_free(packer);
+
+    uint32_t slice_idx = 0;
+
+    listIter *iter = listGetIterator(object->slices, AL_START_HEAD);
+    listNode *node = NULL;
+    while ( (node = listNext(iter)) != NULL ){
+        slice_t *slice = (slice_t*)node->value;
+        char *buf = slice->byteblock.buf;
+        uint32_t buf_size = slice->byteblock.size;
+
+        MAKE_SLICE_KEY(object->key_md5, slice_idx);
+
+        write(file, slice_key, slice_key_len);
+        write(file, buf, buf_size);
+
+        slice_idx++;
+    }
+    listReleaseIterator(iter);
+
+    return 0;
+}
+
 int object_put_into_kvdb(kvdb_t *kvdb, object_t *object)
 {
     md5_value_t key_md5 = object->key_md5;
@@ -401,6 +457,8 @@ int object_queue_insert(object_queue_t *oq, void *data)
     pthread_mutex_lock(&oq->queue_lock);
     int ret = skiplist_insert(oq->objects, data);
     pthread_mutex_unlock(&oq->queue_lock);
+
+    return ret;
 }
 
 void object_queue_remove(object_queue_t *oq, void *query_data)
