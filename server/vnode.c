@@ -100,8 +100,7 @@ vnode_t *vnode_new(char *root_dir, uint32_t id)
     }
     vnode->kvdb = kvdb;
 
-    /*vnode->caching_objects = object_queue_new(object_compare_md5_func);*/
-    vnode->caching_objects = object_queue_new();
+    vnode->caching_objects = object_queue_new(object_compare_md5_func);
 
     vnode->received_objects = listCreate();
     vnode->received_object_size = 0;

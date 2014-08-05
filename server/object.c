@@ -404,54 +404,52 @@ int object_compare_key_func(void *first, void *second)
     return strcmp(object_first->key, object_second->key);
 }
 
-/*int object_compare_md5_func(void *first, void *second)*/
-/*{*/
-    /*if ( first == NULL ) return -1;*/
-    /*if ( second == NULL ) return 1;*/
-    /*object_t *object_first = (object_t*)first;*/
-    /*object_t *object_second = (object_t*)second;*/
-
-    /*uint64_t a0 = ((uint64_t)object_first->key_md5.h0 << 32) | object_second->key_md5.h1;*/
-    /*uint64_t b0 = ((uint64_t)object_second->key_md5.h0 << 32) | object_second->key_md5.h1;*/
-    /*if ( a0 > b0 ) return 1;*/
-    /*if ( a0 < b0 ) return -1;*/
-
-    /*uint64_t a1 = ((uint64_t)object_first->key_md5.h2 << 32) | object_second->key_md5.h3;*/
-    /*uint64_t b1 = ((uint64_t)object_first->key_md5.h2 << 32) | object_second->key_md5.h3;*/
-    /*if ( a1 > b1 ) return 1;*/
-    /*if ( a1 < b1 ) return -1;*/
-
-    /*return 0;*/
-/*}*/
-
 int object_compare_md5_func(void *first, void *second)
 {
     if ( first == NULL ) return -1;
     if ( second == NULL ) return 1;
+    object_t *object_first = (object_t*)first;
+    object_t *object_second = (object_t*)second;
 
-    md5_value_t *object_first = (md5_value_t*)first;
-    md5_value_t *object_second = (md5_value_t*)second;
-
-    uint64_t a0 = ((uint64_t)object_first->h0 << 32) | object_second->h1;
-    uint64_t b0 = ((uint64_t)object_second->h0 << 32) | object_second->h1;
+    uint64_t a0 = ((uint64_t)object_first->key_md5.h0 << 32) | object_second->key_md5.h1;
+    uint64_t b0 = ((uint64_t)object_second->key_md5.h0 << 32) | object_second->key_md5.h1;
     if ( a0 > b0 ) return 1;
     if ( a0 < b0 ) return -1;
 
-    uint64_t a1 = ((uint64_t)object_first->h2 << 32) | object_second->h3;
-    uint64_t b1 = ((uint64_t)object_first->h2 << 32) | object_second->h3;
+    uint64_t a1 = ((uint64_t)object_first->key_md5.h2 << 32) | object_second->key_md5.h3;
+    uint64_t b1 = ((uint64_t)object_first->key_md5.h2 << 32) | object_second->key_md5.h3;
     if ( a1 > b1 ) return 1;
     if ( a1 < b1 ) return -1;
 
     return 0;
 }
 
-/*object_queue_t *object_queue_new(object_compare_func_t *func)*/
-object_queue_t *object_queue_new()
+/*int object_compare_md5_func(void *first, void *second)*/
+/*{*/
+    /*if ( first == NULL ) return -1;*/
+    /*if ( second == NULL ) return 1;*/
+
+    /*md5_value_t *object_first = (md5_value_t*)first;*/
+    /*md5_value_t *object_second = (md5_value_t*)second;*/
+
+    /*uint64_t a0 = ((uint64_t)object_first->h0 << 32) | object_second->h1;*/
+    /*uint64_t b0 = ((uint64_t)object_second->h0 << 32) | object_second->h1;*/
+    /*if ( a0 > b0 ) return 1;*/
+    /*if ( a0 < b0 ) return -1;*/
+
+    /*uint64_t a1 = ((uint64_t)object_first->h2 << 32) | object_second->h3;*/
+    /*uint64_t b1 = ((uint64_t)object_first->h2 << 32) | object_second->h3;*/
+    /*if ( a1 > b1 ) return 1;*/
+    /*if ( a1 < b1 ) return -1;*/
+
+    /*return 0;*/
+/*}*/
+
+object_queue_t *object_queue_new(object_compare_func_t *func)
 {
     object_queue_t *oq = (object_queue_t*)zmalloc(sizeof(object_queue_t));
 
-    /*oq->objects = skiplist_new(16, 0.5, 0, 0, func);*/
-    oq->objects = skiplist_new();
+    oq->objects = skiplist_new(16, 0.5, 0, 0, func);
 
     pthread_mutex_init(&oq->queue_lock, NULL);
     return oq;
@@ -461,8 +459,7 @@ void object_queue_free(object_queue_t *oq)
 {
     if ( oq->objects != NULL ){
 
-        /*skiplist_free(&oq->objects);*/
-        skiplist_free(oq->objects, NULL, NULL);
+        skiplist_free(&oq->objects);
 
         oq->objects = NULL;
     }
@@ -474,40 +471,34 @@ void object_queue_free(object_queue_t *oq)
 
 void* object_queue_find(object_queue_t *oq, void *query_data)
 {
-    /*void *data = skiplist_find_first(oq->objects, query_data, NULL);*/
-
-    void *key = NULL;
-    void *data = NULL;
-
-    skiplist_first(oq->objects, &key, &data);
-
+    pthread_mutex_lock(&oq->queue_lock);
+    void *data = skiplist_find_first(oq->objects, query_data, NULL);
+    pthread_mutex_unlock(&oq->queue_lock);
     return data;
 }
 
 int object_queue_insert(object_queue_t *oq, void *data)
 {
-    /*return skiplist_insert(oq->objects, data);*/
-    object_t *object = (object_t *)data;
-    return skiplist_add(oq->objects, &object->key_md5, object);
+    pthread_mutex_lock(&oq->queue_lock);
+    int ret = skiplist_insert(oq->objects, data);
+    pthread_mutex_unlock(&oq->queue_lock);
+
+    return ret;
 }
 
 void object_queue_remove(object_queue_t *oq, void *query_data)
 {
-    /*void *node = NULL;*/
-    /*void *data = skiplist_find_first(oq->objects, query_data, &node);*/
-    /*if ( node != NULL ){*/
-        /*skiplist_delete_node(oq->objects, node);*/
-    /*}*/
-    /*if ( data != NULL ){*/
-        /*object_t * object = (object_t*)data;*/
-        /*object_free(object);*/
-    /*}*/
-
-    md5_value_t *key = (md5_value_t*)query_data;
-    void *data = skiplist_delete(oq->objects, key);
-    if ( data != NULL  ){
-        object_t *object = (object_t*)data;
+    void *node = NULL;
+    void *data = skiplist_find_first(oq->objects, query_data, &node);
+    if ( node != NULL ){
+        pthread_mutex_lock(&oq->queue_lock);
+        skiplist_delete_node(oq->objects, node);
+        pthread_mutex_unlock(&oq->queue_lock);
+    }
+    if ( data != NULL ){
+        object_t * object = (object_t*)data;
         object_free(object);
     }
+
 }
 
