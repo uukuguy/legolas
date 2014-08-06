@@ -41,6 +41,7 @@
 
 struct skiplist_struct;
 typedef struct skiplist_struct skiplist;
+typedef struct skiplist_struct skiplist_t;
 
 /**
  * Return number of items currently in the skiplist

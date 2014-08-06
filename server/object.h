@@ -52,7 +52,7 @@ int object_del_from_kvdb(kvdb_t *kvdb, md5_value_t key_md5);
 
 /* -------------------- object_queue_t -------------------- */
 typedef struct object_queue_t {
-    skiplist *objects;
+    skiplist_t *objects;
 
 	pthread_mutex_t queue_lock;
 
@@ -61,9 +61,9 @@ typedef struct object_queue_t {
 typedef int (object_compare_func_t)(void *, void *);
 
 int object_compare_key_func(void *first, void *second);
-int object_compare_md5_func(void *first, void *second);
+int  object_compare_md5_func(void *first, void *second);
 
-object_queue_t *object_queue_new(object_compare_func_t *func);
+object_queue_t *object_queue_new(object_compare_func_t func);
 void object_queue_free(object_queue_t *oq);
 void* object_queue_find(object_queue_t *oq, void *query_data);
 int object_queue_insert(object_queue_t *oq, void *data);

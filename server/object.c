@@ -404,48 +404,48 @@ int object_compare_key_func(void *first, void *second)
     return strcmp(object_first->key, object_second->key);
 }
 
-int object_compare_md5_func(void *first, void *second)
-{
-    if ( first == NULL ) return -1;
-    if ( second == NULL ) return 1;
-    object_t *object_first = (object_t*)first;
-    object_t *object_second = (object_t*)second;
-
-    uint64_t a0 = ((uint64_t)object_first->key_md5.h0 << 32) | object_second->key_md5.h1;
-    uint64_t b0 = ((uint64_t)object_second->key_md5.h0 << 32) | object_second->key_md5.h1;
-    if ( a0 > b0 ) return 1;
-    if ( a0 < b0 ) return -1;
-
-    uint64_t a1 = ((uint64_t)object_first->key_md5.h2 << 32) | object_second->key_md5.h3;
-    uint64_t b1 = ((uint64_t)object_first->key_md5.h2 << 32) | object_second->key_md5.h3;
-    if ( a1 > b1 ) return 1;
-    if ( a1 < b1 ) return -1;
-
-    return 0;
-}
-
 /*int object_compare_md5_func(void *first, void *second)*/
 /*{*/
     /*if ( first == NULL ) return -1;*/
     /*if ( second == NULL ) return 1;*/
+    /*object_t *object_first = (object_t*)first;*/
+    /*object_t *object_second = (object_t*)second;*/
 
-    /*md5_value_t *object_first = (md5_value_t*)first;*/
-    /*md5_value_t *object_second = (md5_value_t*)second;*/
-
-    /*uint64_t a0 = ((uint64_t)object_first->h0 << 32) | object_second->h1;*/
-    /*uint64_t b0 = ((uint64_t)object_second->h0 << 32) | object_second->h1;*/
+    /*uint64_t a0 = ((uint64_t)object_first->key_md5.h0 << 32) | object_second->key_md5.h1;*/
+    /*uint64_t b0 = ((uint64_t)object_second->key_md5.h0 << 32) | object_second->key_md5.h1;*/
     /*if ( a0 > b0 ) return 1;*/
     /*if ( a0 < b0 ) return -1;*/
 
-    /*uint64_t a1 = ((uint64_t)object_first->h2 << 32) | object_second->h3;*/
-    /*uint64_t b1 = ((uint64_t)object_first->h2 << 32) | object_second->h3;*/
+    /*uint64_t a1 = ((uint64_t)object_first->key_md5.h2 << 32) | object_second->key_md5.h3;*/
+    /*uint64_t b1 = ((uint64_t)object_first->key_md5.h2 << 32) | object_second->key_md5.h3;*/
     /*if ( a1 > b1 ) return 1;*/
     /*if ( a1 < b1 ) return -1;*/
 
     /*return 0;*/
 /*}*/
 
-object_queue_t *object_queue_new(object_compare_func_t *func)
+int object_compare_md5_func(void *first, void *second)
+{
+    if ( first == NULL ) return -1;
+    if ( second == NULL ) return 1;
+
+    md5_value_t *object_first = (md5_value_t*)first;
+    md5_value_t *object_second = (md5_value_t*)second;
+
+    uint64_t a0 = ((uint64_t)object_first->h0 << 32) | object_second->h1;
+    uint64_t b0 = ((uint64_t)object_second->h0 << 32) | object_second->h1;
+    if ( a0 > b0 ) return 1;
+    if ( a0 < b0 ) return -1;
+
+    uint64_t a1 = ((uint64_t)object_first->h2 << 32) | object_second->h3;
+    uint64_t b1 = ((uint64_t)object_first->h2 << 32) | object_second->h3;
+    if ( a1 > b1 ) return 1;
+    if ( a1 < b1 ) return -1;
+
+    return 0;
+}
+
+object_queue_t *object_queue_new(object_compare_func_t func)
 {
     object_queue_t *oq = (object_queue_t*)zmalloc(sizeof(object_queue_t));
 
@@ -479,8 +479,10 @@ void* object_queue_find(object_queue_t *oq, void *query_data)
 
 int object_queue_insert(object_queue_t *oq, void *data)
 {
+    int ret = 0;
+
     pthread_mutex_lock(&oq->queue_lock);
-    int ret = skiplist_insert(oq->objects, data);
+    ret = skiplist_insert(oq->objects, data);
     pthread_mutex_unlock(&oq->queue_lock);
 
     return ret;

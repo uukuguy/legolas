@@ -81,6 +81,7 @@ object_t *session_write_to_cache(session_t *session, msgidx_t *msgidx){
     object_t obj;
     memcpy(&obj.key_md5, msgidx->key_md5, sizeof(md5_value_t));
     object_t *object = object_queue_find(caching_objects, &obj);
+    /*object_t *object = object_queue_find(caching_objects, &msgidx->key_md5);*/
 
     if ( object == NULL ){
         object = object_new(msgidx->key, msgidx->keylen);
@@ -113,6 +114,7 @@ int session_write_to_kvdb(session_t *session, object_t *object)
     object_put_into_kvdb(vnode->kvdb, object);
 
     object_queue_remove(vnode->caching_objects, object);
+    /*object_queue_remove(vnode->caching_objects, &object->key_md5);*/
 
     session->total_writed = 0;
     __sync_add_and_fetch(&session->finished_works, 1);
@@ -158,11 +160,11 @@ int session_handle_write(session_t *session, message_t *request)
         entry->session = session;
         entry->object = object;
 
-        vnode_t *vnode = get_vnode_by_key(SERVER(session), &object->key_md5);
-        enqueue_work(vnode->kvdb_queue, entry);
+        /*vnode_t *vnode = get_vnode_by_key(SERVER(session), &object->key_md5);*/
+        /*enqueue_work(vnode->kvdb_queue, entry);*/
 
-        /*session_write_to_kvdb(session, object);*/
-        /*session_response(session, RESULT_SUCCESS);*/
+        session_write_to_kvdb(session, object);
+        session_response(session, RESULT_SUCCESS);
 
         /*pthread_yield();*/
         /*sched_yield();*/

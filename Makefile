@@ -121,7 +121,7 @@ deps/jemalloc:
 	./autogen.sh && \
 	./configure --with-jemalloc-prefix=je_ && \
 	make build_lib && \
-	cp -f lib/* ../../lib/
+	cp -f lib/*.${SO} lib/*.a ../../lib/
 
 # ................ libuv ................
 
@@ -140,7 +140,7 @@ deps/libuv:
 	./autogen.sh && \
 	./configure && \
 	make && \
-	cp -f .libs/* ../../lib/
+	cp -f .libs/*.{SO} .libs/*.a ../../lib/
 
 	#./gyp_uv.py -f make && \
 	#BUILDTYPE=Release make -C out
@@ -161,7 +161,7 @@ deps/leveldb:
 	cd ${LEVELDB} && \
 	sed -i -e 's/()\s*;/(void);/g' include/leveldb/c.h && \
 	make && \
-	cp -f *.${SO}* *.a ../../lib/
+	cp -f *.${SO} *.a ../../lib/
 
 # ................ lmdb ................
 
@@ -178,7 +178,7 @@ deps/lmdb:
 	ln -sf ${LMDB} lmdb && \
 	cd ${LMDB} && \
 	make && \
-	cp -f *.so* *.a ../../lib/
+	cp -f *.so *.a ../../lib/
 
 	#cp -f *.${SO}* *.a ../../lib/
 
@@ -200,7 +200,7 @@ deps/rocksdb:
 	sed -i -e 's/rocksdb::GetDeletedKey/(size_t)rocksdb::GetDeletedKey/' tools/sst_dump.cc && \
 	MAKECMDGOALS=static_lib JEMALLOC_INCLUDE="-I../jemalloc/include" JEMALLOC_LIB="-L../jemalloc/lib -ljemalloc" make static_lib && \
 	MAKECMDGOALS=shared_lib JEMALLOC_INCLUDE="-I../jemalloc/include" JEMALLOC_LIB="-L../jemalloc/lib -ljemalloc" make shared_lib && \
-	cp -f *.${SO}* *.a ../../lib/
+	cp -f *.${SO} *.a ../../lib/
 
 	#MAKECMDGOALS=static_lib make 
 	#sed -i -e 's/keys: %zd/keys: %zu/' tools/sst_dump.cc && \
@@ -221,7 +221,7 @@ deps/lsm:
 	ln -sf ${LSM_SQLITE4} lsm && \
 	cd ${LSM_SQLITE4} && \
 	make && \
-	cp -f *.so* *.a ../../lib/
+	cp -f *.so *.a ../../lib/
 
 	#cp -f *.${SO}* *.a ../../lib/
 
@@ -242,7 +242,7 @@ deps/zeromq:
 	./configure && \
 	make && \
 	ln -s src/.libs lib && \
-	cp -f lib/*.${SO}* lib/*.a ../../lib/
+	cp -f lib/*.${SO} lib/*.a ../../lib/
 
 # ................ czmq ................
 
@@ -261,7 +261,7 @@ deps/czmq:
 	ZeroMQ_CFLAGS=-I`pwd`/../zeromq/include ZeroMQ_LIBS=-L`pwd`/../zeromq/src/.libs ./configure && \
 	make && \
 	ln -s src/.libs lib && \
-	cp -f lib/*.${SO}* lib/*.a ../../lib/
+	cp -f lib/*.${SO} lib/*.a ../../lib/
 
 # ................ zyre ................
 
@@ -281,7 +281,7 @@ deps/zyre:
 	./configure --with-libzmq=`pwd`/../zeromq --with-libczmq=`pwd`/../czmq  && \
 	make && \
 	ln -s src/.libs lib && \
-	cp -f lib/*.${SO}* lib/*.a ../../lib/
+	cp -f lib/*.${SO} lib/*.a ../../lib/
 
 # ................ msgpack ................
 
@@ -301,7 +301,7 @@ deps/msgpack:
 	./configure && \
 	make && \
 	ln -s src/.libs lib && \
-	cp -f lib/*.${SO}* lib/*.a ../../lib/
+	cp -f lib/*.${SO} lib/*.a ../../lib/
 
 # ................ cgreenlet ................
 
@@ -350,7 +350,7 @@ deps/pth:
 	cd ${PTH} && \
 	./configure --enable-optimize && \
 	make && \
-	cp -f .libs/*.${SO}* .libs/libpth.a ../../lib/
+	cp -f .libs/*.${SO} .libs/libpth.a ../../lib/
 
 # ................ libcoro ................
 
@@ -366,6 +366,7 @@ deps/libcoro:
 	cd ${LIBCORO} && \
 	make && \
 	cp -f libcoro.a ../../lib/
+
 # ................ liblfds ................
 
 CFLAGS_LIBLFDS=-I./deps/liblfds/inc
@@ -450,7 +451,7 @@ FINAL_LDFLAGS += ${LDFLAGS_LIBUV} \
 ifeq (${UNAME}, Linux)
 	FINAL_CFLAGS += -DOS_LINUX
 	FINAL_LDFLAGS += /usr/lib/x86_64-linux-gnu/libuuid.a -lrt
-	#FINAL_LDFLAGS += -static
+	FINAL_LDFLAGS += -static
 endif
 ifeq (${UNAME}, Darwin)
 	FINAL_CFLAGS += -DOS_DARWIN
