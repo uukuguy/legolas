@@ -29,31 +29,7 @@ void vnode_kvdb_queue_handle_write(work_queue_t *wq)
         object_t *object = entry->object;
         zfree(entry);
         
-        UNUSED server_t *server = SERVER(session);
-        UNUSED vnode_t *vnode = get_vnode_by_key(server, &object->key_md5);
-        assert(vnode != NULL);
-
-        /* FIXME */
-        session_write_to_kvdb(session, object);
-        /*int logFile = vnode->logFile;*/
-        /*if ( logFile == 0 ) {*/
-            /*char log_filename[NAME_MAX];*/
-            /*sprintf(log_filename, "%s/vnode.log", vnode->root_dir);*/
-            /*logFile = open(log_filename, O_APPEND | O_CREAT | O_WRONLY, 0640);*/
-            /*vnode->logFile = logFile;*/
-        /*}*/
-        /*object_put_into_file(logFile, object);*/
-
-        /*object_queue_remove(vnode->caching_objects, object);*/
-        /*session->total_writed = 0;*/
-        /*__sync_add_and_fetch(&session->finished_works, 1);*/
-
-        /*uint32_t total_committed = __sync_add_and_fetch(&vnode->total_committed, 1);*/
-        /*if ( total_committed > 800 ) {*/
-            /*__sync_sub_and_fetch(&vnode->total_committed, total_committed);*/
-            /*[>fsync(logFile);<]*/
-            /*kvdb_flush(vnode->kvdb);*/
-        /*}*/
+        session_write_to_storage(session, object);
 
         sched_yield();
     }

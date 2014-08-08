@@ -105,23 +105,53 @@ object_t *session_write_to_cache(session_t *session, msgidx_t *msgidx){
 }
 
 /* ==================== session_write_to_kvdb() ==================== */ 
-int session_write_to_kvdb(session_t *session, object_t *object)
+int session_write_to_kvdb(vnode_t *vnode, object_t *object)
 {
-    vnode_t *vnode = get_vnode_by_key(SERVER(session), &object->key_md5);
-    assert(vnode != NULL);
-
     /* FIXME */
     object_put_into_kvdb(vnode->kvdb, object);
-
-    object_queue_remove(vnode->caching_objects, object);
-    /*object_queue_remove(vnode->caching_objects, &object->key_md5);*/
-
-    session->total_writed = 0;
-    __sync_add_and_fetch(&session->finished_works, 1);
 
     return 0;
 }
 
+/* ==================== session_write_to_file() ==================== */ 
+int session_write_to_file(vnode_t *vnode, object_t *object)
+{
+    int logFile = vnode->logFile;
+    if ( logFile == 0 ) {
+        char log_filename[NAME_MAX];
+        sprintf(log_filename, "%s/vnode.log", vnode->root_dir);
+        logFile = open(log_filename, O_APPEND | O_CREAT | O_WRONLY, 0640);
+        vnode->logFile = logFile;
+    }
+
+    object_put_into_file(logFile, object);
+
+    return 0;
+}
+
+/* ==================== session_write_to_storage() ==================== */ 
+int session_write_to_storage(session_t *session, object_t *object)
+{
+    UNUSED vnode_t *vnode = get_vnode_by_key(SERVER(session), &object->key_md5);
+    assert(vnode != NULL);
+
+    int ret;
+    ret = session_write_to_kvdb(vnode, object);
+    /*ret = session_write_to_file(vnode, object);*/
+
+    object_queue_remove(vnode->caching_objects, object);
+    session->total_writed = 0;
+    __sync_add_and_fetch(&session->finished_works, 1);
+
+    uint32_t total_committed = __sync_add_and_fetch(&vnode->total_committed, 1);
+    if ( total_committed > 800 ) {
+        __sync_sub_and_fetch(&vnode->total_committed, total_committed);
+        /*fsync(vnode->logFile);*/
+        /*kvdb_flush(vnode->kvdb);*/
+    }
+
+    return ret;
+}
 
 /* ==================== session_handle_write() ==================== */ 
 int session_handle_write(session_t *session, message_t *request)
@@ -160,11 +190,11 @@ int session_handle_write(session_t *session, message_t *request)
         entry->session = session;
         entry->object = object;
 
-        /*vnode_t *vnode = get_vnode_by_key(SERVER(session), &object->key_md5);*/
-        /*enqueue_work(vnode->kvdb_queue, entry);*/
+        vnode_t *vnode = get_vnode_by_key(SERVER(session), &object->key_md5);
+        enqueue_work(vnode->kvdb_queue, entry);
 
-        session_write_to_kvdb(session, object);
-        session_response(session, RESULT_SUCCESS);
+        /*session_write_to_kvdb(session, object);*/
+        /*session_response(session, RESULT_SUCCESS);*/
 
         /*pthread_yield();*/
         /*sched_yield();*/
