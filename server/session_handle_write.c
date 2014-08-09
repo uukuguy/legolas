@@ -136,8 +136,8 @@ int session_write_to_storage(session_t *session, object_t *object)
     assert(vnode != NULL);
 
     int ret;
-    ret = session_write_to_kvdb(vnode, object);
-    /*ret = session_write_to_file(vnode, object);*/
+    /*ret = session_write_to_kvdb(vnode, object);*/
+    ret = session_write_to_file(vnode, object);
 
     object_queue_remove(vnode->caching_objects, object);
     session->total_writed = 0;

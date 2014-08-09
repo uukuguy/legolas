@@ -70,6 +70,7 @@ CZMQ=czmq-2.2.0
 ZYRE=zyre-1.0.0
 MSGPACK=msgpack-c-cpp-0.5.9
 CGREENLET=cgreenlet-20140730
+CRUSH=crush-20140809
 LTHREAD=lthread-20140730
 PTH=pth-2.0.7
 LIBCORO=libcoro-1.67
@@ -98,7 +99,7 @@ client: ${CLIENT}
 # ---------------- deps ----------------
 .PHONY: jemalloc libuv leveldb lmdb zeromq czmq zyre liblfds pcl 
 
-deps: jemalloc libuv leveldb lmdb lsm-sqlite4 zeromq czmq zyre msgpack cgreenlet lthread  pth libcoro rocksdb
+deps: jemalloc libuv leveldb lmdb lsm-sqlite4 zeromq czmq zyre msgpack cgreenlet crush lthread  pth libcoro rocksdb
 #pcl 
 
 # ................ jemalloc ................
@@ -318,6 +319,21 @@ deps/cgreenlet:
 	make && \
 	cp -f src/*.a ../../lib/
 
+# ................ crush ................
+
+CFLAGS_CRUSH=-I./deps/crush
+LDFLAGS_CRUSH=-lcrush
+
+crush: deps/crush
+
+deps/crush:
+	cd deps && \
+	tar zxvf ${CRUSH}.tar.gz && \
+	ln -sf ${CRUSH} crush && \
+	cd ${CRUSH} && \
+	make && \
+	cp -f *.${SO} *.a ../../lib/
+
 # ................ lthread ................
 
 CFLAGS_LTHREAD=-I./deps/lthread/src
@@ -411,6 +427,7 @@ COMMON_CFLAGS += ${CFLAGS_LIBUV} \
 				 ${CFLAGS_ZYRE} ${CFLAGS_CZMQ} ${CFLAGS_ZEROMQ} \
 				 ${CFLAGS_MSGPACK} \
 				 ${CFLAGS_CGREENLET} \
+				 ${CFLAGS_CRUSH} \
 				 ${CFLAGS_LTHREAD} \
 				 ${CFLAGS_PTH} \
 				 ${CFLAGS_LIBCORO}
@@ -439,6 +456,7 @@ FINAL_LDFLAGS += ${LDFLAGS_LIBUV} \
 				${LDFLAGS_ZEROMQ} \
 				${LDFLAGS_MSGPACK} \
 				${LDFLAGS_CGREENLET} \
+				${LDFLAGS_CRUSH} \
 				${LDFLAGS_LTHREAD} \
 				${LDFLAGS_PTH} \
 				${LDFLAGS_LIBCORO} \
@@ -516,6 +534,7 @@ clean-deps:
 		deps/${ZYRE} deps/zyre  \
 		deps/${MSGPACK} deps/msgpack \
 		deps/${CGREENLET} deps/cgreenlet \
+		deps/${CRUSH} deps/crush \
 		deps/${LTHREAD} deps/lthread \
 		deps/${PTH} deps/pth \
 		deps/${LIBCORO} deps/libcoro
