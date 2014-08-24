@@ -59,7 +59,7 @@ static void on_connection(uv_stream_t *stream, int status)
         .on_connect = NULL,
         .handle_read_response = NULL,
     };
-    session_t *session = session_new((void*)server, &callbacks);
+    session_t *session = session_new((void*)server, &callbacks, NULL);
     if ( session == NULL ){
         error_log("session_new() failed. session == NULL.");
         return;

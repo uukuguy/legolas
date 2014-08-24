@@ -6,7 +6,7 @@ LEGOLAS_OBJS = legolas/legolas.o legolas/message.o
 BASE_OBJS = base/logger.o base/daemon.o 
 #base/coroutine.o 
 BASE_OBJS += base/zmalloc.o base/work.o base/md5.o base/byteblock.o base/filesystem.o
-BASE_OBJS += base/skiplist.o base/adlist.o base/crc32.o base/http_parser.o
+BASE_OBJS += base/skiplist.o base/adlist.o base/threadpool.o base/crc32.o base/http_parser.o
 
 #CFLAGS_UCONTEXT=-D_XOPEN_SOURCE # ucontext.h error: The deprecated ucontext routines require _XOPEN_SOURCE to be defined.
 COMMON_CFLAGS = -ggdb -fPIC -m64 -Wall -D_GNU_SOURCE -I./include -I./legolas ${CFLAGS_UCONTEXT} 

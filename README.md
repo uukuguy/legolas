@@ -21,8 +21,11 @@ $ curl -i -H "Accept: application/octet-stream" http://localhost:19090
 
 $ tail -f rel/legolas/log/legolas_debug.log
 
-Upload
+Upload (PUT)
 $ curl -i -T datafile -H "Content-Type: application/octet-stream" http://localhost:19090/b1/f2/d3
+
+Upload (POST)
+$ curl -i -F upload=@datafile -H "Content-Type: application/octet-stream" http://localhost:19090/b1/f2/d3
 
 Download
 $ curl http://localhost:19090/b1/f2/d3 > result.dat

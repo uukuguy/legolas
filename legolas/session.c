@@ -182,7 +182,7 @@ int create_session_coroutine(session_t *session);
 int destroy_session_coroutine(session_t *session);
 
 /* ==================== session_new() ==================== */ 
-session_t* session_new(void *parent, session_callbacks_t *callbacks)
+session_t* session_new(void *parent, session_callbacks_t *callbacks, void *user_data)
 {
     static uint32_t seq_no = 0;
 
@@ -210,7 +210,7 @@ session_t* session_new(void *parent, session_callbacks_t *callbacks)
     session->total_writed = 0;
     session->cached_bytes = 0;
     session->finished_works = 0;
-    session->user_data = NULL;
+    session->user_data = user_data;
 
     session->responseQueue = listCreate();
     listSetFreeMethod(session->responseQueue, byte_block_free);

@@ -107,10 +107,8 @@ int start_connect(client_t *client, session_callbacks_t *callbacks, int session_
     }
 
     /* ---------- New session ---------- */
-    session_t *session = session_new((void*)client, callbacks);
 
-    session->user_data = zmalloc(sizeof(client_args_t));
-    client_args_t *client_args = (client_args_t*)session->user_data;
+    client_args_t *client_args = zmalloc(sizeof(client_args_t));
     memset(client_args, 0, sizeof(client_args_t));
     client_args->session_id = session_id;
     client_args->op_code = client->op_code;
@@ -124,6 +122,8 @@ int start_connect(client_t *client, session_callbacks_t *callbacks, int session_
     client_args->total_recv = 0;
     client_args->file_opened = 0;
     client_args->file_closed = 0;
+
+    session_t *session = session_new((void*)client, callbacks, client_args);
 
     /* -------- loop -------- */
     uv_loop_t *loop = SESSION_LOOP(session);

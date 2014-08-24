@@ -194,7 +194,7 @@ typedef struct session_t{
 #define session_udp(session) \
     session->connection.handle.udp
 
-extern session_t* session_new(void *parent, session_callbacks_t *callbacks);
+extern session_t* session_new(void *parent, session_callbacks_t *callbacks, void *user_data);
 extern void session_free(session_t *session);
 extern int session_accept(session_t *session, uv_tcp_t *parent_tcp);
 

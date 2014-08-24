@@ -8,6 +8,8 @@ apps/legolas/ebin
 *~
 *.o
 *.oo
+*.pb.cc
+*.pb.h
 dev/*
 doc/*
 rel/legolas
