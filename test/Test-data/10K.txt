@@ -1,0 +1,104 @@
+http://10.142.49.221:8443/svn/公司配置管理系统库/产品研发类/统一开发平台V1.0版本研发项目     123
+IP=`ifconfig  | grep  'inet addr:' -m 1 | grep -v '127.0.0.1' | cut -d: -f2 | awk '{ print $1}'`
+mdsched
+http://10.142.49.221:8443/svn/公司配置管理系统库/产品研发类/统一开发平台V1.0版本研发项目     123
+IP=`ifconfig  | grep  'inet addr:' -m 1 | grep -v '127.0.0.1' | cut -d: -f2 | awk '{ print $1}'`
+mdschedhttp://10.142.49.221:8443/svn/公司配置管理系统库/产品研发类/统一开发平台V1.0版本研发项目     123
+IP=`ifconfig  | grep  'inet addr:' -m 1 | grep -v '127.0.0.1' | cut -d: -f2 | awk '{ print $1}'`
+mdschedhttp://10.142.49.221:8443/svn/公司配置管理系统库/产品研发类/统一开发平台V1.0版本研发项目     123
+IP=`ifconfig  | grep  'inet addr:' -m 1 | grep -v '127.0.0.1' | cut -d: -f2 | awk '{ print $1}'`
+mdschedhttp://10.142.49.221:8443/svn/公司配置管理系统库/产品研发类/统一开发平台V1.0版本研发项目     123
+IP=`ifconfig  | grep  'inet addr:' -m 1 | grep -v '127.0.0.1' | cut -d: -f2 | awk '{ print $1}'`
+mdschedhttp://10.142.49.221:8443/svn/公司配置管理系统库/产品研发类/统一开发平台V1.0版本研发项目     123
+IP=`ifconfig  | grep  'inet addr:' -m 1 | grep -v '127.0.0.1' | cut -d: -f2 | awk '{ print $1}'`
+mdschedhttp://10.142.49.221:8443/svn/公司配置管理系统库/产品研发类/统一开发平台V1.0版本研发项目     123
+IP=`ifconfig  | grep  'inet addr:' -m 1 | grep -v '127.0.0.1' | cut -d: -f2 | awk '{ print $1}'`
+mdschedhttp://10.142.49.221:8443/svn/公司配置管理系统库/产品研发类/统一开发平台V1.0版本研发项目     123
+IP=`ifconfig  | grep  'inet addr:' -m 1 | grep -v '127.0.0.1' | cut -d: -f2 | awk '{ print $1}'`
+mdschedhttp://10.142.49.221:8443/svn/公司配置管理系统库/产品研发类/统一开发平台V1.0版本研发项目     123
+IP=`ifconfig  | grep  'inet addr:' -m 1 | grep -v '127.0.0.1' | cut -d: -f2 | awk '{ print $1}'`
+mdschedhttp://10.142.49.221:8443/svn/公司配置管理系统库/产品研发类/统一开发平台V1.0版本研发项目     123
+IP=`ifconfig  | grep  'inet addr:' -m 1 | grep -v '127.0.0.1' | cut -d: -f2 | awk '{ print $1}'`
+mdschedhttp://10.142.49.221:8443/svn/公司配置管理系统库/产品研发类/统一开发平台V1.0版本研发项目     123
+IP=`ifconfig  | grep  'inet addr:' -m 1 | grep -v '127.0.0.1' | cut -d: -f2 | awk '{ print $1}'`
+mdschedhttp://10.142.49.221:8443/svn/公司配置管理系统库/产品研发类/统一开发平台V1.0版本研发项目     123
+IP=`ifconfig  | grep  'inet addr:' -m 1 | grep -v '127.0.0.1' | cut -d: -f2 | awk '{ print $1}'`
+mdschedhttp://10.142.49.221:8443/svn/公司配置管理系统库/产品研发类/统一开发平台V1.0版本研发项目     123
+IP=`ifconfig  | grep  'inet addr:' -m 1 | grep -v '127.0.0.1' | cut -d: -f2 | awk '{ print $1}'`
+mdschedhttp://10.142.49.221:8443/svn/公司配置管理系统库/产品研发类/统一开发平台V1.0版本研发项目     123
+IP=`ifconfig  | grep  'inet addr:' -m 1 | grep -v '127.0.0.1' | cut -d: -f2 | awk '{ print $1}'`
+mdschedhttp://10.142.49.221:8443/svn/公司配置管理系统库/产品研发类/统一开发平台V1.0版本研发项目     123
+IP=`ifconfig  | grep  'inet addr:' -m 1 | grep -v '127.0.0.1' | cut -d: -f2 | awk '{ print $1}'`
+mdschedhttp://10.142.49.221:8443/svn/公司配置管理系统库/产品研发类/统一开发平台V1.0版本研发项目     123
+IP=`ifconfig  | grep  'inet addr:' -m 1 | grep -v '127.0.0.1' | cut -d: -f2 | awk '{ print $1}'`
+mdschedhttp://10.142.49.221:8443/svn/公司配置管理系统库/产品研发类/统一开发平台V1.0版本研发项目     123
+IP=`ifconfig  | grep  'inet addr:' -m 1 | grep -v '127.0.0.1' | cut -d: -f2 | awk '{ print $1}'`
+mdschedhttp://10.142.49.221:8443/svn/公司配置管理系统库/产品研发类/统一开发平台V1.0版本研发项目     123
+IP=`ifconfig  | grep  'inet addr:' -m 1 | grep -v '127.0.0.1' | cut -d: -f2 | awk '{ print $1}'`
+mdschedhttp://10.142.49.221:8443/svn/公司配置管理系统库/产品研发类/统一开发平台V1.0版本研发项目     123
+IP=`ifconfig  | grep  'inet addr:' -m 1 | grep -v '127.0.0.1' | cut -d: -f2 | awk '{ print $1}'`
+mdschedhttp://10.142.49.221:8443/svn/公司配置管理系统库/产品研发类/统一开发平台V1.0版本研发项目     123
+IP=`ifconfig  | grep  'inet addr:' -m 1 | grep -v '127.0.0.1' | cut -d: -f2 | awk '{ print $1}'`
+mdschedhttp://10.142.49.221:8443/svn/公司配置管理系统库/产品研发类/统一开发平台V1.0版本研发项目     123
+IP=`ifconfig  | grep  'inet addr:' -m 1 | grep -v '127.0.0.1' | cut -d: -f2 | awk '{ print $1}'`
+mdschedhttp://10.142.49.221:8443/svn/公司配置管理系统库/产品研发类/统一开发平台V1.0版本研发项目     123
+IP=`ifconfig  | grep  'inet addr:' -m 1 | grep -v '127.0.0.1' | cut -d: -f2 | awk '{ print $1}'`
+mdschedhttp://10.142.49.221:8443/svn/公司配置管理系统库/产品研发类/统一开发平台V1.0版本研发项目     123
+IP=`ifconfig  | grep  'inet addr:' -m 1 | grep -v '127.0.0.1' | cut -d: -f2 | awk '{ print $1}'`
+mdschedhttp://10.142.49.221:8443/svn/公司配置管理系统库/产品研发类/统一开发平台V1.0版本研发项目     123
+IP=`ifconfig  | grep  'inet addr:' -m 1 | grep -v '127.0.0.1' | cut -d: -f2 | awk '{ print $1}'`
+mdschedhttp://10.142.49.221:8443/svn/公司配置管理系统库/产品研发类/统一开发平台V1.0版本研发项目     123
+IP=`ifconfig  | grep  'inet addr:' -m 1 | grep -v '127.0.0.1' | cut -d: -f2 | awk '{ print $1}'`
+mdschedhttp://10.142.49.221:8443/svn/公司配置管理系统库/产品研发类/统一开发平台V1.0版本研发项目     123
+IP=`ifconfig  | grep  'inet addr:' -m 1 | grep -v '127.0.0.1' | cut -d: -f2 | awk '{ print $1}'`
+mdschedhttp://10.142.49.221:8443/svn/公司配置管理系统库/产品研发类/统一开发平台V1.0版本研发项目     123
+IP=`ifconfig  | grep  'inet addr:' -m 1 | grep -v '127.0.0.1' | cut -d: -f2 | awk '{ print $1}'`
+mdschedhttp://10.142.49.221:8443/svn/公司配置管理系统库/产品研发类/统一开发平台V1.0版本研发项目     123
+IP=`ifconfig  | grep  'inet addr:' -m 1 | grep -v '127.0.0.1' | cut -d: -f2 | awk '{ print $1}'`
+mdschedhttp://10.142.49.221:8443/svn/公司配置管理系统库/产品研发类/统一开发平台V1.0版本研发项目     123
+IP=`ifconfig  | grep  'inet addr:' -m 1 | grep -v '127.0.0.1' | cut -d: -f2 | awk '{ print $1}'`
+mdschedhttp://10.142.49.221:8443/svn/公司配置管理系统库/产品研发类/统一开发平台V1.0版本研发项目     123
+IP=`ifconfig  | grep  'inet addr:' -m 1 | grep -v '127.0.0.1' | cut -d: -f2 | awk '{ print $1}'`
+mdschedhttp://10.142.49.221:8443/svn/公司配置管理系统库/产品研发类/统一开发平台V1.0版本研发项目     123
+IP=`ifconfig  | grep  'inet addr:' -m 1 | grep -v '127.0.0.1' | cut -d: -f2 | awk '{ print $1}'`
+mdschedhttp://10.142.49.221:8443/svn/公司配置管理系统库/产品研发类/统一开发平台V1.0版本研发项目     123
+IP=`ifconfig  | grep  'inet addr:' -m 1 | grep -v '127.0.0.1' | cut -d: -f2 | awk '{ print $1}'`
+mdschedhttp://10.142.49.221:8443/svn/公司配置管理系统库/产品研发类/统一开发平台V1.0版本研发项目     123
+IP=`ifconfig  | grep  'inet addr:' -m 1 | grep -v '127.0.0.1' | cut -d: -f2 | awk '{ print $1}'`
+mdschedhttp://10.142.49.221:8443/svn/公司配置管理系统库/产品研发类/统一开发平台V1.0版本研发项目     123
+IP=`ifconfig  | grep  'inet addr:' -m 1 | grep -v '127.0.0.1' | cut -d: -f2 | awk '{ print $1}'`
+mdschedhttp://10.142.49.221:8443/svn/公司配置管理系统库/产品研发类/统一开发平台V1.0版本研发项目     123
+IP=`ifconfig  | grep  'inet addr:' -m 1 | grep -v '127.0.0.1' | cut -d: -f2 | awk '{ print $1}'`
+mdschedhttp://10.142.49.221:8443/svn/公司配置管理系统库/产品研发类/统一开发平台V1.0版本研发项目     123
+IP=`ifconfig  | grep  'inet addr:' -m 1 | grep -v '127.0.0.1' | cut -d: -f2 | awk '{ print $1}'`
+mdschedhttp://10.142.49.221:8443/svn/公司配置管理系统库/产品研发类/统一开发平台V1.0版本研发项目     123
+IP=`ifconfig  | grep  'inet addr:' -m 1 | grep -v '127.0.0.1' | cut -d: -f2 | awk '{ print $1}'`
+mdschedhttp://10.142.49.221:8443/svn/公司配置管理系统库/产品研发类/统一开发平台V1.0版本研发项目     123
+IP=`ifconfig  | grep  'inet addr:' -m 1 | grep -v '127.0.0.1' | cut -d: -f2 | awk '{ print $1}'`
+mdschedhttp://10.142.49.221:8443/svn/公司配置管理系统库/产品研发类/统一开发平台V1.0版本研发项目     123
+IP=`ifconfig  | grep  'inet addr:' -m 1 | grep -v '127.0.0.1' | cut -d: -f2 | awk '{ print $1}'`
+mdschedhttp://10.142.49.221:8443/svn/公司配置管理系统库/产品研发类/统一开发平台V1.0版本研发项目     123
+IP=`ifconfig  | grep  'inet addr:' -m 1 | grep -v '127.0.0.1' | cut -d: -f2 | awk '{ print $1}'`
+mdschedhttp://10.142.49.221:8443/svn/公司配置管理系统库/产品研发类/统一开发平台V1.0版本研发项目     123
+IP=`ifconfig  | grep  'inet addr:' -m 1 | grep -v '127.0.0.1' | cut -d: -f2 | awk '{ print $1}'`
+mdschedhttp://10.142.49.221:8443/svn/公司配置管理系统库/产品研发类/统一开发平台V1.0版本研发项目     123
+IP=`ifconfig  | grep  'inet addr:' -m 1 | grep -v '127.0.0.1' | cut -d: -f2 | awk '{ print $1}'`
+mdschedhttp://10.142.49.221:8443/svn/公司配置管理系统库/产品研发类/统一开发平台V1.0版本研发项目     123
+IP=`ifconfig  | grep  'inet addr:' -m 1 | grep -v '127.0.0.1' | cut -d: -f2 | awk '{ print $1}'`
+mdschedhttp://10.142.49.221:8443/svn/公司配置管理系统库/产品研发类/统一开发平台V1.0版本研发项目     123
+IP=`ifconfig  | grep  'inet addr:' -m 1 | grep -v '127.0.0.1' | cut -d: -f2 | awk '{ print $1}'`
+mdschedhttp://10.142.49.221:8443/svn/公司配置管理系统库/产品研发类/统一开发平台V1.0版本研发项目     123
+IP=`ifconfig  | grep  'inet addr:' -m 1 | grep -v '127.0.0.1' | cut -d: -f2 | awk '{ print $1}'`
+mdschedhttp://10.142.49.221:8443/svn/公司配置管理系统库/产品研发类/统一开发平台V1.0版本研发项目     123
+IP=`ifconfig  | grep  'inet addr:' -m 1 | grep -v '127.0.0.1' | cut -d: -f2 | awk '{ print $1}'`
+http://10.142.49.221:8443/svn/公司配置管理系统库/产品研发类/统一开发平台V1.0版本研发项目     123
+IP=`ifconfig  | grep  'inet addr:' -m 1 | grep -v '127.0.0.1' | cut -d: -f2 | awk '{ print $1}'`
+mdschedhttp://10.142.49.221:8443/svn/公司配置管理系统库/产品研发类/统一开发平台V1.0版本研发项目     123
+IP=`ifconfig  | grep  'inet addr:' -m 1 | grep -v '127.0.0.1' | cut -d: -f2 | awk '{ print $1}'`
+mdschedhttp://10.142.49.221:8443/svn/公司配置管理系统库/产品研发类/统一开发平台V1.0版本研发项目     123
+IP=`ifconfig  | grep  'inet addr:' -m 1 | grep -v '127.0.0.1' | cut -d: -f2 | awk '{ print $1}'`
+mdschedhttp://10.142.49.221:8443/svn/公司配置管理系统库/产品研发类/统一开发平台V1.0版本研发项目     123
+IP=`ifconfig  | grep  'inet addr:' -m 1 | grep -v '127.0.0.1' | cut -d: -f2 | awk '{ print $1}'`
+mdschedhttp://10.142.49.221:8443/svn/公司配置管理系统库/产品研发类/统一开发平台V1.0版本研发项目     123
+IP=`ifconfig  | grep  'inet addr:' -m 1 | grep -v '127.0.0.1' | cut -d: -f2 | awk '{ print $1}'`
+mdsched
