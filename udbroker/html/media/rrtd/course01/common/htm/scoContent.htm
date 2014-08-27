@@ -1,0 +1,151 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<html>
+<head>
+<title>标准课程</title>
+<meta http-equiv="Content-Type" content="text/html; charset=gb2312">
+<SCRIPT language=javascript src="../utility/APIWrapper.js"></SCRIPT>
+<SCRIPT language=javascript src="../utility/SCOFunctions.js"></SCRIPT>
+<SCRIPT language=javascript src="../utility/OZcourse.js"></SCRIPT>
+<SCRIPT LANGUAGE="JavaScript1.2"> 
+<!--  
+loadPage();  //initialize
+var mStatus="";  
+var currentScore = doLMSGetValue("cmi.core.score.raw");  
+var locationStr = doLMSGetValue("cmi.core.lesson_location");  
+
+//choose close button to close the course
+function window_close()
+{
+	if(confirm ("您是否退出本课程 ？"))
+	{
+		top.close();
+	}
+}
+
+function setScore()
+{
+	doLMSSetValue("cmi.core.score.raw",currentScore);  //set current score 
+}
+
+function scoFinished(){
+	doContinue('completed');
+	//alert("本章学习完毕，请点击章节目录继续学习！");
+}
+
+//call this function to set location when click next button on navigator bar
+function nextPage ()
+{
+	setLocation();
+
+}
+
+function prePage ()
+{
+	setLocation();
+}
+
+function endPage ()
+{
+	setLocation();
+}
+
+function firstPage ()
+{
+	setLocation();
+}
+
+function refresh ()
+{
+	setLocation();
+}
+
+
+function navigator_DoFSCommand(command, args) 
+{ 
+
+	if(command == "setScoID")
+	{
+		if(doQuit() == "true")
+		{
+			top.window.API.setSCOID(args);
+			loadPage();
+		}
+	}
+	if(command == "load_page")
+	{
+		loadPage();
+	}
+	if(command == "unload_page")
+	{
+   		unloadPage();
+	}
+	if(command == "doContinue")
+	{
+		doContinue(args);
+	}	
+
+}
+
+function setLocation()
+{
+	var unit=window.document.navigator.GetVariable("current_unit");  //由navigator获取current_unit的值
+	var page=window.document.navigator.GetVariable("currentPageNum");  //由navigator获取currentPageNum的值
+	var slocationStr=unit+page;
+	doLMSSetValue("cmi.core.lesson_location",slocationStr);
+}
+
+
+function openHelp()
+{
+	window.open('help.htm', '', 'height=450, top=50, left=50, width=810, toolbar=no, menubar=no, scrollbars=yes, resizable=no, status=no');
+}
+
+function openAbout()
+{
+	window.open('about.htm', '', 'height=450, top=50, left=50, width=790, toolbar=no, menubar=no, scrollbars=no, resizable=no, status=no');
+}
+
+function alert_test(str)
+{
+	alert(str);
+}
+
+function exitWin()
+{
+	setLocation();
+	unloadPage();
+}
+
+function openWin(urlPop){
+var windowW = 700 // wide:800
+var windowH = 400 // high:600
+var windowX = 0 // from left
+var windowY = 0 // from top
+var title =  "new_win"
+var strFeature = "width=" + windowW + ",height=" + windowH + ",top=" + windowY + ",left=" + windowX +", scrollbars";
+var popupwnd = window.open(urlPop,title,strFeature);
+    popupwnd.focus();
+}
+
+//--> 
+</SCRIPT> 
+
+<SCRIPT LANGUAGE="VBScript">
+<!-- 
+// Catch the fscommand in ie with vbscript, and pass
+// it on to JavaScript.
+
+Sub navigator_FSCommand(ByVal command, ByVal args)
+    call navigator_DoFSCommand(command, args)
+end sub
+
+//-->
+</SCRIPT>
+
+</head>
+
+<body leftmargin="0" topmargin="0" marginwidth="0" marginheight="0" onunload="exitWin();">
+<script language="JavaScript1.1">WriteSWF("../flashes/main.swf","#ffffff","790","572","?locationStr=" + locationStr +"&mStatus="+mStatus+ "&currentScore=" + currentScore)</script>
+</body>
+</html>
+

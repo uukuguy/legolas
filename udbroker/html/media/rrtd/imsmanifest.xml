@@ -1,0 +1,132 @@
+<?xml version="1.0" encoding="GB2312"?>
+<manifest identifier="SingleSharableResource_MulitipleFileManifest" version="1.1" xmlns="http://www.imsproject.org/xsd/imscp_rootv1p1p2" xmlns:adlcp="http://www.adlnet.org/xsd/adlcp_rootv1p2" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.imsproject.org/xsd/imscp_rootv1p1p2 imscp_rootv1p1p2.xsd
+         http://www.imsglobal.org/xsd/imsmd_rootv1p2p1 imsmd_rootv1p2p1.xsd
+         http://www.adlnet.org/xsd/adlcp_rootv1p2 adlcp_rootv1p2.xsd">
+	<metadata/>
+	<organizations default="B0">
+		<organization identifier="B0">
+			<title>员工素质培训</title>
+			<item identifier="B1">
+				<title>融入团队</title>
+				<item identifier="S1" identifierref="sco_1">
+					<title>团队概述</title>
+				</item>
+				<item identifier="S2" identifierref="sco_2">
+					<title>角色与职责</title>
+				</item>
+				<item identifier="S3" identifierref="sco_3">
+					<title>与团队的融合</title>
+				</item>
+				<item identifier="S4" identifierref="sco_4">
+					<title>团队中的沟通</title>
+				</item>
+				<item identifier="S5" identifierref="sco_5">
+					<title>如何解决团队协作中的问题</title>
+				</item>
+				<item identifier="S6" identifierref="sco_6">
+					<title>与团队成员的相处</title>
+				</item>
+				<item identifier="S7" identifierref="sco_7">
+					<title>团队建设助你走向成功</title>
+				</item>
+			</item>
+			<metadata>
+				<schema>ADL SCORM</schema>
+				<schemaversion>1.2</schemaversion>
+				<adlcp:location>Lesson01.xml</adlcp:location>
+			</metadata>
+		</organization>
+	</organizations>
+	<resources>
+<!-- **************************************************************
+      **   sco01  
+      *******************************************************************-->
+		<resource identifier="sco_1" type="webcontent" adlcp:scormtype="sco" href="enter.htm#0101">
+			<metadata>
+				<schema>ADL SCORM</schema>
+				<schemaversion>1.2</schemaversion>
+				<adlcp:location>enter.htm</adlcp:location>
+			</metadata>
+			<file href="enter.htm"/>
+			<dependency identifierref="wrapper"/>
+			<dependency identifierref="functions"/>
+		</resource>
+<!-- **************************************************************
+      **   sco02  
+      *******************************************************************-->
+		<resource identifier="sco_2" type="webcontent" adlcp:scormtype="sco" href="enter.htm#0201">
+			<metadata>
+				<schema>ADL SCORM</schema>
+				<schemaversion>1.2</schemaversion>
+				<adlcp:location>enter.htm</adlcp:location>
+			</metadata>
+			<file href="enter.htm"/>
+			<dependency identifierref="wrapper"/>
+			<dependency identifierref="functions"/>
+		</resource>
+<!-- **************************************************************
+      **   sco03  
+      *******************************************************************-->
+		<resource identifier="sco_3" type="webcontent" adlcp:scormtype="sco" href="enter.htm#0301">
+			<metadata>
+				<schema>ADL SCORM</schema>
+				<schemaversion>1.2</schemaversion>
+				<adlcp:location>enter.htm</adlcp:location>
+			</metadata>
+			<file href="enter.htm"/>
+		</resource>
+<!-- **************************************************************
+      **   sco04  
+      *******************************************************************-->
+		<resource identifier="sco_4" type="webcontent" adlcp:scormtype="sco" href="enter.htm#0401">
+			<metadata>
+				<schema>ADL SCORM</schema>
+				<schemaversion>1.2</schemaversion>
+				<adlcp:location>enter.htm</adlcp:location>
+			</metadata>
+			<file href="enter.htm"/>
+			<dependency identifierref="wrapper"/>
+			<dependency identifierref="functions"/>
+		</resource>
+<!-- **************************************************************
+      **   sco05  
+      *******************************************************************-->
+		<resource identifier="sco_5" type="webcontent" adlcp:scormtype="sco" href="enter.htm#0501">
+			<metadata>
+				<schema>ADL SCORM</schema>
+				<schemaversion>1.2</schemaversion>
+				<adlcp:location>enter.htm</adlcp:location>
+			</metadata>
+			<file href="enter.htm"/>
+			<dependency identifierref="wrapper"/>
+			<dependency identifierref="functions"/>
+		</resource>
+<!-- **************************************************************
+      **   sco06 
+      *******************************************************************-->
+		<resource identifier="sco_6" type="webcontent" adlcp:scormtype="sco" href="enter.htm#0601">
+			<metadata>
+				<schema>ADL SCORM</schema>
+				<schemaversion>1.2</schemaversion>
+				<adlcp:location>enter.htm</adlcp:location>
+			</metadata>
+			<file href="enter.htm"/>
+			<dependency identifierref="wrapper"/>
+			<dependency identifierref="functions"/>
+		</resource>
+<!-- **************************************************************
+      **   sco07  
+      *******************************************************************-->
+		<resource identifier="sco_7" type="webcontent" adlcp:scormtype="sco" href="enter.htm#0701">
+			<metadata>
+				<schema>ADL SCORM</schema>
+				<schemaversion>1.2</schemaversion>
+				<adlcp:location>enter.htm</adlcp:location>
+			</metadata>
+			<file href="enter.htm"/>
+			<dependency identifierref="wrapper"/>
+			<dependency identifierref="functions"/>
+		</resource>
+     		</resources>
+	<selfnavigator>true</selfnavigator>
+</manifest>

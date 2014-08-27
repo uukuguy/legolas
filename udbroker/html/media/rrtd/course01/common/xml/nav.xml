@@ -1,0 +1,10 @@
+﻿<?xml version="1.0" encoding="UTF-8"?>
+<course course_title="融入团队">
+        <chapter identifier="S1" chapter_title="团队概述">01</chapter>
+        <chapter identifier="S2" chapter_title="角色与职责">02</chapter>
+        <chapter identifier="S3" chapter_title="与团队的融合">03</chapter>
+        <chapter identifier="S4" chapter_title="团队中的沟通">04</chapter>
+        <chapter identifier="S5" chapter_title="如何解决团队协作中的问题">05</chapter>
+        <chapter identifier="S6" chapter_title="与团队成员的相处">06</chapter>
+        <chapter identifier="S7" chapter_title="团队建设助你走向成功">07</chapter>
+</course>

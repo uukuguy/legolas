@@ -1,0 +1,215 @@
+
+#user  nobody;
+worker_processes  2;
+
+#error_log  logs/error.log;
+#error_log  logs/error.log  notice;
+error_log  logs/error.log  debug;
+
+#pid        logs/nginx.pid;
+
+
+events {
+       #use epoll;
+       worker_connections  51200; 
+}
+
+
+http {
+    include       mime.types;
+    default_type  application/octet-stream;
+
+    #log_format  main  '$remote_addr - $remote_user [$time_local] "$request" '
+    #                  '$status $body_bytes_sent "$http_referer" '
+    #                  '"$http_user_agent" "$http_x_forwarded_for"';
+
+    log_format    access    '$remote_addr - $remote_user [$time_local] "$request" ' ' $status $body_bytes_sent "$http_referer" ' ' "$http_user_agent" $http_x_forwarded_for';
+
+    #access_log  logs/access.log  main;
+
+    sendfile        off; # off - heavy disk IO app like download
+    #tcp_nopush     on;
+    keepalive_timeout  120;
+    tcp_nodelay on;
+
+    #gzip  on;
+
+    # fastcgi_connect_timeout 300;
+    # fastcgi_send_timeout 300;
+    # fastcgi_read_timeout 300;
+    # fastcgi_buffer_size 64k;
+    # fastcgi_buffers 4 64k;
+    # fastcgi_busy_buffers_size 128k;
+    # fastcgi_temp_file_write_size 128k;
+  
+
+    #size limits
+    #client_max_body_size             300m;
+    #client_body_buffer_size        256k;
+    #client_header_timeout     3m;
+    #client_body_timeout 3m;
+    #send_timeout             3m;
+
+    upstream everdata {
+        server 127.0.0.1:18088;
+    }
+
+    server {
+        listen       18086;
+        server_name  localhost;
+
+        client_max_body_size 2g;
+        #charset koi8-r;
+
+        #access_log  logs/host.access.log  main;
+
+        uds_host localhost;
+        uds_port 18086;
+        uds_uri /miniuds;
+        #uds_prefix http://localhost:18090;
+
+        location ~ /flvplay$ {
+            flvplay;
+
+            access_log on;
+            limit_rate_after 1m; # rate speed after downloaded 1M.
+            limit_rate 100k;     # rate speed to 100k
+        }
+
+        location ~ /miniuds$ {
+            miniuds;
+        }
+
+        location / {
+
+            # fastcgi_pass 127.0.0.1:8087;
+            
+            # fastcgi_param SERVER_SOFTWARE nginx;
+            # fastcgi_param QUERY_STRING $query_string;
+            # fastcgi_param REQUEST_METHOD $request_method;
+            # fastcgi_param CONTENT_TYPE $content_type;
+            # fastcgi_param CONTENT_LENGTH $content_length;
+
+            # fastcgi_param SCRIPT_FILENAME $document_root$fastcgi_script_name;
+            # fastcgi_param SCRIPT_NAME $fastcgi_script_name;
+            # fastcgi_param REQUEST_URI $request_uri;
+            # fastcgi_param DOCUMENT_URI $document_uri;
+            # fastcgi_param SERVER_PROTOCOL $server_protocol;
+
+            # fastcgi_param REMOTE_ADDR $remote_addr;
+            # fastcgi_param REMOTE_PORT $remote_port;
+            # fastcgi_param SERVER_ADDR $server_addr;
+            # fastcgi_param SERVER_PORT $server_port;
+            # fastcgi_param SERVER_NAME $server_name;
+            
+            root   html;
+            index  index.html index.htm;
+        }
+
+        #location /udcloud {
+            #udcloud "Hello udcloud!";
+        #}
+        
+        location /services/IFileService {
+            proxy_set_header Host $host;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header REMOTE-HOST $remote_addr;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_pass http://127.0.0.1:8091;
+        }
+
+        location /services/IDispatchFileService {
+            proxy_set_header Host $host;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header REMOTE-HOST $remote_addr;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_pass http://127.0.0.1:8092;
+        }
+
+        location /services/IFolderWebService {
+            proxy_set_header Host $host;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header REMOTE-HOST $remote_addr;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_pass http://127.0.0.1:8093;
+        }
+
+        location /services/ISearchWebService {
+            proxy_set_header Host $host;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header REMOTE-HOST $remote_addr;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_pass http://127.0.0.1:8094;
+        }
+
+        #error_page  404              /404.html;
+
+        # redirect server error pages to the static page /50x.html
+        #
+        error_page   500 502 503 504  /50x.html;
+        location = /50x.html {
+            root   html;
+        }
+
+        # proxy the PHP scripts to Apache listening on 127.0.0.1:80
+        #
+        #location ~ \.php$ {
+        #    proxy_pass   http://127.0.0.1;
+        #}
+
+        # pass the PHP scripts to FastCGI server listening on 127.0.0.1:9000
+        #
+        #location ~ \.php$ {
+        #    root           html;
+        #    fastcgi_pass   127.0.0.1:9000;
+        #    fastcgi_index  index.php;
+        #    fastcgi_param  SCRIPT_FILENAME  /scripts$fastcgi_script_name;
+        #    include        fastcgi_params;
+        #}
+
+        # deny access to .htaccess files, if Apache's document root
+        # concurs with nginx's one
+        #
+        #location ~ /\.ht {
+        #    deny  all;
+        #}
+    }
+
+
+    # another virtual host using mix of IP-, name-, and port-based configuration
+    #
+    #server {
+    #    listen       8000;
+    #    listen       somename:8080;
+    #    server_name  somename  alias  another.alias;
+
+    #    location / {
+    #        root   html;
+    #        index  index.html index.htm;
+    #    }
+    #}
+
+
+    # HTTPS server
+    #
+    #server {
+    #    listen       443;
+    #    server_name  localhost;
+
+    #    ssl                  on;
+    #    ssl_certificate      cert.pem;
+    #    ssl_certificate_key  cert.key;
+
+    #    ssl_session_timeout  5m;
+
+    #    ssl_protocols  SSLv2 SSLv3 TLSv1;
+    #    ssl_ciphers  HIGH:!aNULL:!MD5;
+    #    ssl_prefer_server_ciphers   on;
+
+    #    location / {
+    #        root   html;
+    #        index  index.html index.htm;
+    #    }
+    #}
+
+}

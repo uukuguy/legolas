@@ -1,0 +1,20 @@
+﻿<?xml version="1.0" encoding="utf-8" ?> 
+<main>
+	<line align="left" lable="由同种技能特长的人组成，以实现一个特定的目标。"></line>
+	<line align="left" lable="由公司不同部门的人员组成，各部门担负不同职能。"></line>
+	<line align="left" lable="因某一特定任务而组建的团队，任务完成便解散。"></line>
+	<line align="left" lable="负责整个产品或生产流程：计划、运行、实施、协调及改进。"></line>
+	<line align="left" lable="各成员位于不同的地点，通过电邮、电话会议等结为一体。"></line>
+	<line align="right" lable="跨职能型团队"></line>
+	<line align="right" lable="虚拟型或远程型团队"></line>
+        <line align="right" lable="项目型团队"></line>
+        <line align="right" lable="职能型团队"></line>
+        <line align="right" lable="自主型团队"></line>
+	<answer>
+		<value v="1to4"/>
+		<value v="2to1"/>
+		<value v="3to3"/>
+		<value v="4to5"/>
+		<value v="5to2"/>
+	</answer>
+</main>

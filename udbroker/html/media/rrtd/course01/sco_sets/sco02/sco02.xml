@@ -1,0 +1,136 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<lom xmlns="http://www.imsglobal.org/xsd/imsmd_rootv1p2p1" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.imsglobal.org/xsd/imsmd_rootv1p2p1 imsmd_rootv1p2p1.xsd">
+
+	<general>
+	   <title>
+	      <langstring>communaction skill</langstring>
+	   </title>
+	   <catalogentry>
+	      <catalog>communaction skill</catalog>
+	      <entry>
+	         <langstring>player.htm</langstring>
+	      </entry>
+	   </catalogentry>
+	   <language>en</language>
+	   <description>
+	      <langstring>default</langstring>
+	   </description>
+	   <keyword>
+	      <langstring>default</langstring>
+	   </keyword>
+	   <keyword>
+	      <langstring>default</langstring>
+	   </keyword>
+	   <keyword>
+	      <langstring>default</langstring>
+	   </keyword>
+	   <keyword>
+	      <langstring>default</langstring>
+	   </keyword>
+      <aggregationlevel>
+         <source>
+            <langstring xml:lang="x-none">LOMv1.0</langstring>
+         </source>
+	      <value>
+            <langstring xml:lang="x-none">1</langstring>
+         </value>
+      </aggregationlevel>
+	</general>
+	
+	<lifecycle>
+	   <version>
+	      <langstring>1.1</langstring>
+	   </version>
+	   <status>
+	      <source>
+            <langstring xml:lang="x-none">LOMv1.0</langstring>
+         </source>
+	      <value>
+            <langstring xml:lang="x-none">Final</langstring>
+         </value>
+	   </status>
+	   <contribute>
+	      <role>
+	         <source>
+               <langstring xml:lang="x-none">LOMv1.0</langstring>
+            </source>
+	         <value>
+               <langstring xml:lang="x-none">Graphical Designer</langstring>
+            </value>
+	      </role>
+	      <centity>
+	         <vcard>BEGIN:vCard ORG:ADL Co-Lab END:vCard</vcard>
+	      </centity>
+	      <date>
+	         <datetime>2005-03-20</datetime>
+            <description>
+               <langstring>Date this meta-data test was created</langstring>
+            </description>
+	      </date>
+	   </contribute>
+	</lifecycle>
+	
+   <metametadata>
+	   <metadatascheme>ADL SCORM 1.2</metadatascheme>
+	</metametadata>
+
+   
+   <technical>
+   <format>html</format>
+		<size>3</size>
+	   <location type="URI">course01/sco_sets/sco01/player.htm</location>
+	</technical>
+	
+	<educational>
+	   <learningresourcetype>
+	         <source>
+               <langstring xml:lang="x-none">LOMv1.0</langstring>
+            </source>
+	         <value>
+               <langstring xml:lang="x-none">Figure</langstring>
+            </value>
+	   </learningresourcetype>
+	</educational>
+	
+	<rights>
+	   <cost>
+	         <source>
+               <langstring xml:lang="x-none">LOMv1.0</langstring>
+            </source>
+	         <value>
+               <langstring xml:lang="x-none">no</langstring>
+            </value>
+	   </cost>
+	   <copyrightandotherrestrictions>
+	         <source>
+               <langstring xml:lang="x-none">LOMv1.0</langstring>
+            </source>
+	         <value>
+               <langstring xml:lang="x-none">no</langstring>
+            </value>
+	   </copyrightandotherrestrictions>
+	   <description>
+	      <langstring>Provided as-is; only to be used as an example.</langstring>
+	   </description>
+	</rights>
+	 <classification>
+      <purpose>
+         <source>
+            <langstring xml:lang="x-none">LOMv1.0</langstring>
+         </source>
+         <value>
+            <langstring xml:lang="x-none">Educational Objective</langstring>
+         </value>
+      </purpose>
+      <description>
+         <langstring>default</langstring>
+      </description>
+      <keyword>
+         <langstring>default</langstring>
+      </keyword>
+      <keyword>
+         <langstring>default</langstring>
+      </keyword>
+   </classification>
+</lom> 
+
