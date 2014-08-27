@@ -40,7 +40,8 @@ NGX_ADD_MODULES=--add-module=../../modules/udsproxy/src/ngx_http_udsproxy \
 JSONLIB=-ljson
 
 all: _configure_nginx 
-	${MAKE} -C src/nginx 
+	${MAKE} -C src/nginx && \
+		cp src/nginx/objs/nginx ../bin/udbroker
 
 _configure_nginx: src/nginx/Makefile
 

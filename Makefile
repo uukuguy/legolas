@@ -88,9 +88,12 @@ ifeq (${UNAME}, Darwin)
 	SO=dylib
 endif
 
-.PHONY: server client deps data
+.PHONY: udbroker server client deps data
 
-all: bin lib deps server client
+all: bin lib deps udbroker server client
+
+udbroker:
+	make -C udbroker
 
 server: ${SERVER}
 
@@ -509,6 +512,7 @@ lib:
 # ---------------- clean ----------------
 
 clean:
+	make -C udbroker clean && \
 	rm -fr \
 		${SERVER} \
 		${CLIENT} \
