@@ -144,7 +144,7 @@ deps/libuv:
 	./autogen.sh && \
 	./configure && \
 	make && \
-	cp -f .libs/*.{SO} .libs/*.a ../../lib/
+	cp -f .libs/*.${SO} .libs/*.a ../../lib/
 
 	#./gyp_uv.py -f make && \
 	#BUILDTYPE=Release make -C out

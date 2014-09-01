@@ -101,7 +101,8 @@ fcitx fcitx-table-wbpy fcitx-tools fcitx-m17n fcitx-config-gtk2 fcitx-googlepiny
 libboost1.55-all-dev liblog4cxx10-dev
 python-django python-sqlite
 ipython ipython-notebook python-matplotlib ipython-qtconsole python-zmq  python-scipy
-tornado 
+python-tornado 
+libtool libjson0-dev libbz2-dev uuid-dev libsnappy-dev
 from IPython.external.mathjax import install_mathjax
 install_mathjax()
 
