@@ -50,6 +50,7 @@ SERVER_OBJS = server/main.o \
 
 CLIENT_OBJS = client/main.o \
 			  client/client.o \
+			  client/udclient.o \
 			  legolas/session.o \
 			  legolas/sockbuf_message.o \
 			  client/client_write.o \

@@ -1076,7 +1076,7 @@ static ngx_int_t ngx_http_udbroker_start_handler(ngx_http_udbroker_ctx_t *u) { /
                 ngx_log_debug1(NGX_LOG_DEBUG_CORE, file->log, 0,
                                "hashed path of state file: %s", u->state_file.name.data);
             }
-
+ 
             /* FIXME */
             /*file->fd = ngx_open_file(file->name.data, NGX_FILE_WRONLY, NGX_FILE_CREATE_OR_OPEN, ulcf->store_access);*/
 

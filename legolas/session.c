@@ -191,7 +191,8 @@ session_t* session_new(void *parent, session_callbacks_t *callbacks, void *user_
     memset(session, 0, sizeof(session_t));
     session->parent = parent;
 	session->sid.seq_no = seq_no++;
-    session->callbacks = *callbacks;
+    if ( callbacks != NULL )
+        session->callbacks = *callbacks;
 	pthread_mutex_init(&session->recv_pending_lock, NULL);
 	pthread_cond_init(&session->recv_pending_cond, NULL);
 	pthread_mutex_init(&session->send_pending_lock, NULL);

@@ -39,7 +39,12 @@ NGX_ADD_MODULES=--add-module=../../modules/udsproxy/src/ngx_http_udsproxy \
 #JSONLIB=-ljsoncpp
 JSONLIB=-ljson
 
-all: _configure_nginx 
+MODULES_UDBROKER_SRC = ./modules/udbroker/src/ngx_http_udbroker/ngx_http_udbroker_module.c
+MODULES_UDPROXY_SRC = ./udbroker/udsproxy/src/ngx_http_udsproxy/ngx_http_udsproxy_module.c 
+
+all: _configure_nginx src/nginx/objs/nginx 
+
+src/nginx/objs/nginx: ${MODULES_UDBROKER_SRC}
 	${MAKE} -C src/nginx && \
 		cp src/nginx/objs/nginx ../bin/udbroker
 
