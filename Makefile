@@ -49,8 +49,12 @@ SERVER_OBJS = server/main.o \
 			  server/object.o
 
 CLIENT_OBJS = client/main.o \
+			  client/test.o \
 			  client/client.o \
 			  client/udclient.o \
+			  client/udclient_write_data.o \
+			  client/udclient_read_data.o \
+			  client/udclient_delete_data.o \
 			  legolas/session.o \
 			  legolas/sockbuf_message.o \
 			  client/client_write.o \
@@ -513,7 +517,6 @@ lib:
 # ---------------- clean ----------------
 
 clean:
-	make -C udbroker clean && \
 	rm -fr \
 		${SERVER} \
 		${CLIENT} \

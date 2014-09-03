@@ -447,7 +447,7 @@ z_crc_t  crc32_combine(z_crc_t crc1, z_crc_t crc2, uint32_t len2)
     return crc32_combine_(crc1, crc2, len2);
 }
 
-void test(void)
+void test_crc32(void)
 {
     char buf[] = "Hello World.";
     /*z_crc_t c0 = crc32(0, NULL, 0);*/

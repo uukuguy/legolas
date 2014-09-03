@@ -54,7 +54,7 @@ src/nginx/Makefile:
 	#cd src && tar zxvf ${ZLIB_SRC}.tar.gz && ln -s ${ZLIB_SRC} zlib
 	#cd src && tar zxvf ${PCRE_SRC}.tar.gz && ln -s ${PCRE_SRC} pcre
 	#cd src && tar zxvf ${OPENSSL_SRC}.tar.gz && ln -s ${OPENSSL_SRC} openssl
-	cd src && tar zxvf ${NGINX_SRC}.tar.gz && ln -s ${NGINX_SRC} nginx
+	cd src && tar zxvf ${NGINX_SRC}.tar.gz && ln -sf ${NGINX_SRC} nginx
 	if [ $(OSTYPE) = "Darwin" ] ; \
 	then \
 	cd src/nginx && \
@@ -78,10 +78,11 @@ src/nginx/Makefile:
 
 
 clean:
-	rm -fr src/${ZLIB_SRC}
-	rm -fr src/${PCRE_SRC}
-	rm -fr src/${OPENSSL_SRC}
-	rm -fr src/${NGINX_SRC}
+	make -C src/${NGINX_SRC} clean
+	#rm -fr src/${ZLIB_SRC}
+	#rm -fr src/${PCRE_SRC}
+	#rm -fr src/${OPENSSL_SRC}
+	#rm -fr src/${NGINX_SRC}
 
 install:
 	${MAKE} -C src/nginx install

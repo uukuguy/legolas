@@ -67,6 +67,7 @@ typedef struct {
 /*
  * State of range merger
  */
+
 typedef struct {
     ngx_buf_t               *in_buf;
     ngx_buf_t               *out_buf;

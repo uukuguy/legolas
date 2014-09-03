@@ -41,28 +41,76 @@ int udclient_open_data(udclient_t *udcli, const char *key)
     return -1;
 }
 
-/* ==================== udclient_write_data() ==================== */ 
-int udclient_write_data(udclient_t *udcli, int handle, void *data, uint32_t len)
-{
-    return -1;
-}
-
-/* ==================== udclient_write_data() ==================== */ 
-int udclient_read_data(udclient_t *udcli, int handle, void *data, uint32_t len)
-{
-    return -1;
-}
-
 /* ==================== udclient_close_data() ==================== */ 
 int udclient_close_data(udclient_t *udcli, int handle)
 {
     return -1;
 }
 
+int do_write_request(session_t *session);
+/* ==================== udclient_write_data() ==================== */ 
+int udclient_write_data(udclient_t *udcli, int handle, void *data, uint32_t len)
+{
+    session_t *session = udcli->session;
+    udcli->object_size = 0;
+    session->total_writed = 0;
+    return do_write_request(udcli->session);
+}
+
+int do_read_request(session_t *session);
+/* ==================== udclient_write_data() ==================== */ 
+int udclient_read_data(udclient_t *udcli, int handle, void *data, uint32_t len)
+{
+    session_t *session = udcli->session;
+    udcli->object_size = 0;
+    session->total_readed = 0;
+    return do_read_request(udcli->session);
+}
+
+int do_delete_request(session_t *session);
 /* ==================== udclient_delete_data() ==================== */ 
 int udclient_delete_data(udclient_t *udcli, const char *key)
 {
-    return 0;
+
+    session_t *session = udcli->session;
+    return do_delete_request(session);
+}
+
+int udclient_handle_write_response(session_t *session, message_t *response);
+int udclient_handle_read_response(session_t *session, message_t *response);
+int udclient_handle_delete_response(session_t *session, message_t *response);
+
+int udclient_handle_message(session_t *session, message_t *message)
+{
+    int ret = 0;
+    udclient_t *udcli = UDCLIENT(session);
+
+    switch ( udcli->op_code ){
+        case MSG_OP_WRITE:
+            {
+                if ( message->msg_type == MSG_TYPE_REQUEST ){
+                } else if ( message->msg_type == MSG_TYPE_RESPONSE ) {
+                    ret = udclient_handle_write_response(session, message);
+                }
+            } break;
+        case MSG_OP_READ:
+            {
+                if ( message->msg_type == MSG_TYPE_REQUEST ){
+                } else if ( message->msg_type == MSG_TYPE_RESPONSE ) {
+                    /*ret = udclient_handle_read_response(session, message);*/
+                }
+            } break;
+        case MSG_OP_DEL:
+            {
+                if ( message->msg_type == MSG_TYPE_REQUEST ){
+                } else if ( message->msg_type == MSG_TYPE_RESPONSE ) {
+                    /*ret = udclient_handle_delete_response(session, message);*/
+                }
+            } break;
+    }
+
+
+    return ret;
 }
 
 /* ==================== on_connect() ==================== */ 
@@ -84,6 +132,52 @@ static void on_connect(uv_connect_t *req, int status)
     /*}*/
 }
 
+/* ==================== udclient_session_is_idle() ==================== */ 
+int udclient_session_is_idle(session_t *session)
+{
+    return 1;
+}
+
+/* ==================== udclient_session_idle_cb() ==================== */ 
+void udclient_session_idle_cb(uv_idle_t *idle_handle, int status) 
+{
+}
+
+/* ==================== udclient_session_timer_cb() ==================== */ 
+void udclient_session_timer_cb(uv_timer_t *timer_handle, int status) 
+{
+}
+
+/* ==================== udclient_session_async_cb() ==================== */ 
+void udclient_session_async_cb(uv_async_t *async_handle, int status) 
+{
+}
+
+/* ==================== udclient_session_init() ==================== */ 
+int udclient_session_init(session_t *session)
+{
+    return 0;
+}
+
+/* ==================== udclient_session_destroy() ==================== */ 
+void udclient_session_destroy(session_t *session) 
+{
+}
+
+static session_callbacks_t udclient_callbacks = {
+    .idle_cb = udclient_session_idle_cb,
+    .timer_cb = udclient_session_timer_cb,
+    .async_cb = udclient_session_async_cb,
+    .is_idle = udclient_session_is_idle,
+    .handle_message = udclient_handle_message,
+    .session_init = udclient_session_init,
+    .session_destroy = udclient_session_destroy,
+
+    .consume_sockbuf = NULL,
+    .on_connect = NULL,
+    .handle_read_response = NULL,
+};
+
 /* ==================== udclient_create_session() ==================== */ 
 static int udclient_create_session(udclient_t *udcli)
 {
@@ -92,7 +186,7 @@ static int udclient_create_session(udclient_t *udcli)
     /* FIXME */
     const char *ip = "127.0.0.1";
     int port = DEFAULT_PORT;
-    session_callbacks_t *callbacks = NULL;
+    session_callbacks_t *callbacks = &udclient_callbacks;
 
     /* -------- server_addr -------- */
     struct sockaddr_in server_addr;

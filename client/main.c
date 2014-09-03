@@ -14,6 +14,8 @@
 #include "daemon.h"
 #include "client.h"
 
+#include "udclient.h"
+
 static char program_name[] = "legolas";
 static int msec0, msec1;
 
@@ -190,16 +192,23 @@ int runclient(program_options_t *program_options)
 
     /* -------- start_client (normal or thread)-------- */
 
+    /* FIXME */
+    udclient_t *udcli = udclient_new();
+    udclient_run(udcli);
+
     int ret;
-    if ( is_execute == 1 ) {
-        ret = client_execute(client);
-    } else {
-        if ( program_options->threads > 0 ){
-            ret = start_client_threads(client);
-        } else {
-            ret = start_client_normal(client);
-        }
-    }
+    ret = test(client, udcli, 0);
+    /*if ( is_execute == 1 ) {*/
+        /*ret = client_execute(client);*/
+    /*} else {*/
+        /*if ( program_options->threads > 0 ){*/
+            /*ret = start_client_threads(client);*/
+        /*} else {*/
+            /*ret = start_client_normal(client);*/
+        /*}*/
+    /*}*/
+
+    udclient_free(udcli);
 
     client_free(client);
 

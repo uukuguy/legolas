@@ -52,12 +52,12 @@ int response_object_slice(session_t *session, kvdb_t *kvdb, object_t *object, ui
 
             /* ---------- key ---------- */
             response = add_message_arg(response, object->key, object->key != NULL ? strlen(object->key) : 0 );
-            /* ---------- object_size ---------- */
-            response = add_message_arg(response, &object->object_size, sizeof(object->object_size));
             /* ---------- slice_idx ---------- */
             response = add_message_arg(response, &slice_idx, sizeof(slice_idx));
             /* ---------- nslices ---------- */
             response = add_message_arg(response, &object->nslices, sizeof(object->nslices));
+            /* ---------- object_size ---------- */
+            response = add_message_arg(response, &object->object_size, sizeof(object->object_size));
             /* ---------- data ---------- */
             response = add_message_arg(response, buf, buf_size);
 
