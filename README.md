@@ -110,3 +110,13 @@ $ ipython notebook
 
 google-chrome-stable_current_amd64.deb
 
+* Start server
+    ./bin/legolad
+       or
+    ./debug_server.sh
+
+* Start client
+    ./test.sh 1 1 0 10000 127.0.0.1 32K write
+       or
+    ./bin/legolas --write --threads 1 --start 0 --count 10000 --server 127.0.0.1 data/samples/32K.dat
+

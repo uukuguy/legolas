@@ -133,10 +133,11 @@ int start_client_normal(client_t *client)
     return start_connect(client, &callbacks, 0);
 }
 
+int test(client_t *client, udclient_t *udcli);
 /* ==================== runclient() ==================== */ 
 int runclient(program_options_t *program_options)
 {
-    int is_execute = program_options->is_execute;
+    UNUSED int is_execute = program_options->is_execute;
     int is_daemon = program_options->is_daemon;
     int log_level = program_options->log_level;
 
@@ -193,11 +194,12 @@ int runclient(program_options_t *program_options)
     /* -------- start_client (normal or thread)-------- */
 
     /* FIXME */
-    udclient_t *udcli = udclient_new();
+    udclient_t *udcli = udclient_new((void*)client);
+    udcli->id = 0;
     udclient_run(udcli);
 
-    int ret;
-    ret = test(client, udcli, 0);
+    UNUSED int ret;
+    ret = test(client, udcli);
     /*if ( is_execute == 1 ) {*/
         /*ret = client_execute(client);*/
     /*} else {*/

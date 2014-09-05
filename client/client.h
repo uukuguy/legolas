@@ -55,6 +55,8 @@ typedef struct client_t {
 
     uint32_t start_index;
     uint32_t total_files;
+    uint32_t total_send;
+    uint32_t total_recv;
     int nthreads;
 
     void *write_request;

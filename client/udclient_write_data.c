@@ -42,7 +42,7 @@ int udclient_handle_write_response(session_t *session, message_t *response)
     return ret;
 }
 
-int do_write_request(session_t *session);
+int do_write_request(session_t *session, char *data, uint32_t data_size);
 
 /* ==================== after_write_request() ==================== */ 
 static void after_write_request(uv_write_t *write_req, int status) 
@@ -54,16 +54,30 @@ static void after_write_request(uv_write_t *write_req, int status)
 
     zfree(write_req);
 
+    if ( udcli->after_write_object_slice != NULL ){
+        msgidx_t *msgidx = zmalloc(sizeof(msgidx_t));
+        memset(msgidx, 0, sizeof(msgidx_t));
+
+        msgidx->object_size = udcli->object_size;
+        msgidx->slice_idx = udcli->slice_idx;
+        msgidx->nslices = udcli->nslices;
+
+        msgidx->key = udcli->key;
+        msgidx->keylen = udcli->keylen;
+        msgidx->data_size = udcli->data_size;
+
+        udcli->after_write_object_slice(udcli, msgidx);
+
+        zfree(msgidx);
+    }
     /* Keep write next block? */
-    if ( udcli->total_writed < udcli->object_size ){
-        do_write_request(session);
-    } else { /* Write finished. */
+    if ( udcli->total_writed >= udcli->object_size ){
         session_waiting_message(session);
     }
 }
 
 /* ==================== do_write_request() ==================== */ 
-int do_write_request(session_t *session)
+int do_write_request(session_t *session, char *data, uint32_t data_size)
 {
     /**
      * Read DEFAULT_CONN_BUF_SIZE bytes into buf from file.
@@ -89,6 +103,8 @@ int do_write_request(session_t *session)
      *              uint8_t md5[];
      *              uint8_t data[];
      */
+
+    if ( data_size == 0 ) return 0;
 
     udclient_t *udcli = UDCLIENT(session);
     udcli->total_writed = 0;
@@ -123,11 +139,13 @@ int do_write_request(session_t *session)
     head_size += sizeof(uint32_t) + sizeof(uint32_t); /* CRC32 */
 
     uint32_t block_size = DEFAULT_SOCKBUF_SIZE - head_size - sizeof(uint32_t); /* data size*/
+    block_size = data_size < block_size ? data_size : block_size;
     block_size -= block_size % 512;
     uint32_t writed = block_size;
 
     /* FIXME */
-    char *buf = NULL;
+    char *buf = data;
+    /*char *buf = NULL;*/
     /*buf = &client_args->file_data[client_args->file_data_sended];*/
     /*if ( client_args->file_data_sended + block_size > client_args->file_size ){*/
         /*writed = client_args->file_size - client_args->file_data_sended;*/
@@ -138,6 +156,8 @@ int do_write_request(session_t *session)
 
     session->total_writed += writed;
     udcli->total_writed += writed;
+    udcli->data = data;
+    udcli->data_size = writed;
 
     /* -------- CRC32 -------- */
     uint32_t crc = crc32(0, buf, writed);
@@ -171,9 +191,9 @@ int do_write_request(session_t *session)
 
     if ( r != 0 ) {
         error_log("uv_write() failed");
-        return r;
+        return -1;
     }
 
-    return 0;
+    return writed;
 }
 

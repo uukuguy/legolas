@@ -38,12 +38,18 @@ int udclient_handle_read_response(session_t *session, message_t *response)
         /* ---------- seq_num ---------- */
         message_arg_t *arg_seq_num = message_next_arg(argKey);
         uint32_t seq_num = *(uint32_t*)arg_seq_num->data;
+        udcli->slice_idx = seq_num;
+
         /* ---------- nslices ---------- */
         message_arg_t *arg_nslices = message_next_arg(arg_seq_num);
         uint32_t nslices = *(uint32_t*)arg_nslices->data;
+        udcli->nslices = nslices;
+
         /* ---------- object_size ---------- */
         message_arg_t *argObjectSize = message_next_arg(arg_nslices);
         uint32_t object_size = *(uint32_t*)argObjectSize->data;
+        udcli->object_size = object_size;
+
         /* ---------- data ---------- */
         message_arg_t *arg_data = message_next_arg(argObjectSize);
         UNUSED char *data = arg_data->data;
@@ -54,16 +60,20 @@ int udclient_handle_read_response(session_t *session, message_t *response)
 
         if ( udcli->after_read_object_slice != NULL ){
             msgidx_t *msgidx = zmalloc(sizeof(msgidx_t));
+            memset(msgidx, 0, sizeof(msgidx_t));
             msgidx->message = response;
-            msgidx->object_size = object_size;
-            msgidx->slice_idx = seq_num;
-            msgidx->nslices = nslices;
+
+            msgidx->object_size = udcli->object_size;
+            msgidx->slice_idx = udcli->slice_idx;
+            msgidx->nslices = udcli->nslices;
+
             msgidx->key = argKey->data;
             msgidx->keylen = argKey->size;
+
             msgidx->data = arg_data->data;
             msgidx->data_size = arg_data->size;
 
-            udcli->after_read_object_slice(udcli, msgidx, response);
+            udcli->after_read_object_slice(udcli, msgidx);
 
             zfree(msgidx);
         }
@@ -80,10 +90,13 @@ int udclient_handle_read_response(session_t *session, message_t *response)
         warning_log("NOT FOUND! key=%s", argKey->data);
         if ( udcli->after_read_object_slice != NULL ){
             msgidx_t *msgidx = zmalloc(sizeof(msgidx_t));
+            memset(msgidx, 0, sizeof(msgidx_t));
             msgidx->message = response;
-            msgidx->key = argKey->data;
 
-            udcli->after_read_object_slice(udcli, msgidx, response);
+            msgidx->key = argKey->data;
+            msgidx->keylen = argKey->size;
+
+            udcli->after_read_object_slice(udcli, msgidx);
 
             zfree(msgidx);
         }
@@ -94,10 +107,13 @@ int udclient_handle_read_response(session_t *session, message_t *response)
         error_log("Error response code! result=%d key=%s", response->result, argKey->data);
         if ( udcli->after_read_object_slice != NULL ){
             msgidx_t *msgidx = zmalloc(sizeof(msgidx_t));
+            memset(msgidx, 0, sizeof(msgidx_t));
             msgidx->message = response;
+
             msgidx->key = argKey->data;
+            msgidx->keylen = argKey->size;
             
-            udcli->after_read_object_slice(udcli, msgidx, response);
+            udcli->after_read_object_slice(udcli, msgidx);
 
             zfree(msgidx);
         }

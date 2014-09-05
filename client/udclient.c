@@ -13,16 +13,22 @@
 #include "legolas.h"
 
 #include "zmalloc.h"
-#include "list.h"
+#include "adlist.h"
 #include "adlist.h"
 #include "uv.h"
 #include "logger.h"
 
 /* ==================== udclient_new() ==================== */ 
-udclient_t *udclient_new(void)
+udclient_t *udclient_new(void *user_data)
 {
     udclient_t *udcli = (udclient_t*)zmalloc(sizeof(udclient_t));
     memset(udcli, 0, sizeof(udclient_t));
+
+    udcli->user_data = user_data;
+    udcli->writing_objects = listCreate();
+
+	pthread_mutex_init(&udcli->on_ready_lock, NULL);
+	pthread_cond_init(&udcli->on_ready_cond, NULL);
 
     return udcli;
 }
@@ -31,6 +37,14 @@ udclient_t *udclient_new(void)
 void udclient_free(udclient_t *udcli)
 {
     if ( udcli != NULL ) {
+        if ( udcli->writing_objects != NULL ){
+            listRelease(udcli->writing_objects);
+            udcli->writing_objects = NULL;
+        }
+
+        pthread_mutex_destroy(&udcli->on_ready_lock);
+        pthread_cond_destroy(&udcli->on_ready_cond);
+
         zfree(udcli);
     }
 }
@@ -47,24 +61,25 @@ int udclient_close_data(udclient_t *udcli, int handle)
     return -1;
 }
 
-int do_write_request(session_t *session);
+int do_write_request(session_t *session, char *data, uint32_t data_size);
 /* ==================== udclient_write_data() ==================== */ 
 int udclient_write_data(udclient_t *udcli, int handle, void *data, uint32_t len)
 {
     session_t *session = udcli->session;
-    udcli->object_size = 0;
     session->total_writed = 0;
-    return do_write_request(udcli->session);
+
+    return do_write_request(session, data, len);
 }
 
 int do_read_request(session_t *session);
-/* ==================== udclient_write_data() ==================== */ 
+/* ==================== udclient_read_data() ==================== */ 
 int udclient_read_data(udclient_t *udcli, int handle, void *data, uint32_t len)
 {
     session_t *session = udcli->session;
     udcli->object_size = 0;
     session->total_readed = 0;
-    return do_read_request(udcli->session);
+    
+    return do_read_request(session);
 }
 
 int do_delete_request(session_t *session);
@@ -73,6 +88,7 @@ int udclient_delete_data(udclient_t *udcli, const char *key)
 {
 
     session_t *session = udcli->session;
+
     return do_delete_request(session);
 }
 
@@ -119,17 +135,11 @@ static void on_connect(uv_connect_t *req, int status)
     session_t *session = (session_t*)req->handle->data;
     UNUSED udclient_t *udcli= UDCLIENT(session);
 
-    /*notice_log("Connected to server %s:%d. op_code:%d", client->ip, client->port, client->op_code);*/
+    if ( udcli->on_ready != NULL ){
+        udcli->on_ready(udcli);
+    }
 
-    /*if ( client->op_code == MSG_OP_WRITE )*/
-        /*write_file(session);*/
-    /*else if ( client->op_code == MSG_OP_READ )*/
-        /*read_file(session);*/
-    /*else if ( client->op_code == MSG_OP_DEL )*/
-        /*delete_file(session);*/
-    /*else{*/
-        /*warning_log("Uknown op_code: %d", client->op_code);*/
-    /*}*/
+    pthread_cond_signal(&udcli->on_ready_cond);
 }
 
 /* ==================== udclient_session_is_idle() ==================== */ 
@@ -173,13 +183,14 @@ static session_callbacks_t udclient_callbacks = {
     .session_init = udclient_session_init,
     .session_destroy = udclient_session_destroy,
 
-    .consume_sockbuf = NULL,
     .on_connect = NULL,
+
+    .consume_sockbuf = NULL,
     .handle_read_response = NULL,
 };
 
-/* ==================== udclient_create_session() ==================== */ 
-static int udclient_create_session(udclient_t *udcli)
+/* ==================== udclient_loop() ==================== */ 
+static int udclient_loop(udclient_t *udcli)
 {
     int r;
 
@@ -198,6 +209,7 @@ static int udclient_create_session(udclient_t *udcli)
 
     /* ---------- New session ---------- */
     session_t *session = session_new((void*)udcli, callbacks, NULL);
+    udcli->session = session;
 
     /* -------- loop -------- */
     uv_loop_t *loop = SESSION_LOOP(session);
@@ -251,10 +263,12 @@ static void* udclient_thread_main(void *arg)
 
     trace_log("Enter udclient_thread_main().");
 
-    int rc = udclient_create_session(udcli);
+    int rc = udclient_loop(udcli);
     if ( rc != 0 ){
         error_log("udclient_creat_session() failed.");
     }
+
+    pthread_cond_signal(&udcli->on_ready_cond);
 
     notice_log("udclient_thread_main() %d exit.", udcli->id);
 
@@ -270,6 +284,10 @@ int udclient_run(udclient_t *udcli)
     /*pthread_attr_init(&attr);*/
     /*phread_attr_setdetachstate(&attr, PTHREAD_CREATE_DETACHED);*/
     rc = pthread_create(&udcli->tid, NULL, udclient_thread_main, udcli);
+
+    pthread_mutex_lock(&udcli->on_ready_lock);
+    pthread_cond_wait(&udcli->on_ready_cond, &udcli->on_ready_lock);
+    pthread_mutex_unlock(&udcli->on_ready_lock);
 
     return rc;
 }

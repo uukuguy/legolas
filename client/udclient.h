@@ -15,21 +15,25 @@
 #include <limits.h>
 #include <pthread.h>
 
+typedef struct list list;
 typedef struct udclient_t udclient_t;
 typedef struct session_t session_t;
 typedef struct message_t message_t;
 typedef struct msgidx_t msgidx_t;
 
+typedef int (*on_ready_cb)(udclient_t *udcli);
 typedef int (*after_write_finished_cb)(udclient_t *udcli, message_t *response);
 typedef int (*after_read_finished_cb)(udclient_t *udcli, message_t *response);
 typedef int (*after_delete_finished_cb)(udclient_t *udcli, message_t *response);
-typedef int (*after_read_object_slice_cb)(udclient_t *udcli, msgidx_t *msgidx, message_t *response);
+typedef int (*after_write_object_slice_cb)(udclient_t *udcli, msgidx_t *msgidx);
+typedef int (*after_read_object_slice_cb)(udclient_t *udcli, msgidx_t *msgidx);
 
 typedef struct udclient_t {
     uint32_t id;
     pthread_t tid;
     uint32_t err;
     session_t *session;
+    void *user_data;
 
     int op_code;
     char key[NAME_MAX];
@@ -38,14 +42,27 @@ typedef struct udclient_t {
     uint32_t total_readed;
     uint32_t total_writed;
 
+    uint32_t slice_idx;
+    uint32_t nslices;
+    char *data;
+    uint32_t data_size;
+
+    list *writing_objects;
+
+    on_ready_cb on_ready;
     after_write_finished_cb after_write_finished;
     after_read_finished_cb after_read_finished;
     after_delete_finished_cb after_delete_finished;
+
+    after_write_object_slice_cb after_write_object_slice;
     after_read_object_slice_cb after_read_object_slice;
+
+    pthread_mutex_t on_ready_lock;
+    pthread_cond_t on_ready_cond;
 
 } udclient_t;
 
-udclient_t *udclient_new(void);
+udclient_t *udclient_new(void *user_data);
 void udclient_free(udclient_t *udcli);
 int udclient_run(udclient_t *udcli);
 void udclient_exit(udclient_t *udcli);
