@@ -127,7 +127,7 @@ void do_read_data(sockbuf_t *sockbuf, void *buf, size_t count)
             count -= len; 
         }
 
-        TRACE_LOG_SESSION_SOCKBUF("Called do_read_data().");
+        /*TRACE_LOG_SESSION_SOCKBUF("Called do_read_data().");*/
         YIELD_AND_CONTINUE;
     }
 }
@@ -138,7 +138,7 @@ int session_do_read(sockbuf_t *sockbuf, message_t **p_message)
     UNUSED session_t *session = sockbuf->session;
 
     /* -------- do_read_data:message_header -------- */
-    TRACE_LOG_SESSION_SOCKBUF("Call do_read_data() for message_header.");
+    /*TRACE_LOG_SESSION_SOCKBUF("Call do_read_data() for message_header.");*/
 
     message_t message_header;
 
@@ -161,7 +161,7 @@ int session_do_read(sockbuf_t *sockbuf, message_t **p_message)
     }
 
     /* -------- do_read_data:data -------- */
-    TRACE_LOG_SESSION_SOCKBUF("Call do_read_data() for data.");
+    /*TRACE_LOG_SESSION_SOCKBUF("Call do_read_data() for data.");*/
 
     message_t *message = (message_t*)zmalloc(sizeof(message_header) + message_header.data_length);
     memcpy(message, &message_header, sizeof(message_header));
@@ -374,7 +374,7 @@ void after_read(uv_stream_t *handle, ssize_t nread, const uv_buf_t *buf)
         session->connection.total_bytes += nread;
         __sync_add_and_fetch(&sockbuf->remain_bytes, nread);
 
-        trace_log("\n........\nfd(%d) block(%d) nread=%zu bytes. write_head:%d, remain_bytes=%d, total_bytes=%d\n", session_fd(session), sockbuf->blockid, nread, sockbuf->write_head, sockbuf->remain_bytes, session->connection.total_bytes);
+        /*trace_log("\n........\nfd(%d) block(%d) nread=%zu bytes. write_head:%d, remain_bytes=%d, total_bytes=%d\n", session_fd(session), sockbuf->blockid, nread, sockbuf->write_head, sockbuf->remain_bytes, session->connection.total_bytes);*/
 
 
         __sync_add_and_fetch(&session->total_received_buffers, 1);

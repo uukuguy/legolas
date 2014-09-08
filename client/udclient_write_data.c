@@ -25,6 +25,8 @@ int udclient_handle_write_response(session_t *session, message_t *response)
 {
     assert(response->msg_type == MSG_TYPE_RESPONSE);
 
+    trace_log("Enter udclient_handle_write_response()");
+
     int ret = 0;
 
     session_rx_off(session);
@@ -47,6 +49,8 @@ int do_write_request(session_t *session, char *data, uint32_t data_size);
 /* ==================== after_write_request() ==================== */ 
 static void after_write_request(uv_write_t *write_req, int status) 
 {
+    debug_log("Enter after_write_request");
+
     session_t *session = (session_t*)write_req->data;
 
     udclient_t *udcli = UDCLIENT(session);
@@ -107,7 +111,6 @@ int do_write_request(session_t *session, char *data, uint32_t data_size)
     if ( data_size == 0 ) return 0;
 
     udclient_t *udcli = UDCLIENT(session);
-    udcli->total_writed = 0;
 
     uint32_t head_size = 0;
 
@@ -154,7 +157,6 @@ int do_write_request(session_t *session, char *data, uint32_t data_size)
         /*client_args->file_data_sended += block_size;*/
     /*}*/
 
-    session->total_writed += writed;
     udcli->total_writed += writed;
     udcli->data = data;
     udcli->data_size = writed;

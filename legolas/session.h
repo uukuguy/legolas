@@ -173,6 +173,7 @@ typedef struct session_t{
     list *responseQueue;
 
     uint32_t finished_works;
+    uint32_t total_finished_works;
     
     pthread_mutex_t recv_pending_lock;
     pthread_cond_t recv_pending_cond;

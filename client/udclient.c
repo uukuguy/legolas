@@ -66,7 +66,6 @@ int do_write_request(session_t *session, char *data, uint32_t data_size);
 int udclient_write_data(udclient_t *udcli, int handle, void *data, uint32_t len)
 {
     session_t *session = udcli->session;
-    session->total_writed = 0;
 
     return do_write_request(session, data, len);
 }
@@ -76,15 +75,13 @@ int do_read_request(session_t *session);
 int udclient_read_data(udclient_t *udcli, int handle, void *data, uint32_t len)
 {
     session_t *session = udcli->session;
-    udcli->object_size = 0;
-    session->total_readed = 0;
     
     return do_read_request(session);
 }
 
 int do_delete_request(session_t *session);
 /* ==================== udclient_delete_data() ==================== */ 
-int udclient_delete_data(udclient_t *udcli, const char *key)
+int udclient_delete_data(udclient_t *udcli)
 {
 
     session_t *session = udcli->session;
@@ -101,6 +98,7 @@ int udclient_handle_message(session_t *session, message_t *message)
     int ret = 0;
     udclient_t *udcli = UDCLIENT(session);
 
+    trace_log("udclient_handle_message(). Has a message. op_code:%d", udcli->op_code);
     switch ( udcli->op_code ){
         case MSG_OP_WRITE:
             {
@@ -113,14 +111,14 @@ int udclient_handle_message(session_t *session, message_t *message)
             {
                 if ( message->msg_type == MSG_TYPE_REQUEST ){
                 } else if ( message->msg_type == MSG_TYPE_RESPONSE ) {
-                    /*ret = udclient_handle_read_response(session, message);*/
+                    ret = udclient_handle_read_response(session, message);
                 }
             } break;
         case MSG_OP_DEL:
             {
                 if ( message->msg_type == MSG_TYPE_REQUEST ){
                 } else if ( message->msg_type == MSG_TYPE_RESPONSE ) {
-                    /*ret = udclient_handle_delete_response(session, message);*/
+                    ret = udclient_handle_delete_response(session, message);
                 }
             } break;
     }
@@ -252,6 +250,7 @@ static int udclient_loop(udclient_t *udcli)
 
     /*close_loop(loop);      */
     /*uv_loop_delete(loop);  */
+
 
     return 0;
 }

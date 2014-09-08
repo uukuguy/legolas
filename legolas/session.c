@@ -106,7 +106,7 @@ static void on_close(uv_handle_t *tcp_handle)
     session_t *session = (session_t *)tcp_handle->data; 
 
     total_sessions++;
-    info_log("on_close(). total_sessions: %d", total_sessions);
+    info_log("on_close(). total_sessions: %d total_finished_works: %d", total_sessions, session->total_finished_works);
     
     session_free(session);
 }
@@ -211,6 +211,7 @@ session_t* session_new(void *parent, session_callbacks_t *callbacks, void *user_
     session->total_writed = 0;
     session->cached_bytes = 0;
     session->finished_works = 0;
+    session->total_finished_works = 0;
     session->user_data = user_data;
 
     session->responseQueue = listCreate();

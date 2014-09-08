@@ -139,23 +139,24 @@ void execute_on_connect(uv_connect_t *req, int status)
     }
 }
 
-static session_callbacks_t session_callbacks = {
-    .idle_cb = NULL,
-    .timer_cb = NULL,
-    .async_cb = NULL,
-    .is_idle = NULL,
-    .handle_message = execute_handle_message,
-    .session_init = NULL,
-    .session_destroy = NULL,
-    .consume_sockbuf = NULL,
-    .on_connect = execute_on_connect,
-    .handle_read_response = process_read_response_data,
-};
+/*static session_callbacks_t session_callbacks = {*/
+    /*.idle_cb = NULL,*/
+    /*.timer_cb = NULL,*/
+    /*.async_cb = NULL,*/
+    /*.is_idle = NULL,*/
+    /*.handle_message = execute_handle_message,*/
+    /*.session_init = NULL,*/
+    /*.session_destroy = NULL,*/
+    /*.consume_sockbuf = NULL,*/
+    /*.on_connect = execute_on_connect,*/
+    /*.handle_read_response = process_read_response_data,*/
+/*};*/
 
 /* ==================== client_execute() ==================== */ 
 int client_execute(client_t *client)
 {
-    return start_connect(client, &session_callbacks, 0);
+    /*return start_connect(client, &session_callbacks, 0);*/
+    return -1;
 
 }
 

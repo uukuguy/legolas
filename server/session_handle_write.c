@@ -135,9 +135,9 @@ int session_write_to_storage(session_t *session, object_t *object)
     UNUSED vnode_t *vnode = get_vnode_by_key(SERVER(session), &object->key_md5);
     assert(vnode != NULL);
 
-    int ret;
-    /*ret = session_write_to_kvdb(vnode, object);*/
-    ret = session_write_to_file(vnode, object);
+    int ret = 0;
+    /*ret = session_write_to_file(vnode, object);*/
+    ret = session_write_to_kvdb(vnode, object);
 
     object_queue_remove(vnode->caching_objects, object);
     session->total_writed = 0;

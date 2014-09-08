@@ -55,7 +55,6 @@ int udclient_handle_read_response(session_t *session, message_t *response)
         UNUSED char *data = arg_data->data;
         uint32_t data_size = arg_data->size;
 
-        session->total_readed += data_size;
         udcli->total_readed += data_size;
 
         if ( udcli->after_read_object_slice != NULL ){
@@ -78,7 +77,7 @@ int udclient_handle_read_response(session_t *session, message_t *response)
             zfree(msgidx);
         }
 
-        if ( session->total_readed >= object_size ){
+        if ( udcli->total_readed >= object_size ){
             if ( udcli->after_read_finished != NULL ){
                 udcli->after_read_finished(udcli, response);
             }
@@ -141,8 +140,6 @@ static void after_read_request(uv_write_t *read_req, int status)
 int do_read_request(session_t *session)
 {
     udclient_t *udcli = UDCLIENT(session);
-    session->total_readed = 0;
-    udcli->total_readed = 0;
 
     uint32_t head_size = 0;
 

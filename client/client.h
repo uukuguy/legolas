@@ -57,6 +57,7 @@ typedef struct client_t {
     uint32_t total_files;
     uint32_t total_send;
     uint32_t total_recv;
+    uint32_t total_del;
     int nthreads;
 
     void *write_request;
@@ -68,6 +69,7 @@ typedef struct client_t {
     pthread_mutex_t recv_pending_lock;
     pthread_cond_t recv_pending_cond;
 
+
 } client_t;
 
 #define CLIENT(session) (client_t*)(session->parent)
@@ -75,8 +77,6 @@ typedef struct client_t {
 
 client_t *client_new(const char *ip, int port, int op_code, const char *key, const char *file, int start_index, int total_files, int nthreads);
 void client_free(client_t *client);
-
-int start_connect(client_t *client, session_callbacks_t *callbacks, int session_id);
 
 #endif /* __CLIENT_H__ */
 

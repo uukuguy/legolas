@@ -44,36 +44,21 @@ typedef struct thread_args_t {
     client_t *client;
 } thread_args_t;
 
-/* in client_session_handle.c */
-void client_session_idle_cb(uv_idle_t *idle_handle, int status);
-void client_session_timer_cb(uv_timer_t *timer_handle, int status);
-void client_session_async_cb(uv_async_t *async_handle, int status);
-int client_session_is_idle(session_t *session);
-int client_session_handle_message(session_t *session, message_t *message);
-int client_session_init(session_t *session);
-void client_session_destroy(session_t *session);
-
-static session_callbacks_t callbacks = {
-    .idle_cb = client_session_idle_cb,
-    .timer_cb = client_session_timer_cb,
-    .async_cb = client_session_async_cb,
-    .is_idle = client_session_is_idle,
-    .handle_message = client_session_handle_message,
-    .session_init = client_session_init,
-    .session_destroy = client_session_destroy,
-    .consume_sockbuf = NULL,
-    .on_connect = NULL,
-    .handle_read_response = NULL,
-};
-
 int client_execute(client_t *client);
+
+int client_run_task(client_t *client, int id);
+int test_run_task(client_t *client, int id);
+
+/*#define run_task client_run_task*/
+#define run_task test_run_task
 
 /* ==================== client_thread() ==================== */ 
 static void* client_thread(void *arg)
 {
     thread_args_t *t_args = (thread_args_t*)arg;
     UNUSED int ret;
-    ret = start_connect(t_args->client, &callbacks, t_args->id);
+    /*ret = start_connect(t_args->client, &callbacks, t_args->id);*/
+    ret = run_task(t_args->client, t_args->id);
 
     return NULL;
 }
@@ -130,10 +115,14 @@ int start_client_threads(client_t *client)
 /*int start_client_normal(program_options_t *program_options)*/
 int start_client_normal(client_t *client)
 {
-    return start_connect(client, &callbacks, 0);
+    int ret;
+
+    /*ret = start_connect(client, &callbacks, 0);*/
+    ret = run_task(client, 0);
+
+    return ret;
 }
 
-int test(client_t *client, udclient_t *udcli);
 /* ==================== runclient() ==================== */ 
 int runclient(program_options_t *program_options)
 {
@@ -193,24 +182,18 @@ int runclient(program_options_t *program_options)
 
     /* -------- start_client (normal or thread)-------- */
 
-    /* FIXME */
-    udclient_t *udcli = udclient_new((void*)client);
-    udcli->id = 0;
-    udclient_run(udcli);
+    int ret;
 
-    UNUSED int ret;
-    ret = test(client, udcli);
-    /*if ( is_execute == 1 ) {*/
-        /*ret = client_execute(client);*/
-    /*} else {*/
-        /*if ( program_options->threads > 0 ){*/
-            /*ret = start_client_threads(client);*/
-        /*} else {*/
-            /*ret = start_client_normal(client);*/
-        /*}*/
-    /*}*/
+    if ( is_execute == 1 ) {
+        ret = client_execute(client);
+    } else {
+        if ( program_options->threads > 0 ){
+            ret = start_client_threads(client);
+        } else {
+            ret = start_client_normal(client);
+        }
+    }
 
-    udclient_free(udcli);
 
     client_free(client);
 

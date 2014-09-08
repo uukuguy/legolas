@@ -91,10 +91,34 @@ static void on_connect(uv_connect_t *req, int status)
     }
 }
 
-/* ==================== start_connect() ==================== */ 
-int start_connect(client_t *client, session_callbacks_t *callbacks, int session_id)
+/* in client_session_handle.c */
+void client_session_idle_cb(uv_idle_t *idle_handle, int status);
+void client_session_timer_cb(uv_timer_t *timer_handle, int status);
+void client_session_async_cb(uv_async_t *async_handle, int status);
+int client_session_is_idle(session_t *session);
+int client_session_handle_message(session_t *session, message_t *message);
+int client_session_init(session_t *session);
+void client_session_destroy(session_t *session);
+
+static session_callbacks_t client_callbacks = {
+    .idle_cb = client_session_idle_cb,
+    .timer_cb = client_session_timer_cb,
+    .async_cb = client_session_async_cb,
+    .is_idle = client_session_is_idle,
+    .handle_message = client_session_handle_message,
+    .session_init = client_session_init,
+    .session_destroy = client_session_destroy,
+    .consume_sockbuf = NULL,
+    .on_connect = NULL,
+    .handle_read_response = NULL,
+};
+
+/* ==================== client_run_task() ==================== */ 
+int client_run_task(client_t *client, int session_id)
 {
     trace_log("Enter start_connect(). session_id:%d ip=%s, port=%d, op_code=%d", session_id, client->ip, client->port, client->op_code);
+
+    session_callbacks_t *callbacks = &client_callbacks;
 
     int r;
 

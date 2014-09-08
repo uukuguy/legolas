@@ -42,6 +42,12 @@ typedef struct udclient_t {
     uint32_t total_readed;
     uint32_t total_writed;
 
+    uint32_t start_index;
+    uint32_t total_files;
+    uint32_t total_send;
+    uint32_t total_recv;
+    uint32_t total_del;
+
     uint32_t slice_idx;
     uint32_t nslices;
     char *data;
@@ -60,6 +66,9 @@ typedef struct udclient_t {
     pthread_mutex_t on_ready_lock;
     pthread_cond_t on_ready_cond;
 
+    pthread_mutex_t main_pending_lock;
+    pthread_cond_t main_pending_cond;
+
 } udclient_t;
 
 udclient_t *udclient_new(void *user_data);
@@ -71,7 +80,7 @@ int udclient_open_data(udclient_t *udcli, const char *key);
 int udclient_write_data(udclient_t *udcli, int handle, void *data, uint32_t len);
 int udclient_read_data(udclient_t *udcli, int handle, void *data, uint32_t len);
 int udclient_close_data(udclient_t *udcli, int handle);
-int udclient_delete_data(udclient_t *udcli, const char *key);
+int udclient_delete_data(udclient_t *udcli);
 
 
 
