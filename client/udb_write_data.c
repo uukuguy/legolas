@@ -1,5 +1,5 @@
 /**
- * @file   udclient_write_data.c
+ * @file   udb_write_data.c
  * @author Jiangwen Su <uukuguy@gmail.com>
  * @date   2014-09-09 14:23:03
  * 
@@ -18,14 +18,14 @@
 #include "crc32.h"
 #include "md5.h"
 #include "session.h"
-#include "udclient.h"
+#include "udb.h"
 
 /* ==================== handle_write_response() ==================== */ 
-int udclient_handle_write_response(session_t *session, message_t *response)
+int udb_handle_write_response(session_t *session, message_t *response)
 {
     assert(response->msg_type == MSG_TYPE_RESPONSE);
 
-    trace_log("Enter udclient_handle_write_response()");
+    trace_log("Enter udb_handle_write_response()");
 
     int ret = 0;
 
@@ -36,9 +36,9 @@ int udclient_handle_write_response(session_t *session, message_t *response)
         return -1;
     }
 
-    udclient_t *udcli = UDCLIENT(session);
-    if ( udcli->after_write_finished != NULL ){
-        udcli->after_write_finished(udcli, response);
+    udb_t *udb = udb(session);
+    if ( udb->after_write_finished != NULL ){
+        udb->after_write_finished(udb, response);
     }
 
     return ret;
@@ -53,29 +53,29 @@ static void after_write_request(uv_write_t *write_req, int status)
 
     session_t *session = (session_t*)write_req->data;
 
-    udclient_t *udcli = UDCLIENT(session);
-    assert(udcli!= NULL);
+    udb_t *udb = udb(session);
+    assert(udb!= NULL);
 
     zfree(write_req);
 
-    if ( udcli->after_write_object_slice != NULL ){
+    if ( udb->after_write_object_slice != NULL ){
         msgidx_t *msgidx = zmalloc(sizeof(msgidx_t));
         memset(msgidx, 0, sizeof(msgidx_t));
 
-        msgidx->object_size = udcli->object_size;
-        msgidx->slice_idx = udcli->slice_idx;
-        msgidx->nslices = udcli->nslices;
+        msgidx->object_size = udb->object_size;
+        msgidx->slice_idx = udb->slice_idx;
+        msgidx->nslices = udb->nslices;
 
-        msgidx->key = udcli->key;
-        msgidx->keylen = udcli->keylen;
-        msgidx->data_size = udcli->data_size;
+        msgidx->key = udb->key;
+        msgidx->keylen = udb->keylen;
+        msgidx->data_size = udb->data_size;
 
-        udcli->after_write_object_slice(udcli, msgidx);
+        udb->after_write_object_slice(udb, msgidx);
 
         zfree(msgidx);
     }
     /* Keep write next block? */
-    if ( udcli->total_writed >= udcli->object_size ){
+    if ( udb->total_writed >= udb->object_size ){
         session_waiting_message(session);
     }
 }
@@ -110,16 +110,16 @@ int do_write_request(session_t *session, char *data, uint32_t data_size)
 
     if ( data_size == 0 ) return 0;
 
-    udclient_t *udcli = UDCLIENT(session);
+    udb_t *udb = udb(session);
 
     uint32_t head_size = 0;
 
     message_t *write_request = alloc_request_message(session->id, MSG_OP_WRITE); 
     head_size += sizeof(message_t);
 
-    const char *key = udcli->key;
-    uint32_t keylen = udcli->keylen;
-    debug_log("udclient->key=%s, keylen=%d", key, keylen);
+    const char *key = udb->key;
+    uint32_t keylen = udb->keylen;
+    debug_log("udb->key=%s, keylen=%d", key, keylen);
 
     /* -------- key -------- */
     write_request = add_message_arg(write_request, key, keylen > 128 ? 128 : keylen);
@@ -133,7 +133,7 @@ int do_write_request(session_t *session, char *data, uint32_t data_size)
     head_size += sizeof(uint32_t) + sizeof(md5_value_t);
 
     /* -------- object_size -------- */
-    uint32_t object_size = udcli->object_size;
+    uint32_t object_size = udb->object_size;
     write_request = add_message_arg(write_request, &object_size, sizeof(object_size));
     head_size += sizeof(uint32_t) + sizeof(object_size);
 
@@ -157,9 +157,9 @@ int do_write_request(session_t *session, char *data, uint32_t data_size)
         /*client_args->file_data_sended += block_size;*/
     /*}*/
 
-    udcli->total_writed += writed;
-    udcli->data = data;
-    udcli->data_size = writed;
+    udb->total_writed += writed;
+    udb->data = data;
+    udb->data_size = writed;
 
     /* -------- CRC32 -------- */
     uint32_t crc = crc32(0, buf, writed);

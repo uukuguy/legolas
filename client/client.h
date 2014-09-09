@@ -40,6 +40,16 @@ typedef struct client_args_t {
     uint32_t file_closed;
 } client_args_t;
 
+typedef struct client_t client_t;
+typedef struct client_runtime_t {
+    client_t *client;
+
+    uint32_t total_send;
+    uint32_t total_recv;
+    uint32_t total_del;
+
+} client_runtime_t;
+
 typedef struct client_t {
     const char *ip;
     int port;
@@ -71,6 +81,9 @@ typedef struct client_t {
 
 
 } client_t;
+
+client_runtime_t *client_runtime_new(client_t *client);
+void client_runtime_free(client_runtime_t *client_runtime);
 
 #define CLIENT(session) (client_t*)(session->parent)
 #define CLIENT_ARGS(session) (client_args_t*)(session->user_data)

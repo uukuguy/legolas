@@ -195,3 +195,20 @@ int client_run_task(client_t *client, int session_id)
     return 0;
 }
 
+client_runtime_t *client_runtime_new(client_t *client)
+{
+    client_runtime_t *client_runtime = (client_runtime_t*)zmalloc(sizeof(client_runtime_t));
+    memset(client_runtime, 0, sizeof(client_runtime_t));
+
+    client_runtime->client = client;
+
+    return client_runtime;
+}
+
+void client_runtime_free(client_runtime_t *client_runtime)
+{
+    if ( client_runtime != NULL ){
+        zfree(client_runtime);
+    }
+}
+

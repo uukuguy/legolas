@@ -1,5 +1,5 @@
 /**
- * @file   udclient_delete_data.c
+ * @file   udb_delete_data.c
  * @author Jiangwen Su <uukuguy@gmail.com>
  * @date   2014-09-09 14:55:27
  * 
@@ -18,17 +18,17 @@
 #include "crc32.h"
 #include "md5.h"
 #include "session.h"
-#include "udclient.h"
+#include "udb.h"
 
 
-/*  ==================== udclient_handle_delete_response() ==================== */ 
-int udclient_handle_delete_response(session_t *session, message_t *response)
+/*  ==================== udb_handle_delete_response() ==================== */ 
+int udb_handle_delete_response(session_t *session, message_t *response)
 {
     assert(response->msg_type == MSG_TYPE_RESPONSE);
 
     int ret = 0;
 
-    udclient_t *udcli = UDCLIENT(session);
+    udb_t *udb = udb(session);
 
     message_arg_t *arg = (message_arg_t*)response->data;
 
@@ -44,8 +44,8 @@ int udclient_handle_delete_response(session_t *session, message_t *response)
         ret = -1;
     }
 
-    if ( udcli->after_write_finished != NULL ){
-        udcli->after_write_finished(udcli, response);
+    if ( udb->after_delete_finished != NULL ){
+        udb->after_delete_finished(udb, response);
     }
 
     return ret;
@@ -56,8 +56,8 @@ static void after_delete_request(uv_write_t *read_req, int status)
 {
     session_t *session = (session_t*)read_req->data;
 
-    udclient_t *udcli = UDCLIENT(session);
-    assert(udcli != NULL);
+    udb_t *udb = udb(session);
+    assert(udb != NULL);
 
     zfree(read_req);
 
@@ -67,15 +67,15 @@ static void after_delete_request(uv_write_t *read_req, int status)
 /* ==================== do_delete_request() ==================== */ 
 int do_delete_request(session_t *session)
 {
-    udclient_t *udcli = UDCLIENT(session);
+    udb_t *udb = udb(session);
 
     uint32_t head_size = 0;
 
     message_t *read_request = alloc_request_message(session->id, MSG_OP_DEL); 
     head_size += sizeof(message_t);
 
-    const char *key = udcli->key;
-    uint32_t keylen = udcli->keylen;
+    const char *key = udb->key;
+    uint32_t keylen = udb->keylen;
     debug_log("client_args->key=%s, keylen=%d", key, keylen);
 
     /* -------- key -------- */

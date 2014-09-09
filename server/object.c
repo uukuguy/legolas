@@ -370,25 +370,29 @@ int object_del_from_kvdb(kvdb_t *kvdb, md5_value_t key_md5)
     UNUSED int rc;
 
     object_t *object = object_get_from_kvdb(kvdb, key_md5);
-    if ( object != NULL ){
-        MAKE_META_KEY(key_md5);
+    if ( object == NULL ){
+        /*warning_log("object not found!");*/
+        return -1;
+    }
 
-        rc = kvdb_del(kvdb, meta_key, meta_key_len);
-        if ( rc == 0 ){
-            uint32_t n;
-            for ( n = 0 ; n < object->nslices ; n++ ) {
-                MAKE_SLICE_KEY(object->key_md5, n);
+    MAKE_META_KEY(key_md5);
 
-                int rc = kvdb_del(kvdb, slice_key, slice_key_len);
-                if ( rc == 0 ){
-                } else {
-                    error_log("kvdb_del() failed. slice_key:%s, slice_idx=%d/%d", slice_key, n, object->nslices);
-                    ret = -1;
-                    break;
-                }
+    rc = kvdb_del(kvdb, meta_key, meta_key_len);
+    if ( rc == 0 ){
+        uint32_t n; 
+        for ( n = 0 ; n < object->nslices ; n++ ) {
+            MAKE_SLICE_KEY(object->key_md5, n);
+
+            int rc = kvdb_del(kvdb, slice_key, slice_key_len);
+            if ( rc == 0 ){
+            } else {
+                error_log("kvdb_del() failed. slice_key:%s, slice_idx=%d/%d", slice_key, n, object->nslices);
+                ret = -1;
+                break;
             }
         }
     } else {
+        /*warning_log("delete meta_key failed.");*/
         ret = -1;
     }
 

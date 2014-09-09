@@ -14,8 +14,6 @@
 #include "daemon.h"
 #include "client.h"
 
-#include "udclient.h"
-
 static char program_name[] = "legolas";
 static int msec0, msec1;
 

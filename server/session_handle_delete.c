@@ -73,6 +73,7 @@ int session_handle_delete(session_t *session, message_t *request)
      *    Response to client 
      *  ---------------------------------------- */
     int result = object_deleted != 0 ? RESULT_SUCCESS : RESULT_ERR_NOTFOUND;
+
     response_with_key(session, &msgidx, result);
 
     return 0;

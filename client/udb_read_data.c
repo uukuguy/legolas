@@ -1,5 +1,5 @@
 /**
- * @file   udclient_read_data.c
+ * @file   udb_read_data.c
  * @author Jiangwen Su <uukuguy@gmail.com>
  * @date   2014-09-09 14:55:00
  * 
@@ -18,17 +18,17 @@
 #include "crc32.h"
 #include "md5.h"
 #include "session.h"
-#include "udclient.h"
+#include "udb.h"
 
 
 /*  ==================== handle_read_response() ==================== */ 
-int udclient_handle_read_response(session_t *session, message_t *response)
+int udb_handle_read_response(session_t *session, message_t *response)
 {
     assert(response->msg_type == MSG_TYPE_RESPONSE);
 
     int ret = 0;
 
-    UNUSED udclient_t *udcli = UDCLIENT(session);
+    UNUSED udb_t *udb = udb(session);
 
     message_arg_t *arg = (message_arg_t*)response->data;
 
@@ -38,33 +38,33 @@ int udclient_handle_read_response(session_t *session, message_t *response)
         /* ---------- seq_num ---------- */
         message_arg_t *arg_seq_num = message_next_arg(argKey);
         uint32_t seq_num = *(uint32_t*)arg_seq_num->data;
-        udcli->slice_idx = seq_num;
+        udb->slice_idx = seq_num;
 
         /* ---------- nslices ---------- */
         message_arg_t *arg_nslices = message_next_arg(arg_seq_num);
         uint32_t nslices = *(uint32_t*)arg_nslices->data;
-        udcli->nslices = nslices;
+        udb->nslices = nslices;
 
         /* ---------- object_size ---------- */
         message_arg_t *argObjectSize = message_next_arg(arg_nslices);
         uint32_t object_size = *(uint32_t*)argObjectSize->data;
-        udcli->object_size = object_size;
+        udb->object_size = object_size;
 
         /* ---------- data ---------- */
         message_arg_t *arg_data = message_next_arg(argObjectSize);
         UNUSED char *data = arg_data->data;
         uint32_t data_size = arg_data->size;
 
-        udcli->total_readed += data_size;
+        udb->total_readed += data_size;
 
-        if ( udcli->after_read_object_slice != NULL ){
+        if ( udb->after_read_object_slice != NULL ){
             msgidx_t *msgidx = zmalloc(sizeof(msgidx_t));
             memset(msgidx, 0, sizeof(msgidx_t));
             msgidx->message = response;
 
-            msgidx->object_size = udcli->object_size;
-            msgidx->slice_idx = udcli->slice_idx;
-            msgidx->nslices = udcli->nslices;
+            msgidx->object_size = udb->object_size;
+            msgidx->slice_idx = udb->slice_idx;
+            msgidx->nslices = udb->nslices;
 
             msgidx->key = argKey->data;
             msgidx->keylen = argKey->size;
@@ -72,14 +72,14 @@ int udclient_handle_read_response(session_t *session, message_t *response)
             msgidx->data = arg_data->data;
             msgidx->data_size = arg_data->size;
 
-            udcli->after_read_object_slice(udcli, msgidx);
+            udb->after_read_object_slice(udb, msgidx);
 
             zfree(msgidx);
         }
 
-        if ( udcli->total_readed >= object_size ){
-            if ( udcli->after_read_finished != NULL ){
-                udcli->after_read_finished(udcli, response);
+        if ( udb->total_readed >= object_size ){
+            if ( udb->after_read_finished != NULL ){
+                udb->after_read_finished(udb, response);
             }
         }
 
@@ -87,7 +87,7 @@ int udclient_handle_read_response(session_t *session, message_t *response)
         /* ---------- key ---------- */
         message_arg_t *argKey = arg;
         warning_log("NOT FOUND! key=%s", argKey->data);
-        if ( udcli->after_read_object_slice != NULL ){
+        if ( udb->after_read_object_slice != NULL ){
             msgidx_t *msgidx = zmalloc(sizeof(msgidx_t));
             memset(msgidx, 0, sizeof(msgidx_t));
             msgidx->message = response;
@@ -95,7 +95,7 @@ int udclient_handle_read_response(session_t *session, message_t *response)
             msgidx->key = argKey->data;
             msgidx->keylen = argKey->size;
 
-            udcli->after_read_object_slice(udcli, msgidx);
+            udb->after_read_object_slice(udb, msgidx);
 
             zfree(msgidx);
         }
@@ -104,7 +104,7 @@ int udclient_handle_read_response(session_t *session, message_t *response)
         /* ---------- key ---------- */
         message_arg_t *argKey = arg;
         error_log("Error response code! result=%d key=%s", response->result, argKey->data);
-        if ( udcli->after_read_object_slice != NULL ){
+        if ( udb->after_read_object_slice != NULL ){
             msgidx_t *msgidx = zmalloc(sizeof(msgidx_t));
             memset(msgidx, 0, sizeof(msgidx_t));
             msgidx->message = response;
@@ -112,7 +112,7 @@ int udclient_handle_read_response(session_t *session, message_t *response)
             msgidx->key = argKey->data;
             msgidx->keylen = argKey->size;
             
-            udcli->after_read_object_slice(udcli, msgidx);
+            udb->after_read_object_slice(udb, msgidx);
 
             zfree(msgidx);
         }
@@ -127,8 +127,8 @@ static void after_read_request(uv_write_t *read_req, int status)
 {
     session_t *session = (session_t*)read_req->data;
 
-    udclient_t *udcli = UDCLIENT(session);
-    assert(udcli != NULL);
+    udb_t *udb = udb(session);
+    assert(udb != NULL);
 
     zfree(read_req);
 
@@ -139,16 +139,16 @@ static void after_read_request(uv_write_t *read_req, int status)
 /* ==================== do_read_request() ==================== */ 
 int do_read_request(session_t *session)
 {
-    udclient_t *udcli = UDCLIENT(session);
+    udb_t *udb = udb(session);
 
     uint32_t head_size = 0;
 
     message_t *read_request = alloc_request_message(session->id, MSG_OP_READ); 
     head_size += sizeof(message_t);
 
-    const char *key = udcli->key;
-    uint32_t keylen = udcli->keylen;
-    debug_log("udcli->key=%s, keylen=%d", key, keylen);
+    const char *key = udb->key;
+    uint32_t keylen = udb->keylen;
+    debug_log("udb->key=%s, keylen=%d", key, keylen);
 
     /* -------- key -------- */
     read_request = add_message_arg(read_request, key, keylen > 128 ? 128 : keylen);

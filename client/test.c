@@ -18,277 +18,258 @@
 #include "crc32.h"
 #include "md5.h"
 
-#include "udclient.h"
+#include "udb.h"
 
-void reset_udclient_key_by_client(udclient_t *udcli, uint32_t total_processed)
+#define PREPARE_CLIENT \
+    UNUSED client_runtime_t *client_runtime = (client_runtime_t*)udb_get_user_data(udb); \
+    UNUSED client_t *client = client_runtime->client;
+
+void reset_udb_key_by_client(udb_t *udb, uint32_t total_processed)
 {
-    client_t *client = (client_t*)udcli->user_data;
+    PREPARE_CLIENT;
 
     char file_name[NAME_MAX];
     get_path_file_name(client->filename, file_name, NAME_MAX - 1);
 
     char key[NAME_MAX];
-    sprintf(key, "/test/%s/%04d/%08d-%s", client->key_prefix, udcli->id, udcli->start_index + total_processed, file_name);
+    sprintf(key, "/test/%s/%04d/%08d-%s", client->key_prefix, udb->id, client->start_index + total_processed, file_name);
 
     uint32_t keylen = strlen(key);
-    memcpy(udcli->key, key, keylen);
-    udcli->keylen = keylen;
+    memcpy(udb->key, key, keylen);
+    udb->keylen = keylen;
 
-    udcli->total_writed = 0;
-    udcli->total_readed = 0;
+    udb->op_code = client->op_code;
+    udb->object_size = client->file_size;
+    udb->total_writed = 0;
+    udb->total_readed = 0;
 }
 
-static int write_file(udclient_t *udcli);
-static int read_file(udclient_t *udcli);
-static int delete_file(udclient_t *udcli);
+static int write_file(udb_t *udb);
+static int read_file(udb_t *udb);
+static int delete_file(udb_t *udb);
 
-void try_write_next_file(udclient_t *udcli)
+/* ==================== try_write_next_file() ==================== */ 
+void try_write_next_file(udb_t *udb)
 {
-    if ( udcli->total_send < udcli->total_files - 1 ) {
-        if ( udcli->total_send % 100 == 0 ) {
-            notice_log("\n-------- Session(%d) start to write %d/%d files", udcli->id, udcli->total_send, udcli->total_files);
+    PREPARE_CLIENT;
+
+    if ( client_runtime->total_send < client->total_files - 1 ) {
+
+        if ( client_runtime->total_send % 100 == 0 ) {
+            notice_log("\n-------- Session(%d) start to write %d/%d files", udb->id, client_runtime->total_send, client->total_files);
         }
 
-        udcli->total_send++;
-        reset_udclient_key_by_client(udcli, udcli->total_send);
-        write_file(udcli);
+        client_runtime->total_send++;
+        write_file(udb);
+
     } else {
-        notice_log("\n===== Session(%d) Write %d files done. =====\n", udcli->id, udcli->total_files);
-        pthread_cond_signal(&udcli->main_pending_cond);
+
+        notice_log("\n===== Session(%d) Write %d files done. =====\n", udb->id, client->total_files);
+
+        udb_done(udb);
     }
 }
 
 /* ==================== test_after_write_finished() ==================== */ 
-int test_after_write_finished(udclient_t *udcli, message_t *response) 
+int test_after_write_finished(udb_t *udb, message_t *response) 
 {
-    trace_log("after_write_finished() key: %s object_size: %d", udcli->key, udcli->object_size);
+    trace_log("after_write_finished() key: %s object_size: %d", udb->key, udb->object_size);
 
-    try_write_next_file(udcli);
+    try_write_next_file(udb);
 
     return 0;
 }
 
 /* ==================== test_after_write_object_slice() ==================== */ 
-int test_after_write_object_slice(udclient_t *udcli, msgidx_t *msgidx)
+int test_after_write_object_slice(udb_t *udb, msgidx_t *msgidx)
 {
-    client_t *client = (client_t*)udcli->user_data;
+    PREPARE_CLIENT;
+
     trace_log("after_write_object_slice(). key: %s object_size: %d slice: %d/%d data_size:  %d", msgidx->key, msgidx->object_size, msgidx->slice_idx + 1, msgidx->nslices, msgidx->data_size);
-    if ( udcli->total_writed < udcli->object_size ){
-        char *buf = &client->file_data[udcli->total_writed];
+
+    if ( udb->total_writed < udb->object_size ){
+        char *buf = &client->file_data[udb->total_writed];
         uint32_t block_size = DEFAULT_SOCKBUF_SIZE;
 
         UNUSED int ret;
         int handle = -1;
-        ret = udclient_write_data(udcli, handle, buf, block_size);
+        ret = udb_write_data(udb, handle, buf, block_size);
     }
 
     return 0;
 }
 
 /* ==================== write_file() ==================== */ 
-static int write_file(udclient_t *udcli)
+static int write_file(udb_t *udb)
 {
-    client_t *client = (client_t*)udcli->user_data;
+    PREPARE_CLIENT;
+
+    reset_udb_key_by_client(udb, client_runtime->total_send);
 
     int handle = -1;
     char *buf = client->file_data;
     uint32_t block_size = DEFAULT_SOCKBUF_SIZE;
-    UNUSED uint32_t writed = udclient_write_data(udcli, handle, buf, block_size);
-
-    /*uint32_t file_data_sended = 0;*/
-
-    /*while ( file_data_sended < client->file_size ){*/
-        /*char *buf = &client->file_data[file_data_sended];*/
-        /*uint32_t block_size = DEFAULT_SOCKBUF_SIZE;*/
-
-        /*UNUSED int ret;*/
-        /*ret = udclient_write_data(udcli, handle, buf, block_size);*/
-
-        /*file_data_sended += block_size;*/
-    /*};*/
+    UNUSED uint32_t writed = udb_write_data(udb, handle, buf, block_size);
 
     return 0;
 }
 
-void try_read_next_file(udclient_t *udcli)
+/* ==================== try_read_next_file() ==================== */ 
+void try_read_next_file(udb_t *udb)
 {
-    if ( udcli->total_recv < udcli->total_files - 1 ) {
-        if ( udcli->total_recv % 100 == 0 ) {
-            notice_log("\n-------- Session(%d) start to read %d/%d files", udcli->id, udcli->total_recv, udcli->total_files);
+    PREPARE_CLIENT;
+
+    if ( client_runtime->total_recv < client->total_files - 1 ) {
+
+        if ( client_runtime->total_recv % 100 == 0 ) {
+            notice_log("\n-------- Session(%d) start to read %d/%d files", udb->id, client_runtime->total_recv, client->total_files);
         }
-        udcli->total_recv++;
-        reset_udclient_key_by_client(udcli, udcli->total_recv);
-        read_file(udcli);
+
+        client_runtime->total_recv++;
+        read_file(udb);
+
     } else {
-        notice_log("\n===== Session(%d) Read %d files done. =====\n", udcli->id, udcli->total_files);
-        pthread_cond_signal(&udcli->main_pending_cond);
+
+        notice_log("\n===== Session(%d) Read %d files done. =====\n", udb->id, client->total_files);
+
+        udb_done(udb);
     }
 }
 
 /* ==================== test_after_read_finished() ==================== */ 
-int test_after_read_finished(udclient_t *udcli, message_t *response) 
+int test_after_read_finished(udb_t *udb, message_t *response) 
 {
-    trace_log("after_read_finished() key: %s object_size: %d", udcli->key, udcli->object_size);
+    trace_log("after_read_finished() key: %s object_size: %d", udb->key, udb->object_size);
 
-    try_read_next_file(udcli);
+    try_read_next_file(udb);
 
     return 0;
 }
 
 /* ==================== test_after_read_object_slice() ==================== */ 
-int test_after_read_object_slice(udclient_t *udcli, msgidx_t *msgidx)
+int test_after_read_object_slice(udb_t *udb, msgidx_t *msgidx)
 {
     trace_log("after_read_object_slice(). key: %s object_size: %d slice: %d/%d data_size:  %d", msgidx->key, msgidx->object_size, msgidx->slice_idx + 1, msgidx->nslices, msgidx->data_size);
 
     if ( msgidx->message->result != RESULT_SUCCESS ){
-        try_read_next_file(udcli);
+        try_read_next_file(udb);
     }
 
     return 0;
 }
 
 /* ==================== read_file() ==================== */ 
-static int read_file(udclient_t *udcli)
+static int read_file(udb_t *udb)
 {
+    PREPARE_CLIENT;
+
+    reset_udb_key_by_client(udb, client_runtime->total_recv);
+
     int handle = -1;
     char *buf = NULL;
     uint32_t block_size = 0;
-    udclient_read_data(udcli, handle, buf, block_size);
+    udb_read_data(udb, handle, buf, block_size);
 
     return 0;
 }
 
-/* ==================== test_after_delete_finished() ==================== */ 
-int test_after_delete_finished(udclient_t *udcli, message_t *response) 
+/* ==================== try_delete_next_file() ==================== */ 
+void try_delete_next_file(udb_t *udb)
 {
-    trace_log("after_delete_finished() key:%s", udcli->key);
+    PREPARE_CLIENT;
 
-    if ( udcli->total_del < udcli->total_files - 1) {
-        if ( udcli->total_del % 100 == 0 ) {
-            notice_log("\n-------- Session(%d) start to delete %d/%d files", udcli->id, udcli->total_del, udcli->total_files);
+    if ( client_runtime->total_del < client->total_files - 1) {
+
+        if ( client_runtime->total_del % 100 == 0 ) {
+            notice_log("\n-------- Session(%d) start to delete %d/%d files", udb->id, client_runtime->total_del, client->total_files);
         }
-        udcli->total_del++;
-        reset_udclient_key_by_client(udcli, udcli->total_del);
-        delete_file(udcli);
+
+        client_runtime->total_del++;
+        delete_file(udb);
+
     } else {
-        notice_log("\n===== Session(%d) Delete %d files done. =====\n", udcli->id, udcli->total_files);
-        pthread_cond_signal(&udcli->main_pending_cond);
+
+        notice_log("\n===== Session(%d) Delete %d files done. =====\n", udb->id, client->total_files);
+
+        udb_done(udb);
     }
+}
+
+/* ==================== test_after_delete_finished() ==================== */ 
+int test_after_delete_finished(udb_t *udb, message_t *response) 
+{
+    trace_log("after_delete_finished() key:%s", udb->key);
+
+    try_delete_next_file(udb);
+
     return 0;
 }
 
 /* ==================== delete_file() ==================== */ 
-static int delete_file(udclient_t *udcli)
+static int delete_file(udb_t *udb)
 {
-    udclient_delete_data(udcli);
+    PREPARE_CLIENT;
+
+    reset_udb_key_by_client(udb, client_runtime->total_del);
+
+    udb_delete_data(udb);
+
     return 0;
 }
 
-int test_first_file(udclient_t *udcli)
+int test_first_file(udb_t *udb)
 {
-    reset_udclient_key_by_client(udcli, 0);
+    PREPARE_CLIENT;
 
-    client_t *client = (client_t*)udcli->user_data;
+    if ( client->op_code == MSG_OP_WRITE ) {
+        write_file(udb);
 
-    if ( udcli->op_code == MSG_OP_WRITE ) {
-        udcli->total_send = 0;
-        udcli->object_size = client->file_size;
-        write_file(udcli);
+    } else if ( client->op_code == MSG_OP_READ ) {
+        read_file(udb);
 
-    } else if ( udcli->op_code == MSG_OP_READ ) {
-        udcli->total_recv = 0;
-        read_file(udcli);
-
-    } else if ( udcli->op_code == MSG_OP_DEL ) {
-        delete_file(udcli);
+    } else if ( client->op_code == MSG_OP_DEL ) {
+        delete_file(udb);
 
     } else {
-        warning_log("Uknown op_code: %d", udcli->op_code);
+        warning_log("Uknown op_code: %d", client->op_code);
     }
 
     return 0;
 }
 
-int test_on_ready(udclient_t *udcli)
+int test_on_ready(udb_t *udb)
 {
-    test_first_file(udcli);
-    return 0;
-}
-
-int test_init(udclient_t *udcli)
-{
-    udcli->on_ready = test_on_ready;
-    udcli->after_write_finished = test_after_write_finished;
-    udcli->after_read_finished = test_after_read_finished;
-    udcli->after_delete_finished = test_after_delete_finished;
-    
-    udcli->after_write_object_slice = test_after_write_object_slice;
-    udcli->after_read_object_slice = test_after_read_object_slice;
-
+    test_first_file(udb);
     return 0;
 }
 
 /* ==================== test() ==================== */ 
-int test(udclient_t *udcli)
+int test(udb_t *udb)
 {
-    test_first_file(udcli);
-
-    /*char file_name[NAME_MAX];*/
-    /*get_path_file_name(client->filename, file_name, NAME_MAX - 1);*/
-    
-    /*uint32_t i;*/
-    /*for ( i = 0 ; i < udcli->total_files ; i++ ){*/
-        /*char key[NAME_MAX];*/
-        /*sprintf(key, "/test/%s/%04d/%08d-%s", client->key_prefix, udcli->id, udcli->start_index + i, file_name);*/
-
-        /*if ( udcli->op_code == MSG_OP_WRITE ) {*/
-            /*udcli->object_size = udcli->file_size;*/
-            /*write_file(udcli);*/
-
-        /*} else if ( udcli->op_code == MSG_OP_READ ) {*/
-            /*read_file(udcli);*/
-
-        /*} else if ( udcli->op_code == MSG_OP_DEL ) {*/
-            /*delete_file(udcli);*/
-
-        /*} else {*/
-            /*warning_log("Uknown op_code: %d", udcli->op_code);*/
-        /*}*/
-
-    /*}*/
-
+    test_first_file(udb);
 
     return 0;
 }
 
+/* ==================== test_run_task() ==================== */ 
 int test_run_task(client_t *client, int id)
 {
-
-    udclient_t *udcli = udclient_new((void*)client);
-
-    test_init(udcli);
-    udcli->id = id;
-    udcli->op_code = client->op_code;
-    udcli->start_index = client->start_index;
-    udcli->total_files = client->total_files;
-
-
-	pthread_mutex_init(&udcli->main_pending_lock, NULL);
-	pthread_cond_init(&udcli->main_pending_cond, NULL);
-
-    udclient_run(udcli);
-
     int ret = 0;
-    /*ret = test(udcli);*/
 
-    pthread_mutex_lock(&udcli->main_pending_lock);
-    pthread_cond_wait(&udcli->main_pending_cond, &udcli->main_pending_lock);
-    pthread_mutex_unlock(&udcli->main_pending_lock);
+    client_runtime_t *client_runtime = client_runtime_new(client);
 
-    pthread_mutex_destroy(&udcli->main_pending_lock);
-    pthread_cond_destroy(&udcli->main_pending_cond);
+    udb_t *udb = udb_new((void*)client_runtime);
 
-    udclient_free(udcli);
+    udb->on_ready = test_on_ready;
+    udb->after_write_finished = test_after_write_finished;
+    udb->after_read_finished = test_after_read_finished;
+    udb->after_delete_finished = test_after_delete_finished;
+    udb->after_write_object_slice = test_after_write_object_slice;
+    udb->after_read_object_slice = test_after_read_object_slice;
+
+    ret = udb_do(udb);
+
+    udb_free(udb);
 
     return ret;
 }
