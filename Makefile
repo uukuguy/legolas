@@ -647,5 +647,10 @@ rm_result:
 	@${MAKE} --no-print-directory check_result
 
 valgrind:
-	valgrind --leak-check=summary --xml=yes --xml-file="valgrind.xml" bin/legolasd
+	valgrind --tool=memcheck --leak-check=summary --xml=yes --xml-file="valgrind.xml" bin/legolasd
+
+test-p:
+	valgrind --tool=callgrind  bin/legolas --write --threads 10 --count 10000 --server 127.0.0,1 data/samples/32K.dat
+
+#--separate-threads=yes
 
