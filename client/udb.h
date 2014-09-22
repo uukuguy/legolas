@@ -14,6 +14,7 @@
 #include <stdint.h>
 #include <limits.h>
 #include <pthread.h>
+#include "legolas.h"
 
 typedef struct list list;
 typedef struct udb_t udb_t;
@@ -29,6 +30,9 @@ typedef int (*after_write_object_slice_cb)(udb_t *udb, msgidx_t *msgidx);
 typedef int (*after_read_object_slice_cb)(udb_t *udb, msgidx_t *msgidx);
 
 typedef struct udb_t {
+    const char *ip;
+    int port;
+
     uint32_t id;
     pthread_t tid;
     uint32_t err;
@@ -73,24 +77,35 @@ typedef struct udb_t {
 #define udb_get_user_data(udb) udb->user_data
 #define udb_get_op_code(udb) udb->op_code
 
-int udb_do(udb_t *udb);
+int udb_is_write_done(udb_t *udb);
+uint32_t udb_get_writed_bytes(udb_t *udb);
+uint32_t udb_get_readed_bytes(udb_t *udb);
+
+int udb_do(udb_t *udb, on_ready_cb on_ready);
 void udb_done(udb_t *udb);
 
-udb_t *udb_new(void *user_data);
+udb_t *udb_new(const char *ip, int port, void *user_data);
 void udb_free(udb_t *udb);
 int udb_run(udb_t *udb);
 void udb_exit(udb_t *udb);
 
 int udb_open_data(udb_t *udb, const char *key);
-int udb_write_data(udb_t *udb, int handle, void *data, uint32_t len);
-int udb_read_data(udb_t *udb, int handle, void *data, uint32_t len);
+int udb_write_data(udb_t *udb, int handle, void *data, uint32_t len, 
+        after_write_object_slice_cb after_write_object_slice, 
+        after_write_finished_cb after_write_finished);
+
+int udb_append_data(udb_t *udb, int handle, void *data, uint32_t len);
+
+int udb_read_data(udb_t *udb, int handle, 
+        after_read_object_slice_cb after_read_object_slice,
+        after_read_finished_cb after_read_finished);
+
 int udb_close_data(udb_t *udb, int handle);
-int udb_delete_data(udb_t *udb);
+int udb_delete_data(udb_t *udb, after_delete_finished_cb after_delete_finished);
 
 
 
 #define udb(session) (udb_t*)(session->parent)
-#define udb_USER_DATA(session) (void*)(session->user_data)
 
 #endif /* __udb_H__ */
 

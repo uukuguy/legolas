@@ -57,6 +57,9 @@ int start_session_handle(session_handle_args_t *args)
 
 int session_handle_message(session_t *session, message_t *message)
 {
+    server_t *server = server(session);
+    uint32_t total_requests = __sync_add_and_fetch(&server->total_requests, 1);
+
     int ret = 0;
 
     if ( message->msg_type == MSG_TYPE_REQUEST ){
@@ -101,6 +104,12 @@ int session_handle_message(session_t *session, message_t *message)
                 } break;
         };
     } else if ( message->msg_type == MSG_TYPE_RESPONSE ) {
+    }
+
+    if ( total_requests >= 10000 ) {
+        notice_log("Stop! server->total_requests(%d) >= 10000", total_requests);
+        uv_loop_t *loop = &(server->connection.loop);
+        uv_stop(loop);
     }
 
     return ret;

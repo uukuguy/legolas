@@ -32,8 +32,8 @@ typedef struct session_t session_t;
 typedef struct storage_file_t storage_file_t;
 typedef struct object_t object_t;
 
-#define USE_CGREENLET
-//#define USE_LIBCORO
+//#define USE_CGREENLET
+#define USE_LIBCORO
 
 //typedef struct coroutine_t coroutine_t;
 /* -------- cgreenlet -------- */
@@ -195,7 +195,7 @@ typedef struct session_t{
 #define session_udp(session) \
     session->connection.handle.udp
 
-extern session_t* session_new(void *parent, session_callbacks_t *callbacks, void *user_data);
+extern session_t* session_new(void *parent, const session_callbacks_t *callbacks, void *user_data);
 extern void session_free(session_t *session);
 extern int session_accept(session_t *session, uv_tcp_t *parent_tcp);
 

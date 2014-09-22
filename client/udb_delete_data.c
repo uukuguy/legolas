@@ -116,3 +116,15 @@ int do_delete_request(session_t *session)
     return 0;
 }
 
+/* ==================== udb_delete_data() ==================== */ 
+int udb_delete_data(udb_t *udb, after_delete_finished_cb after_delete_finished)
+{
+    if ( after_delete_finished != NULL ){
+        udb->after_delete_finished = after_delete_finished;
+    }
+
+    session_t *session = udb->session;
+
+    return do_delete_request(session);
+}
+

@@ -81,6 +81,7 @@ server_t *server_new(void)
     memset(server, 0, sizeof(server_t));
 
     server->cached_bytes = 0;
+    server->total_requests = 0;
 
     connection_init(&server->connection);
 

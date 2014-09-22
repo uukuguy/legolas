@@ -106,6 +106,9 @@ libtool libjson0-dev libbz2-dev uuid-dev libsnappy-dev
 from IPython.external.mathjax import install_mathjax
 install_mathjax()
 
+valgrind kcachegrind graphviz valkyrie
+eclipse-cdt-valgrind eclipse-cdt-valgrind-remote eclipse-cdt-profiling-framework
+
 $ ipython notebook
 
 google-chrome-stable_current_amd64.deb
@@ -119,4 +122,72 @@ google-chrome-stable_current_amd64.deb
     ./test.sh 1 1 0 10000 127.0.0.1 32K write
        or
     ./bin/legolas --write --threads 1 --start 0 --count 10000 --server 127.0.0.1 data/samples/32K.dat
+
+
+How to use legolas client?
+
+
+    udb_t *udb = udb_new("127.0.0.1", DEFAULT_PORT, (void*)user_data);
+    int ret = udb_do(udb, on_ready);
+    udb_free(udb);
+
+    # ---------- write ----------
+    udb->key, keylen, op_code, object_size 
+    udb_write_data(udb, handle, buf, buf_size, after_write_object_slice, after_write_finished);
+
+    int after_write_object_slice(udb_t *udb, msgidx_t *msgidx) {
+        if ( !udb_is_write_done(udb) ){
+            uint32_t total_writed = udb_get_writed_bytes(udb);
+
+            UNUSED int ret;
+            int handle = -1;
+            ret = udb_append_data(udb, handle, buf, buf_size);
+            return ret;
+        }
+
+        return 0;
+    }
+
+    int after_write_finished(udb_t *udb, message_t *response) {
+        try_write_next_file(udb);
+
+        return 0;
+    }
+
+    # ---------- read ----------
+    udb->key, keylen, op_code 
+    udb_read_data(udb, handle, after_read_object_slice, after_read_finished);
+    
+
+    int test_after_read_object_slice(udb_t *udb, msgidx_t *msgidx) {
+        if ( msgidx->message->result != RESULT_SUCCESS ){
+            try_read_next_file(udb);
+        } else {
+            msgidx->key,
+            msgidx->data,
+            msgidx->data_size,
+
+            msgidx->object_size,
+            msgidx->nslices,
+            msgidx->slice_idx
+        }
+
+        return 0;
+    }
+
+    int after_read_finished(udb_t *udb, message_t *response) {
+        try_read_next_file(udb);
+
+        return 0;
+    }
+
+    # ---------- delete ----------
+    udb_delete_data(udb, after_delete_finished);
+
+    int after_delete_finished(udb_t *udb, message_t *response) {
+        try_delete_next_file(udb);
+
+        return 0;
+    }
+
 

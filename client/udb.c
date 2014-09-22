@@ -20,9 +20,27 @@
 
 static uint32_t udb_id = 0;
 
-int udb_do(udb_t *udb)
+int udb_is_write_done(udb_t *udb)
+{
+    return udb->total_writed < udb->object_size ? 0 : 1;
+}
+
+uint32_t udb_get_writed_bytes(udb_t *udb)
+{
+    return udb->total_writed;
+}
+
+uint32_t udb_get_readed_bytes(udb_t *udb)
+{
+    return udb->total_readed;
+}
+
+int udb_do(udb_t *udb, on_ready_cb on_ready)
 {
     assert(udb != NULL);
+    if ( on_ready != NULL ){
+        udb->on_ready = on_ready;
+    }
 
     int ret = 0;
 
@@ -48,13 +66,15 @@ void udb_done(udb_t *udb)
 }
 
 /* ==================== udb_new() ==================== */ 
-udb_t *udb_new(void *user_data)
+udb_t *udb_new(const char *ip, int port, void *user_data)
 {
     udb_t *udb = (udb_t*)zmalloc(sizeof(udb_t));
     memset(udb, 0, sizeof(udb_t));
 
     __sync_add_and_fetch(&udb_id, 1);
     udb->id = udb_id;
+    udb->ip = ip;
+    udb->port = port;
 
     udb->user_data = user_data;
     udb->writing_objects = listCreate();
@@ -91,34 +111,6 @@ int udb_open_data(udb_t *udb, const char *key)
 int udb_close_data(udb_t *udb, int handle)
 {
     return -1;
-}
-
-int do_write_request(session_t *session, char *data, uint32_t data_size);
-/* ==================== udb_write_data() ==================== */ 
-int udb_write_data(udb_t *udb, int handle, void *data, uint32_t len)
-{
-    session_t *session = udb->session;
-
-    return do_write_request(session, data, len);
-}
-
-int do_read_request(session_t *session);
-/* ==================== udb_read_data() ==================== */ 
-int udb_read_data(udb_t *udb, int handle, void *data, uint32_t len)
-{
-    session_t *session = udb->session;
-    
-    return do_read_request(session);
-}
-
-int do_delete_request(session_t *session);
-/* ==================== udb_delete_data() ==================== */ 
-int udb_delete_data(udb_t *udb)
-{
-
-    session_t *session = udb->session;
-
-    return do_delete_request(session);
 }
 
 int udb_handle_write_response(session_t *session, message_t *response);
@@ -204,40 +196,38 @@ void udb_session_destroy(session_t *session)
 {
 }
 
-static session_callbacks_t udb_callbacks = {
-    .idle_cb = udb_session_idle_cb,
-    .timer_cb = udb_session_timer_cb,
-    .async_cb = udb_session_async_cb,
-    .is_idle = udb_session_is_idle,
-    .handle_message = udb_handle_message,
-    .session_init = udb_session_init,
-    .session_destroy = udb_session_destroy,
-
-    .on_connect = NULL,
-
-    .consume_sockbuf = NULL,
-    .handle_read_response = NULL,
-};
-
 /* ==================== udb_loop() ==================== */ 
 static int udb_loop(udb_t *udb)
 {
     int r;
 
-    /* FIXME */
-    const char *ip = "127.0.0.1";
-    int port = DEFAULT_PORT;
-    session_callbacks_t *callbacks = &udb_callbacks;
 
     /* -------- server_addr -------- */
     struct sockaddr_in server_addr;
-    r = uv_ip4_addr(ip, port, &server_addr);
+    r = uv_ip4_addr(udb->ip, udb->port, &server_addr);
     if ( r ) {
         error_log("uv_ip4_addr() failed.");
         return -1;
     }
 
     /* ---------- New session ---------- */
+    static session_callbacks_t udb_callbacks = {
+        .idle_cb = udb_session_idle_cb,
+        .timer_cb = udb_session_timer_cb,
+        .async_cb = udb_session_async_cb,
+        .is_idle = udb_session_is_idle,
+        .handle_message = udb_handle_message,
+        .session_init = udb_session_init,
+        .session_destroy = udb_session_destroy,
+
+        .on_connect = NULL,
+
+        .consume_sockbuf = NULL,
+        .handle_read_response = NULL,
+    };
+
+    const session_callbacks_t *callbacks = &udb_callbacks;
+
     session_t *session = session_new((void*)udb, callbacks, NULL);
     udb->session = session;
 

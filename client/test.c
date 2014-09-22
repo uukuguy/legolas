@@ -40,8 +40,6 @@ void reset_udb_key_by_client(udb_t *udb, uint32_t total_processed)
 
     udb->op_code = client->op_code;
     udb->object_size = client->file_size;
-    udb->total_writed = 0;
-    udb->total_readed = 0;
 }
 
 static int write_file(udb_t *udb);
@@ -87,13 +85,14 @@ int test_after_write_object_slice(udb_t *udb, msgidx_t *msgidx)
 
     trace_log("after_write_object_slice(). key: %s object_size: %d slice: %d/%d data_size:  %d", msgidx->key, msgidx->object_size, msgidx->slice_idx + 1, msgidx->nslices, msgidx->data_size);
 
-    if ( udb->total_writed < udb->object_size ){
-        char *buf = &client->file_data[udb->total_writed];
+    if ( !udb_is_write_done(udb) ){
+        uint32_t total_writed = udb_get_writed_bytes(udb);
+        char *buf = &client->file_data[total_writed];
         uint32_t block_size = DEFAULT_SOCKBUF_SIZE;
 
         UNUSED int ret;
         int handle = -1;
-        ret = udb_write_data(udb, handle, buf, block_size);
+        ret = udb_append_data(udb, handle, buf, block_size);
     }
 
     return 0;
@@ -109,7 +108,7 @@ static int write_file(udb_t *udb)
     int handle = -1;
     char *buf = client->file_data;
     uint32_t block_size = DEFAULT_SOCKBUF_SIZE;
-    UNUSED uint32_t writed = udb_write_data(udb, handle, buf, block_size);
+    UNUSED uint32_t writed = udb_write_data(udb, handle, buf, block_size, test_after_write_object_slice, test_after_write_finished);
 
     return 0;
 }
@@ -166,9 +165,7 @@ static int read_file(udb_t *udb)
     reset_udb_key_by_client(udb, client_runtime->total_recv);
 
     int handle = -1;
-    char *buf = NULL;
-    uint32_t block_size = 0;
-    udb_read_data(udb, handle, buf, block_size);
+    udb_read_data(udb, handle, test_after_read_object_slice, test_after_read_finished);
 
     return 0;
 }
@@ -212,7 +209,7 @@ static int delete_file(udb_t *udb)
 
     reset_udb_key_by_client(udb, client_runtime->total_del);
 
-    udb_delete_data(udb);
+    udb_delete_data(udb, test_after_delete_finished);
 
     return 0;
 }
@@ -237,19 +234,19 @@ int test_first_file(udb_t *udb)
     return 0;
 }
 
-int test_on_ready(udb_t *udb)
-{
-    test_first_file(udb);
-    return 0;
-}
+/*int test_on_ready(udb_t *udb)*/
+/*{*/
+    /*test_first_file(udb);*/
+    /*return 0;*/
+/*}*/
 
-/* ==================== test() ==================== */ 
-int test(udb_t *udb)
-{
-    test_first_file(udb);
+/*[> ==================== test() ==================== <] */
+/*int test(udb_t *udb)*/
+/*{*/
+    /*test_first_file(udb);*/
 
-    return 0;
-}
+    /*return 0;*/
+/*}*/
 
 /* ==================== test_run_task() ==================== */ 
 int test_run_task(client_t *client, int id)
@@ -258,16 +255,16 @@ int test_run_task(client_t *client, int id)
 
     client_runtime_t *client_runtime = client_runtime_new(client);
 
-    udb_t *udb = udb_new((void*)client_runtime);
+    udb_t *udb = udb_new("127.0.0.1", DEFAULT_PORT, (void*)client_runtime);
 
-    udb->on_ready = test_on_ready;
-    udb->after_write_finished = test_after_write_finished;
-    udb->after_read_finished = test_after_read_finished;
-    udb->after_delete_finished = test_after_delete_finished;
-    udb->after_write_object_slice = test_after_write_object_slice;
-    udb->after_read_object_slice = test_after_read_object_slice;
+    /*udb->on_ready = test_on_ready;*/
+    /*udb->after_write_finished = test_after_write_finished;*/
+    /*udb->after_read_finished = test_after_read_finished;*/
+    /*udb->after_delete_finished = test_after_delete_finished;*/
+    /*udb->after_write_object_slice = test_after_write_object_slice;*/
+    /*udb->after_read_object_slice = test_after_read_object_slice;*/
 
-    ret = udb_do(udb);
+    ret = udb_do(udb, test_first_file);
 
     udb_free(udb);
 

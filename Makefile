@@ -9,7 +9,7 @@ BASE_OBJS += base/zmalloc.o base/work.o base/md5.o base/byteblock.o base/filesys
 BASE_OBJS += base/skiplist.o base/adlist.o base/threadpool.o base/crc32.o base/http_parser.o
 
 #CFLAGS_UCONTEXT=-D_XOPEN_SOURCE # ucontext.h error: The deprecated ucontext routines require _XOPEN_SOURCE to be defined.
-COMMON_CFLAGS = -ggdb -fPIC -m64 -Wall -D_GNU_SOURCE -I./include -I./legolas ${CFLAGS_UCONTEXT} 
+COMMON_CFLAGS = -pg -ggdb -fPIC -m64 -Wall -D_GNU_SOURCE -I./include -I./legolas ${CFLAGS_UCONTEXT} 
 
 KVDB_OBJS = base/kvdb.o 
 
@@ -449,7 +449,7 @@ FINAL_CFLAGS = -std=c11 -Wstrict-prototypes \
 #-DUSE_PRCTL
 FINAL_CXXFLAGS=${COMMON_CFLAGS} ${CXXFLAGS}
 
-FINAL_LDFLAGS = -L./lib 
+FINAL_LDFLAGS = -pg -L./lib 
 ifeq (${UNAME}, Linux)
 FINAL_LDFLAGS += -Wl,-rpath=../lib,-rpath=./lib
 endif
@@ -646,11 +646,33 @@ rm_result:
 	ln -s ../data/2M.dat result/test.dat
 	@${MAKE} --no-print-directory check_result
 
-valgrind:
-	valgrind --tool=memcheck --leak-check=summary --xml=yes --xml-file="valgrind.xml" bin/legolasd
+#VALGRIND_PROGRAME = bin/legolas --write --threads 10 --count 1000 --server 127.0.0,1 data/samples/32K.dat
 
-test-p:
-	valgrind --tool=callgrind  bin/legolas --write --threads 10 --count 10000 --server 127.0.0,1 data/samples/32K.dat
+VALGRIND_PROGRAME = bin/legolasd
+
+#--num-callers=8 
+
+memcheck:
+	valgrind --tool=memcheck --log-file=memcheck.log -v --leak-check=full --show-reachable=yes --track-origins=yes --max-stackframe=10644216 ${VALGRIND_PROGRAME}
+
+#--leak-resolution=low  
+#--num-callers=8
+#--xml=yes --xml-file="memcheck.xml" 
+
+callgrind:
+	valgrind --tool=callgrind  --callgrind-out-file=callgrind.log ${VALGRIND_PROGRAME}
 
 #--separate-threads=yes
+
+annotate:
+	callgrind_annotate --inclusive=yes --tree=both --auto=yes callgrind.log > callgrind-out.log && \
+	gprof2dot.py -f callgrind callgrind.log | dot -Tpng -o callgrind.png && \
+	gprof ./bin/legolas | gprof2dot.py | dot -Tpng -o gprof.png
+
+#--separate-threads=yes
+
+helgrind:
+
+massif:
+
 

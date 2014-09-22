@@ -189,3 +189,22 @@ int do_read_request(session_t *session)
 }
 
 
+/* ==================== udb_read_data() ==================== */ 
+int udb_read_data(udb_t *udb, int handle, 
+        after_read_object_slice_cb after_read_object_slice,
+        after_read_finished_cb after_read_finished)
+{
+    if ( after_read_object_slice != NULL ){
+        udb->after_read_object_slice = after_read_object_slice;
+    }
+
+    if ( after_read_finished != NULL ){
+        udb->after_read_finished = after_read_finished;
+    }
+    udb->total_readed = 0;
+
+    session_t *session = udb->session;
+    
+    return do_read_request(session);
+}
+

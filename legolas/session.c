@@ -182,7 +182,7 @@ int create_session_coroutine(session_t *session);
 int destroy_session_coroutine(session_t *session);
 
 /* ==================== session_new() ==================== */ 
-session_t* session_new(void *parent, session_callbacks_t *callbacks, void *user_data)
+session_t* session_new(void *parent, const session_callbacks_t *callbacks, void *user_data)
 {
     static uint32_t seq_no = 0;
 

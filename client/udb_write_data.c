@@ -199,3 +199,29 @@ int do_write_request(session_t *session, char *data, uint32_t data_size)
     return writed;
 }
 
+/* ==================== udb_append_data() ==================== */ 
+int udb_append_data(udb_t *udb, int handle, void *data, uint32_t len)
+{
+    session_t *session = udb->session;
+
+    return do_write_request(session, data, len);
+}
+
+/* ==================== udb_write_data() ==================== */ 
+int udb_write_data(udb_t *udb, int handle, void *data, uint32_t len, 
+        after_write_object_slice_cb after_write_object_slice, 
+        after_write_finished_cb after_write_finished)
+{
+    if ( after_write_object_slice != NULL ){
+        udb->after_write_object_slice = after_write_object_slice;
+    }
+
+    if ( after_write_finished != NULL ){
+        udb->after_write_finished = after_write_finished;
+    }
+
+    udb->total_writed = 0;
+
+    return udb_append_data(udb, handle, data, len);
+}
+

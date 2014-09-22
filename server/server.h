@@ -45,11 +45,12 @@ typedef struct server_t {
     pthread_mutex_t send_pending_lock;
     pthread_cond_t send_pending_cond;
 
+    uint32_t total_requests;
 
 } server_t;
 
-#define SERVER(session) \
-    (server_t*)(session->parent)
+#define SERVER(session) (server_t*)(session->parent)
+#define server(session) (server_t*)(session->parent)
 
 server_t *server_new(void);
 void server_free(server_t *server);
