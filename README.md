@@ -106,7 +106,7 @@ libtool libjson0-dev libbz2-dev uuid-dev libsnappy-dev
 from IPython.external.mathjax import install_mathjax
 install_mathjax()
 
-valgrind kcachegrind graphviz valkyrie
+valgrind kcachegrind graphviz valkyrie alleyoop
 eclipse-cdt-valgrind eclipse-cdt-valgrind-remote eclipse-cdt-profiling-framework
 
 $ ipython notebook

@@ -18,6 +18,8 @@
 #include "server.h"
 #include "session.h"
 
+/*#define STORAGE_KVDB*/
+
 #define VNODE_KVDB_QUEUE_INTERVAL 1 /* ms */
 
 void vnode_kvdb_queue_handle_write(work_queue_t *wq)
@@ -64,17 +66,20 @@ vnode_t *vnode_new(char *root_dir, uint32_t id)
     char dbpath[NAME_MAX];
     sprintf(dbpath, "%s/manifest.db", vnode->root_dir);
 
+#ifdef STORAGE_KVDB
     kvdb_t *kvdb = kvdb_open("lmdb", dbpath); 
     /*kvdb_t *kvdb = kvdb_open("rocksdb", dbpath); */
     /*kvdb_t *kvdb = kvdb_open("leveldb", dbpath); */
     /*kvdb_t *kvdb = kvdb_open("lsm", dbpath); */
 
-    if ( kvdb == NULL ){
-        error_log("kvdb_init() failed. vnode(%d) dir:%s", id, vnode->root_dir);
-        zfree(vnode);
-        return NULL;
-    }
+    /*if ( kvdb == NULL ){*/
+        /*error_log("kvdb_init() failed. vnode(%d) dir:%s", id, vnode->root_dir);*/
+        /*zfree(vnode);*/
+        /*return NULL;*/
+    /*}*/
     vnode->kvdb = kvdb;
+#endif
+
 
     vnode->caching_objects = object_queue_new(object_compare_md5_func);
 
@@ -143,5 +148,44 @@ datazone_t *get_datazone_by_object(vnode_t *vnode, object_t *object)
     datazone = vnode->datazones[d2];
 
     return datazone;
+}
+
+/* ==================== vnode_write_to_file() ==================== */ 
+int vnode_write_to_file(vnode_t *vnode, object_t *object)
+{
+    int logFile = vnode->logFile;
+    if ( logFile == 0 ) {
+        char log_filename[NAME_MAX];
+        sprintf(log_filename, "%s/vnode.log", vnode->root_dir);
+        logFile = open(log_filename, O_APPEND | O_CREAT | O_WRONLY, 0640);
+        vnode->logFile = logFile;
+    }
+
+    object_put_into_file(logFile, object);
+
+    return 0;
+}
+
+/* ==================== vnode_write_to_kvdb() ==================== */ 
+int vnode_write_to_kvdb(vnode_t *vnode, object_t *object)
+{
+    /* FIXME */
+    object_put_into_kvdb(vnode->kvdb, object);
+
+    return 0;
+}
+
+/* ==================== vnode_write_to_storage() ==================== */ 
+int vnode_write_to_storage(vnode_t *vnode, object_t *object)
+{
+    int ret = 0;
+
+#ifdef STORAGE_KVDB
+    ret = vnode_write_to_kvdb(vnode, object);
+#else
+    ret = vnode_write_to_file(vnode, object);
+#endif
+
+    return ret;
 }
 

@@ -104,31 +104,6 @@ object_t *session_write_to_cache(session_t *session, msgidx_t *msgidx){
 
 }
 
-/* ==================== session_write_to_kvdb() ==================== */ 
-int session_write_to_kvdb(vnode_t *vnode, object_t *object)
-{
-    /* FIXME */
-    object_put_into_kvdb(vnode->kvdb, object);
-
-    return 0;
-}
-
-/* ==================== session_write_to_file() ==================== */ 
-int session_write_to_file(vnode_t *vnode, object_t *object)
-{
-    int logFile = vnode->logFile;
-    if ( logFile == 0 ) {
-        char log_filename[NAME_MAX];
-        sprintf(log_filename, "%s/vnode.log", vnode->root_dir);
-        logFile = open(log_filename, O_APPEND | O_CREAT | O_WRONLY, 0640);
-        vnode->logFile = logFile;
-    }
-
-    object_put_into_file(logFile, object);
-
-    return 0;
-}
-
 /* ==================== session_write_to_storage() ==================== */ 
 int session_write_to_storage(session_t *session, object_t *object)
 {
@@ -136,8 +111,7 @@ int session_write_to_storage(session_t *session, object_t *object)
     assert(vnode != NULL);
 
     int ret = 0;
-    ret = session_write_to_file(vnode, object);
-    /*ret = session_write_to_kvdb(vnode, object);*/
+    ret = vnode_write_to_storage(vnode, object);
 
     object_queue_remove(vnode->caching_objects, object);
     session->total_writed = 0;
@@ -193,8 +167,6 @@ int session_handle_write(session_t *session, message_t *request)
         vnode_t *vnode = get_vnode_by_key(SERVER(session), &object->key_md5);
         enqueue_work(vnode->kvdb_queue, entry);
 
-        /*session_write_to_kvdb(session, object);*/
-        /*session_response(session, RESULT_SUCCESS);*/
 
         /*pthread_yield();*/
         /*sched_yield();*/
