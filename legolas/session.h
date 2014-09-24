@@ -32,8 +32,8 @@ typedef struct session_t session_t;
 typedef struct storage_file_t storage_file_t;
 typedef struct object_t object_t;
 
-//#define USE_CGREENLET
-#define USE_LIBCORO
+#define USE_CGREENLET
+//#define USE_LIBCORO
 
 //typedef struct coroutine_t coroutine_t;
 /* -------- cgreenlet -------- */

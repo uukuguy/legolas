@@ -15,7 +15,6 @@
 #include "object.h"
 #include "logger.h"
 #include "vnode.h"
-#include "kvdb.h"
 
 /* ==================== parse_read_request() ==================== */ 
 int parse_read_request(session_t *session, message_t *request, msgidx_t *msgidx)
@@ -41,11 +40,11 @@ int parse_read_request(session_t *session, message_t *request, msgidx_t *msgidx)
     return 0;
 }
 
-int response_object_slice(session_t *session, kvdb_t *kvdb, object_t *object, uint32_t slice_idx) 
+int response_object_slice(session_t *session, vnode_t *vnode, object_t *object, uint32_t slice_idx) 
 {
     char *buf = NULL;
     uint32_t buf_size = 0;
-    int rc = object_get_slice_from_kvdb(kvdb, object->key_md5, slice_idx, (void**)&buf, &buf_size);
+    int rc = vnode_get_slice_from_storage(vnode, object->key_md5, slice_idx, (void**)&buf, &buf_size);
     if ( rc == 0 ) {
         if ( slice_idx == object->nslices - 1 ){
             message_t *response = alloc_response_message(0, RESULT_SUCCESS);
@@ -69,7 +68,7 @@ int response_object_slice(session_t *session, kvdb_t *kvdb, object_t *object, ui
         zfree(buf);
 
     } else {
-        error_log("object_get_slice_from_kvdb() failure.");
+        error_log("vnode_get_slice_from_storage() failure.");
         rc = -1;
     }
 
@@ -97,7 +96,7 @@ int session_handle_read(session_t *session, message_t *request)
     vnode_t *vnode = get_vnode_by_key(SERVER(session), msgidx.key_md5);
     assert(vnode != NULL);
 
-    object_t *object = object_get_from_kvdb(vnode->kvdb, *msgidx.key_md5);
+    object_t *object = vnode_read_from_storage(vnode, *msgidx.key_md5);
 
     /** ----------------------------------------
      *    Response to client 
@@ -106,7 +105,7 @@ int session_handle_read(session_t *session, message_t *request)
     if ( object != NULL ){
         uint32_t n;
         for ( n = 0 ; n < object->nslices ; n++ ){
-            if ( response_object_slice(session, vnode->kvdb, object, n) != 0 ) {
+            if ( response_object_slice(session, vnode, object, n) != 0 ) {
                 warning_log("key:%s Slice %d storage failed.", msgidx.key, n);
                 ret = -1;
                 response_with_key(session, &msgidx, RESULT_ERR_STORAGE_FAILED);

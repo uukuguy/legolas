@@ -56,6 +56,7 @@ void vnode_free(vnode_t *vnode);
 datazone_t *get_datazone_by_object(vnode_t *vnode, object_t *object);
 
 int vnode_write_to_storage(vnode_t *vnode, object_t *object);
+object_t *vnode_read_from_storage(vnode_t *vnode, md5_value_t key_md5);
 
 #endif /* __VNODE_H__ */
 

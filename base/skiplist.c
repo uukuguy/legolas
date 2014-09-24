@@ -33,7 +33,10 @@
 
 #include <unistd.h>
 #include <stdlib.h>
+#include <stdint.h>
+#include <memory.h>
 #include "skiplist.h"
+#include "zmalloc.h"
 
 #ifndef OK
 #define OK 0
@@ -84,8 +87,9 @@ static skiplistnode *skiplist_new_node(skiplist *list, int node_levels) {
 		return NULL;
 
 	/* allocate memory for node + variable number of level pointers */
-	if((newnode = (skiplistnode *)malloc(sizeof(skiplistnode) + (node_levels * sizeof(skiplistnode *))))) {
-
+    uint32_t nodelen = sizeof(skiplistnode) + (node_levels * sizeof(skiplistnode *));
+	if((newnode = (skiplistnode *)zmalloc(nodelen))) {
+        memset(newnode, 0, nodelen);
 		/* initialize forward pointers */
 		for(x = 0; x < node_levels; x++)
 			newnode->forward[x] = NULL;
@@ -102,8 +106,8 @@ skiplist *skiplist_new(int max_levels, float level_probability, int allow_duplic
 	skiplist *newlist = NULL;
 
 	/* alloc memory for new list structure */
-	if((newlist = (skiplist *)malloc(sizeof(skiplist)))) {
-
+	if((newlist = (skiplist *)zmalloc(sizeof(skiplist)))) {
+        memset(newlist, 0, sizeof(skiplist));
 		/* initialize levels, etc. */
 		newlist->current_level = 0;
 		newlist->max_levels = max_levels;
@@ -158,7 +162,9 @@ int skiplist_insert(skiplist *list, void *data) {
 		}
 
 	/* initialize update vector */
-	if((update = (skiplistnode **)malloc(sizeof(skiplistnode *) * list->max_levels)) == NULL) {
+    uint32_t nlen = sizeof(skiplistnode *) * list->max_levels;
+	if((update = (skiplistnode **)zmalloc(nlen)) == NULL) {
+        memset(update, 0, nlen);
 		return SKIPLIST_ERROR_MEMORY;
 		}
 	for(x = 0; x < list->max_levels; x++)
@@ -197,7 +203,7 @@ int skiplist_insert(skiplist *list, void *data) {
 	/* create a new node */
 	if((newnode = skiplist_new_node(list, level)) == NULL) {
 		/*printf("NODE ERROR\n");*/
-		free(update);
+		zfree(update);
 		return SKIPLIST_ERROR_MEMORY;
 		}
 	newnode->data = data;
@@ -215,7 +221,7 @@ int skiplist_insert(skiplist *list, void *data) {
 	list->items++;
 
 	/* free memory */
-	free(update);
+	zfree(update);
 
 	return SKIPLIST_OK;
 	}
@@ -233,7 +239,7 @@ int skiplist_empty(skiplist *list) {
 	/* free all list nodes (but not header) */
 	for(this = list->head->forward[0]; this != NULL; this = next) {
 		next = this->forward[0];
-		free(this);
+		zfree(this);
 		}
 
 	/* reset level pointers */
@@ -263,11 +269,11 @@ int skiplist_free(skiplist **list) {
 	/* free header and all list nodes */
 	for(this = (*list)->head; this != NULL; this = next) {
 		next = this->forward[0];
-		free(this);
+		zfree(this);
 		}
 
 	/* free list structure */
-	free(*list);
+	zfree(*list);
 	*list = NULL;
 
 	return OK;
@@ -311,7 +317,7 @@ void *skiplist_pop(skiplist *list) {
 		}
 
 	/* free deleted node */
-	free(thisnode);
+	zfree(thisnode);
 
 	/* adjust items */
 	list->items--;
@@ -438,8 +444,10 @@ int skiplist_delete_first(skiplist *list, void *data) {
 		return ERROR;
 
 	/* initialize update vector */
-	if((update = (skiplistnode **)malloc(sizeof(skiplistnode *) * list->max_levels)) == NULL)
+    uint32_t nlen = sizeof(skiplistnode *) * list->max_levels;
+	if((update = (skiplistnode **)zmalloc(nlen)) == NULL)
 		return ERROR;
+    memset(update, 0, nlen);
 	for(x = 0; x < list->max_levels; x++)
 		update[x] = NULL;
 
@@ -468,7 +476,7 @@ int skiplist_delete_first(skiplist *list, void *data) {
 			}
 
 		/* free node memory */
-		free(nextnode);
+		zfree(nextnode);
 
 		/* adjust top/current level of list is necessary */
 		while(list->head->forward[top_level] == NULL && top_level > 0)
@@ -482,7 +490,7 @@ int skiplist_delete_first(skiplist *list, void *data) {
 		}
 
 	/* free memory */
-	free(update);
+	zfree(update);
 
 	return deleted;
 	}
@@ -523,8 +531,10 @@ int skiplist_delete_node(skiplist *list, void *node_ptr) {
 	data = thenode->data;
 
 	/* initialize update vector */
-	if((update = (skiplistnode **)malloc(sizeof(skiplistnode *) * list->max_levels)) == NULL)
+    uint32_t nlen = sizeof(skiplistnode *) * list->max_levels;
+	if((update = (skiplistnode **)zmalloc(nlen)) == NULL)
 		return ERROR;
+    memset(update, 0, nlen);
 	for(x = 0; x < list->max_levels; x++)
 		update[x] = NULL;
 
@@ -559,7 +569,7 @@ int skiplist_delete_node(skiplist *list, void *node_ptr) {
 			}
 
 		/* free node memory */
-		free(nextnode);
+		zfree(nextnode);
 
 		/* adjust top/current level of list is necessary */
 		while(list->head->forward[top_level] == NULL && top_level > 0)
@@ -573,7 +583,7 @@ int skiplist_delete_node(skiplist *list, void *node_ptr) {
 		}
 
 	/* free memory */
-	free(update);
+	zfree(update);
 
 	return deleted;
 	}

@@ -106,11 +106,11 @@ int session_handle_message(session_t *session, message_t *message)
     } else if ( message->msg_type == MSG_TYPE_RESPONSE ) {
     }
 
-    if ( total_requests >= 100000 ) {
-        notice_log("Stop! server->total_requests(%d) >= 10000", total_requests);
-        uv_loop_t *loop = &(server->connection.loop);
-        uv_stop(loop);
-    }
+    /*if ( total_requests >= 10000 ) {*/
+        /*notice_log("Stop! server->total_requests(%d) >= 10000", total_requests);*/
+        /*uv_loop_t *loop = &(server->connection.loop);*/
+        /*uv_stop(loop);*/
+    /*}*/
 
     return ret;
 }

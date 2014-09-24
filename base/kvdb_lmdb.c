@@ -79,8 +79,8 @@ kvdb_t *kvdb_lmdb_open(const char *dbpath)
 
     /*rc = mdb_env_open(lmdb->env, dbpath, MDB_FIXEDMAP | MDB_NOSYNC, 0640); */
 
-    rc = mdb_env_open(lmdb->env, dbpath, MDB_MAPASYNC | MDB_WRITEMAP | MDB_NOTLS , 0640); 
-    /*rc = mdb_env_open(lmdb->env, dbpath, MDB_NOSYNC, 0640); */
+    /*rc = mdb_env_open(lmdb->env, dbpath, MDB_MAPASYNC | MDB_WRITEMAP | MDB_NOTLS , 0640); */
+    rc = mdb_env_open(lmdb->env, dbpath, MDB_NOSYNC, 0640); 
     if ( rc != 0 ) {
         zfree(lmdb);
         error_log("mdb_env_open() failed.");

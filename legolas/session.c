@@ -164,7 +164,7 @@ void session_shutdown(session_t *session)
             /*if ( session->callbacks.is_idle(session)) {*/
                 session->stop = 1;
 
-                info_log("Start to close session in session_idle_cb()");
+                info_log("Start to close session in session_shutdown()");
                 uv_timer_stop(&session->timer_handle);
 
 

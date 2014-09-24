@@ -79,6 +79,7 @@ object_t *session_write_to_cache(session_t *session, msgidx_t *msgidx){
     uint32_t write_bytes = msgidx->data_size;;
 
     object_t obj;
+    memset(&obj, 0, sizeof(object_t));
     memcpy(&obj.key_md5, msgidx->key_md5, sizeof(md5_value_t));
     object_t *object = object_queue_find(caching_objects, &obj);
     /*object_t *object = object_queue_find(caching_objects, &msgidx->key_md5);*/

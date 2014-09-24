@@ -179,7 +179,8 @@ work_queue_t *init_work_queue(work_func_t fn, int interval)
 	int ret;
 	work_queue_t *wq;
 
-	wq = (work_queue_t*)zmalloc(sizeof(*wq));
+	wq = (work_queue_t*)zmalloc(sizeof(work_queue_t));
+    memset(wq, 0, sizeof(work_queue_t));
 	if (!wq)
 		return NULL;
 

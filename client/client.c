@@ -49,6 +49,11 @@ client_t *client_new(const char *ip, int port, int op_code, const char *key, con
 
 /* ==================== client_free() ==================== */ 
 void client_free(client_t *client){
+    if ( client->file_data != NULL ){
+        zfree(client->file_data);
+        client->file_data = NULL;
+    }
+
     pthread_mutex_destroy(&client->send_pending_lock);
     pthread_cond_destroy(&client->send_pending_cond);
     pthread_mutex_destroy(&client->recv_pending_lock);

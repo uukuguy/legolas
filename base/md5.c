@@ -17,6 +17,7 @@
 void *md5_init(void)
 {
     MD5_CTX *c = (MD5_CTX*)zmalloc(sizeof(MD5_CTX));
+    memset(c, 0, sizeof(MD5_CTX));
     return c;
 }
 

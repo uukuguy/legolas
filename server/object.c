@@ -46,6 +46,7 @@ object_t *object_new(const char *key, uint32_t keylen)
         object->keylen = keylen;
         memcpy(object->key, key, keylen);
 
+        /*memset(&object->key_md5, 0, sizeof(md5_value_t));*/
         md5(&object->key_md5, (uint8_t *)object->key, object->keylen);
     }
 
@@ -433,8 +434,8 @@ int object_compare_md5_func(void *first, void *second)
     if ( first == NULL ) return -1;
     if ( second == NULL ) return 1;
 
-    md5_value_t *object_first = (md5_value_t*)first;
-    md5_value_t *object_second = (md5_value_t*)second;
+    const md5_value_t *object_first = (md5_value_t*)first;
+    const md5_value_t *object_second = (md5_value_t*)second;
 
     uint64_t a0 = ((uint64_t)object_first->h0 << 32) | object_second->h1;
     uint64_t b0 = ((uint64_t)object_second->h0 << 32) | object_second->h1;

@@ -56,13 +56,22 @@ int udb_do(udb_t *udb, on_ready_cb on_ready)
     pthread_mutex_destroy(&udb->main_pending_lock);
     pthread_cond_destroy(&udb->main_pending_cond);
 
+    notice_log("udb_do() done!");
+
     return ret;
 }
 
 void udb_done(udb_t *udb)
 {
     assert(udb != NULL);
-    pthread_cond_signal(&udb->main_pending_cond);
+
+    /* FIXME */
+    /* Check is time to shutdown now? */
+    session_t *session = udb->session; 
+    session_rx_off(session);
+    session->waiting_for_close = 1;
+    session_shutdown(session);
+    /*pthread_cond_signal(&udb->main_pending_cond);*/
 }
 
 /* ==================== udb_new() ==================== */ 
@@ -88,10 +97,17 @@ udb_t *udb_new(const char *ip, int port, void *user_data)
 
 void udb_free(udb_t *udb)
 {
+    notice_log("enter udb_free().");
     if ( udb != NULL ) {
+
         if ( udb->writing_objects != NULL ){
             listRelease(udb->writing_objects);
             udb->writing_objects = NULL;
+        }
+
+        if ( udb->user_data != NULL ){
+            zfree(udb->user_data);
+            udb->user_data = NULL;
         }
 
         pthread_mutex_destroy(&udb->on_ready_lock);
@@ -194,6 +210,9 @@ int udb_session_init(session_t *session)
 /* ==================== udb_session_destroy() ==================== */ 
 void udb_session_destroy(session_t *session) 
 {
+    /* FIXME */
+    udb_t *udb = udb(session);
+    pthread_cond_signal(&udb->main_pending_cond);
 }
 
 /* ==================== udb_loop() ==================== */ 

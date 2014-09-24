@@ -8,6 +8,13 @@ BASE_OBJS = base/logger.o base/daemon.o
 BASE_OBJS += base/zmalloc.o base/work.o base/md5.o base/byteblock.o base/filesystem.o
 BASE_OBJS += base/skiplist.o base/adlist.o base/threadpool.o base/crc32.o base/http_parser.o
 
+CC = gcc
+LD = ld
+AR = ar
+#CC = nccgen -ncgcc -ncld -ncfabs
+#LD = nccld
+#AR = nccar
+
 #CFLAGS_UCONTEXT=-D_XOPEN_SOURCE # ucontext.h error: The deprecated ucontext routines require _XOPEN_SOURCE to be defined.
 COMMON_CFLAGS = -pg -ggdb -fPIC -m64 -Wall -D_GNU_SOURCE -I./include -I./legolas ${CFLAGS_UCONTEXT} 
 
@@ -646,28 +653,41 @@ rm_result:
 	ln -s ../data/2M.dat result/test.dat
 	@${MAKE} --no-print-directory check_result
 
-#VALGRIND_PROGRAME = bin/legolas --write --threads 10 --count 1000 --server 127.0.0,1 data/samples/32K.dat
+VALGRIND_PROGRAME = bin/legolas 
+VALGRIND_PROGRAME_ARGS = --write --threads 10 --count 1000 --server 127.0.0,1 data/samples/32K.dat
 
-VALGRIND_PROGRAME = bin/legolasd
+#VALGRIND_PROGRAME = bin/legolasd
+#VALGRIND_PROGRAME_ARGS =
+
 
 #--num-callers=8 
 
 memcheck:
-	valgrind --tool=memcheck --log-file=memcheck.log -v --leak-check=full --show-reachable=yes --track-origins=yes --max-stackframe=10644216 ${VALGRIND_PROGRAME}
+	valgrind -v --tool=memcheck --suppressions=legolasd.supp --log-file=memcheck.log --leak-check=full --show-reachable=yes --track-origins=yes --max-stackframe=10644216 ${VALGRIND_PROGRAME} ${VALGRIND_PROGRAME_ARGS}
+
+
+gen-supp:
+	valgrind --tool=memcheck --gen-suppressions=all --log-file=supp.log ${VALGRIND_PROGRAME} ${VALGRIND_PROGRAME_ARGS}
+
+vserver:
+	valgrind --vgdb=yes --vgdb-error=0 --tool=memcheck --suppressions=legolasd.supp --leak-check=full --show-reachable=yes --track-origins=yes --max-stackframe=10644216 ${VALGRIND_PROGRAME} ${VALGRIND_PROGRAME_ARGS}
+
+vgdb:
+	gdb -x vgdb.cmd ${VALGRIND_PROGRAME}
 
 #--leak-resolution=low  
 #--num-callers=8
 #--xml=yes --xml-file="memcheck.xml" 
 
 callgrind:
-	valgrind --tool=callgrind  --callgrind-out-file=callgrind.log ${VALGRIND_PROGRAME}
+	valgrind --tool=callgrind  --callgrind-out-file=callgrind.log ${VALGRIND_PROGRAME} ${VALGRIND_PROGRAME_ARGS}
 
 #--separate-threads=yes
 
 annotate:
 	callgrind_annotate --inclusive=yes --tree=both --auto=yes callgrind.log > callgrind-out.log && \
 	gprof2dot.py -f callgrind callgrind.log | dot -Tpng -o callgrind.png && \
-	gprof ./bin/legolas | gprof2dot.py | dot -Tpng -o gprof.png
+	gprof ${VALGRIND_PROGRAME} ./gmon.out | gprof2dot.py | dot -Tpng -o gprof.png
 
 #--separate-threads=yes
 

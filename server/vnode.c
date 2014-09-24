@@ -189,3 +189,27 @@ int vnode_write_to_storage(vnode_t *vnode, object_t *object)
     return ret;
 }
 
+object_t *vnode_read_from_storage(vnode_t *vnode, md5_value_t key_md5)
+{
+    object_t *object = NULL;
+    
+#ifdef STORAGE_KVDB
+    object = object_get_from_kvdb(vnode->kvdb, key_md5);
+#else
+#endif
+
+    return object;
+}
+
+int vnode_get_slice_from_storage(vnode_t *vnode, md5_value_t key_md5, uint32_t slice_idx, void** ppbuf, uint32_t *pbuf_size)
+{
+    int ret = -1;
+
+#ifdef STORAGE_KVDB
+    ret = object_get_slice_from_kvdb(vnode->kvdb, key_md5, slice_idx, ppbuf, pbuf_size);
+#else
+#endif
+
+    return ret;
+}
+

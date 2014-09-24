@@ -97,17 +97,23 @@ uuid-dev
 libbz2-dev
 
 g++ cscope exuberant-ctags git subversion automake cmake gnome-do vim-gtk cdargs
+
 fcitx fcitx-table-wbpy fcitx-tools fcitx-m17n fcitx-config-gtk2 fcitx-googlepinyin fcitx-ui-classic fcitx-module-dbus fcitx-module-cloudpinyin  fcitx-table-wubi
+
 libboost1.55-all-dev liblog4cxx10-dev
-python-django python-sqlite
-ipython ipython-notebook python-matplotlib ipython-qtconsole python-zmq  python-scipy
-python-tornado 
+
+python-django python-sqlite python-matplotlib ipython-qtconsole python-zmq  python-scipy python-numpy
+python-tornado ipython ipython-notebook  python-requests swig
 libtool libjson0-dev libbz2-dev uuid-dev libsnappy-dev
 from IPython.external.mathjax import install_mathjax
 install_mathjax()
 
 valgrind kcachegrind graphviz valkyrie alleyoop
 eclipse-cdt-valgrind eclipse-cdt-valgrind-remote eclipse-cdt-profiling-framework
+
+libgoogle-glog-dev libgflags-dev libgoogle-perftools4 
+
+r-base r-mathlib 
 
 $ ipython notebook
 
