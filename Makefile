@@ -3,7 +3,7 @@ CLIENT = bin/legolas
 
 LEGOLAS_OBJS = legolas/legolas.o legolas/message.o 
 
-BASE_OBJS = base/logger.o base/daemon.o 
+BASE_OBJS = base/logger.o base/daemon.o base/wu_coroutine.o
 #base/coroutine.o 
 BASE_OBJS += base/zmalloc.o base/work.o base/md5.o base/byteblock.o base/filesystem.o
 BASE_OBJS += base/skiplist.o base/adlist.o base/threadpool.o base/crc32.o base/http_parser.o
@@ -15,8 +15,10 @@ AR = ar
 #LD = nccld
 #AR = nccar
 
+#GPROF_FLAGS = -pg
+
 #CFLAGS_UCONTEXT=-D_XOPEN_SOURCE # ucontext.h error: The deprecated ucontext routines require _XOPEN_SOURCE to be defined.
-COMMON_CFLAGS = -pg -ggdb -fPIC -m64 -Wall -D_GNU_SOURCE -I./include -I./legolas ${CFLAGS_UCONTEXT} 
+COMMON_CFLAGS = ${GPROF_FLAGS} -ggdb -fPIC -m64 -Wall -D_GNU_SOURCE -I./include -I./legolas ${CFLAGS_UCONTEXT} 
 
 KVDB_OBJS = base/kvdb.o 
 
@@ -456,7 +458,7 @@ FINAL_CFLAGS = -std=c11 -Wstrict-prototypes \
 #-DUSE_PRCTL
 FINAL_CXXFLAGS=${COMMON_CFLAGS} ${CXXFLAGS}
 
-FINAL_LDFLAGS = -pg -L./lib 
+FINAL_LDFLAGS = ${GPROF_FLAGS} -L./lib 
 ifeq (${UNAME}, Linux)
 FINAL_LDFLAGS += -Wl,-rpath=../lib,-rpath=./lib
 endif
@@ -560,7 +562,9 @@ cleanall: clean clean-deps
 # ---------------- run ----------------
 
 run:
-	${SERVER} -t
+	rm -fr data/storage && \
+		rm -f memcheck.log && \
+		./bin/legolasd
 
 # ---------------- test ----------------
 
@@ -653,24 +657,24 @@ rm_result:
 	ln -s ../data/2M.dat result/test.dat
 	@${MAKE} --no-print-directory check_result
 
-VALGRIND_PROGRAME = bin/legolas 
-VALGRIND_PROGRAME_ARGS = --write --threads 10 --count 1000 --server 127.0.0,1 data/samples/32K.dat
+#VALGRIND_PROGRAME = bin/legolas 
+#VALGRIND_PROGRAME_ARGS = --write --threads 2 --count 1000 --server 127.0.0,1 data/samples/32K.dat
 
-#VALGRIND_PROGRAME = bin/legolasd
-#VALGRIND_PROGRAME_ARGS =
+VALGRIND_PROGRAME = bin/legolasd
+VALGRIND_PROGRAME_ARGS =
 
 
 #--num-callers=8 
+#--max-stackframe=1064421600
 
 memcheck:
-	valgrind -v --tool=memcheck --suppressions=legolasd.supp --log-file=memcheck.log --leak-check=full --show-reachable=yes --track-origins=yes --max-stackframe=10644216 ${VALGRIND_PROGRAME} ${VALGRIND_PROGRAME_ARGS}
-
+	valgrind -v --tool=memcheck --suppressions=legolasd.supp --log-file=memcheck.log --leak-check=full --show-reachable=yes --track-origins=yes ${VALGRIND_PROGRAME} ${VALGRIND_PROGRAME_ARGS}
 
 gen-supp:
 	valgrind --tool=memcheck --gen-suppressions=all --log-file=supp.log ${VALGRIND_PROGRAME} ${VALGRIND_PROGRAME_ARGS}
 
 vserver:
-	valgrind --vgdb=yes --vgdb-error=0 --tool=memcheck --suppressions=legolasd.supp --leak-check=full --show-reachable=yes --track-origins=yes --max-stackframe=10644216 ${VALGRIND_PROGRAME} ${VALGRIND_PROGRAME_ARGS}
+	valgrind --vgdb=yes --vgdb-error=0 --tool=memcheck --suppressions=legolasd.supp --leak-check=full --show-reachable=yes --track-origins=yes ${VALGRIND_PROGRAME} ${VALGRIND_PROGRAME_ARGS}
 
 vgdb:
 	gdb -x vgdb.cmd ${VALGRIND_PROGRAME}
@@ -686,13 +690,17 @@ callgrind:
 
 annotate:
 	callgrind_annotate --inclusive=yes --tree=both --auto=yes callgrind.log > callgrind-out.log && \
-	gprof2dot.py -f callgrind callgrind.log | dot -Tpng -o callgrind.png && \
-	gprof ${VALGRIND_PROGRAME} ./gmon.out | gprof2dot.py | dot -Tpng -o gprof.png
+	gprof2dot.py -f callgrind callgrind.log | dot -Tpng -o callgrind.png 
+
+	#gprof ${VALGRIND_PROGRAME} ./gmon.out | gprof2dot.py | dot -Tpng -o gprof.png
 
 #--separate-threads=yes
 
 helgrind:
 
 massif:
+
+strace:
+	strace -C -tt -T -f -o strace.log ${VALGRIND_PROGRAME} ${VALGRIND_PROGRAME_ARGS}
 
 

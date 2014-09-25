@@ -18,6 +18,7 @@
 logfile_t *logfile_new(uint32_t id, const char *logfile_name)
 {
     logfile_t *logfile = (logfile_t *)zmalloc(sizeof(logfile_t));
+    memset(logfile, 0, sizeof(logfile_t));
 
     logfile->id = id;
 

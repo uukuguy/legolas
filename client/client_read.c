@@ -53,6 +53,7 @@ int handle_read_response(session_t *session, message_t *response)
 
         if ( session->callbacks.handle_read_response != NULL ){
             msgidx_t *msgidx = zmalloc(sizeof(msgidx_t));
+            memset(msgidx, 0, sizeof(msgidx_t));
             msgidx->message = response;
             msgidx->object_size = object_size;
             msgidx->slice_idx = seq_num;
@@ -75,6 +76,7 @@ int handle_read_response(session_t *session, message_t *response)
         warning_log("NOT FOUND! key=%s", argKey->data);
         if ( session->callbacks.handle_read_response != NULL ){
             msgidx_t *msgidx = zmalloc(sizeof(msgidx_t));
+            memset(msgidx, 0, sizeof(msgidx_t));
             msgidx->message = response;
             msgidx->key = argKey->data;
             session->callbacks.handle_read_response(session, msgidx);
@@ -87,6 +89,7 @@ int handle_read_response(session_t *session, message_t *response)
         error_log("Error response code! result=%d key=%s", response->result, argKey->data);
         if ( session->callbacks.handle_read_response != NULL ){
             msgidx_t *msgidx = zmalloc(sizeof(msgidx_t));
+            memset(msgidx, 0, sizeof(msgidx_t));
             msgidx->message = response;
             msgidx->key = argKey->data;
             session->callbacks.handle_read_response(session, msgidx);
@@ -154,7 +157,7 @@ static int do_read_request(session_t *session)
     client_args_t *client_args = CLIENT_ARGS(session);
     uint32_t head_size = 0;
 
-    message_t *read_request = alloc_request_message(session->id, MSG_OP_READ); 
+    message_t *read_request = alloc_request_message(MSG_OP_READ); 
     head_size += sizeof(message_t);
 
     uint32_t keylen = strlen(client_args->key);
@@ -182,6 +185,7 @@ static int do_read_request(session_t *session)
     /* -------- read_req -------- */
     uv_write_t *read_req;
     read_req = zmalloc(sizeof(uv_write_t));
+    memset(read_req, 0, sizeof(uv_write_t));
     read_req->data = session;
 
     int r = uv_write(read_req,

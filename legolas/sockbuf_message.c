@@ -22,7 +22,7 @@
 
 /* -------- libcoro -------- */
 #ifdef USE_LIBCORO
-void coroutine_enter(session_t *session)
+void coroutine_enter(session_t *session, void *opaque)
 {
     coro_transfer(&session->main_coctx, &session->rx_coctx);
 }
@@ -54,12 +54,12 @@ void coroutine_yield(session_t *session)
 /*}*/
 
     
-void coroutine_enter(coroutine_t *coroutine, void *opaque)
+void coroutine_enter(session_t *session, void *opaque)
 {
-    greenlet_switch_to(coroutine, opaque);
+    greenlet_switch_to(session->rx_coroutine, opaque);
 }
 
-void coroutine_yield(void)
+void coroutine_yield(session_t *session)
 {
     greenlet_t *current = greenlet_current();
     greenlet_t *parent = greenlet_parent(current);
@@ -67,12 +67,51 @@ void coroutine_yield(void)
 }
 
 #define YIELD_AND_CONTINUE \
-    coroutine_yield(); \
+    coroutine_yield(session); \
     sockbuf = session->sockbuf; \
     continue;
 
 #endif
 
+/* -------- wu_coroutine -------- */
+#ifdef USE_WU_COROUTINE
+
+void coroutine_enter(session_t *session, void *opaque)
+{
+    coroutine_resume(session->co_schedule, session->rx_coctx);
+}
+
+void coroutine_yield(session_t *session)
+{
+    _coroutine_yield(session->co_schedule);
+}
+
+#define YIELD_AND_CONTINUE \
+    coroutine_yield(session); \
+    sockbuf = session->sockbuf; \
+    continue;
+
+#endif
+
+/* -------- coroutine -------- */
+#ifdef USE_COROUTINE
+
+void coroutine_enter(session_t *session, void *opaque)
+{
+    _coroutine_enter(session->rx_coctx, opaque);
+}
+
+void coroutine_yield(session_t *session)
+{
+    _coroutine_yield();
+}
+
+#define YIELD_AND_CONTINUE \
+    coroutine_yield(session); \
+    sockbuf = session->sockbuf; \
+    continue;
+
+#endif
 
 /* ==================== do_read_data() ==================== */ 
 /*
@@ -164,6 +203,7 @@ int session_do_read(sockbuf_t *sockbuf, message_t **p_message)
     /*TRACE_LOG_SESSION_SOCKBUF("Call do_read_data() for data.");*/
 
     message_t *message = (message_t*)zmalloc(sizeof(message_header) + message_header.data_length);
+    memset(message, 0, sizeof(message_t));
     memcpy(message, &message_header, sizeof(message_header));
 
     do_read_data(sockbuf, message->data, message->data_length);
@@ -209,6 +249,12 @@ void *session_rx_coroutine(void *opaque)
 #ifdef USE_LIBCORO
 void session_rx_coroutine(void *opaque)
 #endif
+#ifdef USE_WU_COROUTINE
+void session_rx_coroutine(struct schedule *s, void *opaque)
+#endif
+#ifdef USE_COROUTINE
+void *session_rx_coroutine(void *opaque)
+#endif
 {
     UNUSED int ret;
     session_t *session = (session_t*)opaque;
@@ -249,6 +295,9 @@ void session_rx_coroutine(void *opaque)
 #ifdef USE_CGREENLET
     return NULL;
 #endif
+#ifdef USE_COROUTINE
+    return NULL;
+#endif
 }
 
 
@@ -260,7 +309,7 @@ int create_session_coroutine(session_t *session)
 
     /* -------- cgreenlet -------- */
 #ifdef USE_CGREENLET
-    session->rx_coroutine = greenlet_new(session_rx_coroutine, greenlet_current(), 0);
+    session->rx_coroutine = greenlet_new(session_rx_coroutine, greenlet_current(), 64 * 1024);
     if ( session->rx_coroutine == NULL ) {
         error_log("Cann't create coroutine session->rx_coroutine");
         return -1;
@@ -269,14 +318,23 @@ int create_session_coroutine(session_t *session)
 
     /* -------- libcoro -------- */
 #ifdef USE_LIBCORO
-    /*coro_stack_alloc(&session->main_stack, 1024);*/
+    /*coro_stack_alloc(&session->main_stack, 64 * 1024);*/
     /*coro_create(&session->main_coctx, NULL, NULL, session->main_stack.sptr, session->main_stack.ssze);*/
     coro_create(&session->main_coctx, NULL, NULL, session->main_stack, 64 * 1024);
     /*coro_create(&session->main_coctx, NULL, NULL, NULL, 0);*/
 
-    /*coro_stack_alloc(&session->rx_stack, 1024);*/
+    /*coro_stack_alloc(&session->rx_stack, 64 * 1024);*/
     /*coro_create(&session->rx_coctx, session_rx_coroutine, session, session->rx_stack.sptr, session->rx_stack.ssze);*/
     coro_create(&session->rx_coctx, session_rx_coroutine, session, session->rx_stack, 64 * 1024);
+#endif
+
+#ifdef USE_WU_COROUTINE
+    session->co_schedule = coroutine_open();
+    session->rx_coctx = coroutine_new(session->co_schedule, session_rx_coroutine, session);
+#endif
+
+#ifdef USE_COROUTINE
+    session->rx_coctx = coroutine_create(session_rx_coroutine);
 #endif
 
     /*session->tx_coroutine = coroutine_create(session_tx_coroutine);*/
@@ -305,12 +363,24 @@ int destroy_session_coroutine(session_t *session)
 
     /* -------- libcoro -------- */
 #ifdef USE_LIBCORO
-    /*coro_stack_free(&session->rx_stack);*/
-    /*coro_stack_free(&session->main_stack);*/
+    /*if ( session->rx_stack.sptr != NULL )*/
+        /*coro_stack_free(&session->rx_stack);*/
+    /*if ( session->main_stack.sptr != NULL )*/
+        /*coro_stack_free(&session->main_stack);*/
     /*coro_destroy(&session->rx_coctx);*/
     /*coro_destroy(&session->main_coctx);*/
 #endif
 
+#ifdef USE_WU_COROUTINE
+    coroutine_close(session->co_schedule);
+#endif
+
+#ifdef USE_COROUTINE
+    if ( session->rx_coctx != NULL ){
+        coroutine_delete(session->rx_coctx);
+        session->rx_coctx = NULL;
+    }
+#endif
     /*if ( session->tx_coroutine != NULL ){*/
         /*coroutine_delete(session->tx_coroutine);*/
         /*session->tx_coroutine = NULL;*/
@@ -328,15 +398,26 @@ void session_consume_sockbuf(sockbuf_t *sockbuf)
         /* FIXME coroutine */
         session->sockbuf = sockbuf;
 
+        coroutine_enter(session, session);
         /* -------- libcoro -------- */
-#ifdef USE_LIBCORO
-        coroutine_enter(session);
-#endif
+/*#ifdef USE_LIBCORO*/
+        /*coroutine_enter(session);*/
+/*#endif*/
 
         /* -------- cgreenlent -------- */
-#ifdef USE_CGREENLET
-        coroutine_enter(session->rx_coroutine, session);
-#endif
+/*#ifdef USE_CGREENLET*/
+        /*coroutine_enter(session->rx_coroutine, session);*/
+/*#endif*/
+
+        /* -------- wu_coroutine -------- */
+/*#ifdef USE_WU_COROUTINE*/
+        /*coroutine_enter(session);*/
+/*#endif*/
+
+        /* -------- coroutine -------- */
+/*#ifdef USE_COROUTINE*/
+        /*coroutine_enter(session);*/
+/*#endif*/
 
     } else {
         /* -------- remain bytes == 0 -------- */
@@ -416,10 +497,6 @@ void after_read(uv_stream_t *handle, ssize_t nread, const uv_buf_t *buf)
         /* -------- Shutdown -------- */
         session_rx_off(session);
         session->waiting_for_close = 1;
-        info_log("waiting_for_colose=1");
-        /*uv_shutdown_t* shutdown_req = (uv_shutdown_t*)zmalloc(sizeof(uv_shutdown_t));*/
-        /*shutdown_req->data = session;*/
-        /*uv_shutdown(shutdown_req, handle, after_shutdown);*/
 
         return;
     } else { 

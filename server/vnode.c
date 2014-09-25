@@ -18,7 +18,7 @@
 #include "server.h"
 #include "session.h"
 
-/*#define STORAGE_KVDB*/
+#define STORAGE_KVDB
 
 #define VNODE_KVDB_QUEUE_INTERVAL 1 /* ms */
 
@@ -183,6 +183,8 @@ int vnode_write_to_storage(vnode_t *vnode, object_t *object)
 #ifdef STORAGE_KVDB
     ret = vnode_write_to_kvdb(vnode, object);
 #else
+    /* FIXME 2014-09-09 21:19:54 */
+    /*ret = 0;*/
     ret = vnode_write_to_file(vnode, object);
 #endif
 

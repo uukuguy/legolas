@@ -54,7 +54,7 @@ void try_write_next_file(udb_t *udb)
     if ( client_runtime->total_send < client->total_files - 1 ) {
 
         if ( client_runtime->total_send % 100 == 0 ) {
-            notice_log("\n-------- Session(%d) start to write %d/%d files", udb->id, client_runtime->total_send, client->total_files);
+            notice_log("\n-------- Session(%d) udb(%d) start to write %d/%d files", udb->session->id, udb->id, client_runtime->total_send, client->total_files);
         }
 
         client_runtime->total_send++;
@@ -62,7 +62,7 @@ void try_write_next_file(udb_t *udb)
 
     } else {
 
-        notice_log("\n===== Session(%d) Write %d files done. =====\n", udb->id, client->total_files);
+        notice_log("\n===== Session(%d) udb(%d) Write %d files done. =====\n", udb->session->id, udb->id, client->total_files);
 
         udb_done(udb);
     }

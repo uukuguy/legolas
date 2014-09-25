@@ -87,6 +87,7 @@ void client_session_idle_cb(uv_idle_t *idle_handle, int status)
             /*uv_timer_stop(&session->timer_handle);*/
 
             /*uv_shutdown_t* shutdown_req = (uv_shutdown_t*)zmalloc(sizeof(uv_shutdown_t));*/
+            /*memset(shutdown_req, 0, sizeof(uv_shutdown_t));*/
             /*shutdown_req->data = session;*/
             /*uv_shutdown(shutdown_req, &session->connection.handle.stream, after_shutdown);*/
             /*return;*/

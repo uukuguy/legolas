@@ -73,8 +73,8 @@ typedef struct message_arg_t {
 #define message_next_arg(arg0) \
             (struct message_arg_t *)((uint8_t *)arg0 + sizeof(arg0->size) + arg0->size) 
 
-extern message_t *alloc_request_message(uint32_t id, enum MSG_OPERATION op_code);
-extern message_t *alloc_response_message(uint32_t id, enum MSG_RESULT result);
+extern message_t *alloc_request_message(enum MSG_OPERATION op_code);
+extern message_t *alloc_response_message(enum MSG_RESULT result);
 extern message_t *add_message_arg(message_t *message, const void *data, uint32_t data_len);
 extern int check_message(message_t *message);
 extern int check_data_crc32(int requestid, message_arg_t *argCRC32, message_arg_t *argData);

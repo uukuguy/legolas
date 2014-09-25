@@ -32,8 +32,10 @@ typedef struct session_t session_t;
 typedef struct storage_file_t storage_file_t;
 typedef struct object_t object_t;
 
+//#define USE_WU_COROUTINE
 #define USE_CGREENLET
 //#define USE_LIBCORO
+//#define USE_COROUTINE
 
 //typedef struct coroutine_t coroutine_t;
 /* -------- cgreenlet -------- */
@@ -42,6 +44,13 @@ typedef struct object_t object_t;
 typedef greenlet_t coroutine_t;
 #endif
 
+#ifdef USE_WU_COROUTINE
+#include "wu_coroutine.h"
+#endif
+
+#ifdef USE_COROUTINE
+#include "coroutine.h"
+#endif
 
 /* -------------------- sockbuf_t -------------------- */
 typedef struct sockbuf_t {
@@ -93,15 +102,15 @@ int connection_init(connection_t *connection);
 void connection_destroy(connection_t *connection);
 
 /* -------------------- session_id -------------------- */
-typedef struct session_id {
-	union {
-		struct {
-			uint32_t nodeid;
-			uint32_t seq_no;
-		};
-		uint64_t id;
-	};
-} session_id;
+//typedef struct session_id {
+	//union {
+		//struct {
+			//uint32_t nodeid;
+			//uint32_t seq_no;
+		//};
+		//uint64_t id;
+	//};
+//} session_id;
 
 typedef int (*is_idle_cb)(session_t*);
 typedef int (*handle_message_cb)(session_t*, message_t *);
@@ -127,7 +136,7 @@ typedef struct session_callbacks_t {
 
 /* -------------------- session_t -------------------- */
 typedef struct session_t{
-    session_id sid;
+    //session_id sid;
     connection_t connection;  /* Connection with the SOCKS client. */
     void *parent;
     uint32_t id;
@@ -166,6 +175,14 @@ typedef struct session_t{
     char rx_stack[64*1024];
 #endif
 
+#ifdef USE_WU_COROUTINE
+    struct schedule *co_schedule;
+    int rx_coctx;
+#endif
+
+#ifdef USE_COROUTINE
+    coroutine_t *rx_coctx;
+#endif
 
     uint32_t total_received_buffers;
     uint32_t total_saved_buffers;

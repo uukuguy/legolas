@@ -165,6 +165,7 @@ int runclient(program_options_t *program_options)
         fseek(file, 0, SEEK_SET);
 
         char *buf = zmalloc(file_size);
+        memset(buf, 0, sizeof(file_size));
         uint32_t readed = fread(buf, 1, file_size, file); 
         if ( readed != file_size ){
             error_log("fread() failed. readed:%d file_size:%d", readed, file_size);

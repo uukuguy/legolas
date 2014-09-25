@@ -106,7 +106,7 @@ int session_handle_message(session_t *session, message_t *message)
     } else if ( message->msg_type == MSG_TYPE_RESPONSE ) {
     }
 
-    /*if ( total_requests >= 10000 ) {*/
+    /*if ( total_requests >= 30000 ) {*/
         /*notice_log("Stop! server->total_requests(%d) >= 10000", total_requests);*/
         /*uv_loop_t *loop = &(server->connection.loop);*/
         /*uv_stop(loop);*/
@@ -179,12 +179,15 @@ int session_init(session_t *session)
 /* ==================== session_destroy() ==================== */ 
 void session_destroy(session_t *session) 
 {
+    if ( session != NULL ){
+        zfree(session);
+    }
 }
 
 /* ==================== response_with_key() ==================== */ 
 void response_with_key(session_t *session, msgidx_t *msgidx, int result)
 {
-    message_t *response = alloc_response_message(0, result);
+    message_t *response = alloc_response_message(result);
     response = add_message_arg(response, msgidx->key, msgidx->keylen);
     uint32_t msg_size = sizeof(message_t) + response->data_length;
 

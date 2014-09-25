@@ -64,6 +64,7 @@ static void on_connection(uv_stream_t *stream, int status)
         error_log("session_new() failed. session == NULL.");
         return;
     }
+
     int ret = session_accept(session, &server->connection.handle.tcp);
     if ( ret != 0 ) {
         error_log("session_accept() failed. ret=%d", ret);

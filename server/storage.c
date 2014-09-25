@@ -99,6 +99,7 @@ storage_file_t *__storage_open_file(storage_t *storage, const char *filename, co
         error_log("Open file failed. errno:%d filename:%s", errno, filename);
     } else {
         storage_file = zmalloc(sizeof(storage_file_t));
+        memset(storage_file, 0, sizeof(storage_file_t));
         storage_file->f = f;
     }
 

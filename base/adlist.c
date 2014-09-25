@@ -30,6 +30,7 @@
 
 
 #include <stdlib.h>
+#include <memory.h>
 #include "adlist.h"
 #include "zmalloc.h"
 
@@ -44,6 +45,7 @@ list *listCreate(void)
 
     if ((list = zmalloc(sizeof(*list))) == NULL)
         return NULL;
+    memset(list, 0, sizeof(struct list));
     list->head = list->tail = NULL;
     list->len = 0;
     list->dup = NULL;
@@ -83,6 +85,7 @@ list *listAddNodeHead(list *list, void *value)
 
     if ((node = zmalloc(sizeof(*node))) == NULL)
         return NULL;
+    memset(node, 0, sizeof(listNode));
     node->value = value;
     if (list->len == 0) {
         list->head = list->tail = node;
@@ -109,6 +112,7 @@ list *listAddNodeTail(list *list, void *value)
 
     if ((node = zmalloc(sizeof(*node))) == NULL)
         return NULL;
+    memset(node, 0, sizeof(listNode));
     node->value = value;
     if (list->len == 0) {
         list->head = list->tail = node;
@@ -128,6 +132,7 @@ list *listInsertNode(list *list, listNode *old_node, void *value, int after) {
 
     if ((node = zmalloc(sizeof(*node))) == NULL)
         return NULL;
+    memset(node, 0, sizeof(listNode));
     node->value = value;
     if (after) {
         node->prev = old_node;
@@ -180,6 +185,7 @@ listIter *listGetIterator(list *list, int direction)
     listIter *iter;
     
     if ((iter = zmalloc(sizeof(*iter))) == NULL) return NULL;
+    memset(iter, 0, sizeof(listIter));
     if (direction == AL_START_HEAD)
         iter->next = list->head;
     else

@@ -47,7 +47,7 @@ int response_object_slice(session_t *session, vnode_t *vnode, object_t *object, 
     int rc = vnode_get_slice_from_storage(vnode, object->key_md5, slice_idx, (void**)&buf, &buf_size);
     if ( rc == 0 ) {
         if ( slice_idx == object->nslices - 1 ){
-            message_t *response = alloc_response_message(0, RESULT_SUCCESS);
+            message_t *response = alloc_response_message(RESULT_SUCCESS);
 
             /* ---------- key ---------- */
             response = add_message_arg(response, object->key, object->key != NULL ? strlen(object->key) : 0 );

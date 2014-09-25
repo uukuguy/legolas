@@ -17,8 +17,8 @@ typedef void* coroutine_entry_func_t(void *opaque);
 
 coroutine_t *coroutine_create(coroutine_entry_func_t *entry);
 void coroutine_delete(coroutine_t *co_);
-void coroutine_enter(coroutine_t *coroutine, void *opaque);
-void coroutine_yield(void);
+void _coroutine_enter(coroutine_t *coroutine, void *opaque);
+void _coroutine_yield(void);
 coroutine_t *coroutine_self(void);
 int in_coroutine(void);
 void* coroutine_self_data(void);

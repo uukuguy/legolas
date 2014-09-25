@@ -143,7 +143,7 @@ int do_read_request(session_t *session)
 
     uint32_t head_size = 0;
 
-    message_t *read_request = alloc_request_message(session->id, MSG_OP_READ); 
+    message_t *read_request = alloc_request_message(MSG_OP_READ); 
     head_size += sizeof(message_t);
 
     const char *key = udb->key;
@@ -170,6 +170,7 @@ int do_read_request(session_t *session)
     /* -------- read_req -------- */
     uv_write_t *read_req;
     read_req = zmalloc(sizeof(uv_write_t));
+    memset(read_req, 0, sizeof(uv_write_t));
     read_req->data = session;
 
     int r = uv_write(read_req,

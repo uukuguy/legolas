@@ -129,7 +129,7 @@ static int do_write_request(session_t *session)
 
     message_t *write_request;
 
-    write_request = alloc_request_message(session->id, MSG_OP_WRITE); 
+    write_request = alloc_request_message(MSG_OP_WRITE); 
 
     head_size += sizeof(message_t);
 
@@ -192,6 +192,7 @@ static int do_write_request(session_t *session)
     /* -------- write_req -------- */
     uv_write_t *write_req;
     write_req = zmalloc(sizeof(uv_write_t));
+    memset(write_req, 0, sizeof(uv_write_t));
     write_req->data = session;
 
     int r = uv_write(write_req,

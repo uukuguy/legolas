@@ -34,6 +34,7 @@ void after_read(uv_stream_t *handle, ssize_t nread, const uv_buf_t *buf);
 int connection_init(connection_t *connection)
 {
     connection->total_bytes = 0;
+    memset(&connection->loop, 0, sizeof(uv_loop_t));
     uv_loop_init(&connection->loop);
 
     return 0;
@@ -60,6 +61,7 @@ int session_send_data(session_t *session, char *buf, uint32_t buf_size, void *us
     /* -------- write_rsp -------- */
     uv_write_t *write_rsp;
     write_rsp = zmalloc(sizeof(uv_write_t));
+    memset(write_rsp, 0, sizeof(uv_write_t));
     write_rsp->data = user_data;
 
     /* -------- uv_write -------- */
@@ -88,7 +90,7 @@ int session_response_data(session_t *session, char *buf, uint32_t buf_size)
 /* ==================== session_response() ==================== */ 
 void session_response(session_t *session, enum MSG_RESULT result)
 {
-    message_t *response = alloc_response_message(0, result);
+    message_t *response = alloc_response_message(result);
 
     uint32_t msg_size = sizeof(message_t) + response->data_length;
     session_response_data(session, (char *)response, msg_size);
@@ -101,12 +103,13 @@ void session_response(session_t *session, enum MSG_RESULT result)
  * Try to destroy session after uv_close().
  * Called by after_shutdown().
  */
-static void on_close(uv_handle_t *tcp_handle) 
+    /* FIXME */
+UNUSED static void on_close(uv_handle_t *tcp_handle) 
 {
     session_t *session = (session_t *)tcp_handle->data; 
 
     total_sessions++;
-    info_log("on_close(). total_sessions: %d total_finished_works: %d", total_sessions, session->total_finished_works);
+    info_log("on_close(). session(%d) total_sessions: %d total_finished_works: %d", session->id, total_sessions, session->total_finished_works);
     
     session_free(session);
 }
@@ -146,7 +149,10 @@ void after_shutdown(uv_shutdown_t *shutdown_req, int status)
         uv_idle_stop(&session->idle_handle);
     }
 
+
+    /* FIXME */
     uv_close((uv_handle_t*)shutdown_req->handle, on_close);
+    /*uv_close((uv_handle_t*)shutdown_req->handle, NULL);*/
 
     zfree(shutdown_req);
 }
@@ -169,6 +175,7 @@ void session_shutdown(session_t *session)
 
 
                 uv_shutdown_t* shutdown_req = (uv_shutdown_t*)zmalloc(sizeof(uv_shutdown_t));
+                memset(shutdown_req, 0, sizeof(uv_shutdown_t));
                 shutdown_req->data = session;
                 uv_shutdown(shutdown_req, &session->connection.handle.stream, after_shutdown);
                 return;
@@ -181,16 +188,20 @@ void session_shutdown(session_t *session)
 int create_session_coroutine(session_t *session);
 int destroy_session_coroutine(session_t *session);
 
+static uint32_t session_id = 0;
 /* ==================== session_new() ==================== */ 
 session_t* session_new(void *parent, const session_callbacks_t *callbacks, void *user_data)
 {
-    static uint32_t seq_no = 0;
 
     /* -------- session -------- */
     session_t *session = (session_t*)zmalloc(sizeof(session_t));
     memset(session, 0, sizeof(session_t));
     session->parent = parent;
-	session->sid.seq_no = seq_no++;
+
+    session->id = session_id;
+    __sync_add_and_fetch(&session_id, 1);
+
+    notice_log("session_new() session_id=%d", session->id);
     if ( callbacks != NULL )
         session->callbacks = *callbacks;
 	pthread_mutex_init(&session->recv_pending_lock, NULL);
@@ -203,7 +214,7 @@ session_t* session_new(void *parent, const session_callbacks_t *callbacks, void 
     session->total_blocks = 0;
     session->total_received_buffers = 0;
     session->total_saved_buffers = 0;
-	session->sid.nodeid = 0;
+	/*session->sid.nodeid = 0;*/
 
     connection_init(&session->connection);
 
@@ -214,13 +225,13 @@ session_t* session_new(void *parent, const session_callbacks_t *callbacks, void 
     session->total_finished_works = 0;
     session->user_data = user_data;
 
+    if ( create_session_coroutine(session) != 0 ) {
+        error_log("create_session_coroutine() failed.");
+        session_free(session);
+        return NULL; 
+    }
     session->responseQueue = listCreate();
     listSetFreeMethod(session->responseQueue, byte_block_free);
-
-    if ( create_session_coroutine(session) != 0 ) {
-        session_free(session);
-        return NULL;
-    }
 
     if ( callbacks->session_init != NULL ) {
         if ( callbacks->session_init(session) != 0 ) {
@@ -301,11 +312,8 @@ int session_accept(session_t *session, uv_tcp_t *parent_tcp)
 /* ==================== session_free() ==================== */ 
 void session_free(session_t *session)
 {
+    notice_log("session_free() session.id: %d", session->id);
     assert(session != NULL);
-
-    if ( session->callbacks.session_destroy != NULL ) {
-        session->callbacks.session_destroy(session);
-    }
 
     destroy_session_coroutine(session);
     listRelease(session->responseQueue);
@@ -322,7 +330,11 @@ void session_free(session_t *session)
     pthread_mutex_destroy(&session->send_pending_lock);
     pthread_cond_destroy(&session->send_pending_cond);
 
-    zfree(session);
+    if ( session->callbacks.session_destroy != NULL ) {
+        session->callbacks.session_destroy(session);
+    } else {
+        zfree(session);
+    }
 }
 
 /* ==================== sockbuf_init() ==================== */ 
@@ -344,6 +356,7 @@ void sockbuf_init(sockbuf_t *sockbuf)
 sockbuf_t *sockbuf_new(session_t *session)
 {
     sockbuf_t *sockbuf = (sockbuf_t *)zmalloc(sizeof(sockbuf_t));
+    memset(sockbuf, 0, sizeof(sockbuf_t));
     sockbuf->session = session;
     sockbuf_init(sockbuf);
     return sockbuf;

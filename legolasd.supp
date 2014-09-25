@@ -43,6 +43,18 @@
 }
 
 {
+    <<vfprintf>>
+    Memcheck:Cond
+    fun:vfprintf
+}
+
+{
+    <<pthread_cond_signal>>
+    Memcheck:Cond
+    fun:pthread_cond_signal
+}
+
+{
     <<__pthread_disable_asynccancel>>
     Memcheck:Cond
     fun:__pthread_disable_asynccancel

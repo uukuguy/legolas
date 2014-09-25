@@ -22,6 +22,7 @@ struct lockfree_queue_t *lockfree_queue_create(void)
 {
 
     struct lockfree_queue_t *queue = zmalloc(sizeof(struct lockfree_queue_t));
+    memset(queue, 0, sizeof(struct lockfree_queue_t));
     if ( lfds611_queue_new(&queue->sq, 10) ){
         return queue;
     } else {

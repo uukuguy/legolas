@@ -11,26 +11,28 @@
 #include "logger.h"
 #include "crc32.h"
 
-message_t *alloc_request_message(uint32_t id, enum MSG_OPERATION op_code)
+static uint32_t message_id = 0;
+
+message_t *alloc_request_message(enum MSG_OPERATION op_code)
 {
     message_t *message = (message_t*)zmalloc(sizeof(message_t));
     memset(message, 0, sizeof(message_t));
     memcpy(message->magic_code, magic_code, sizeof(magic_code));
     message->msg_version = PROTOCAL_VERSION;
     message->msg_type = MSG_TYPE_REQUEST;
-    message->id = id;
+    message->id = __sync_add_and_fetch(&message_id, 1);
     message->op_code = op_code;
     return message;
 }
 
-message_t *alloc_response_message(uint32_t id, enum MSG_RESULT result)
+message_t *alloc_response_message(enum MSG_RESULT result)
 {
     message_t *message = (message_t*)zmalloc(sizeof(message_t));
     memset(message, 0, sizeof(message_t));
     memcpy(message->magic_code, magic_code, sizeof(magic_code));
     message->msg_version = PROTOCAL_VERSION;
     message->msg_type = MSG_TYPE_RESPONSE;
-    message->id = id;
+    message->id = __sync_add_and_fetch(&message_id, 1);
     message->result = result;
     return message;
 }

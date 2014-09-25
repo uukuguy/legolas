@@ -44,8 +44,6 @@ int udb_handle_write_response(session_t *session, message_t *response)
     return ret;
 }
 
-int do_write_request(session_t *session, char *data, uint32_t data_size);
-
 /* ==================== after_write_request() ==================== */ 
 static void after_write_request(uv_write_t *write_req, int status) 
 {
@@ -114,7 +112,7 @@ int do_write_request(session_t *session, char *data, uint32_t data_size)
 
     uint32_t head_size = 0;
 
-    message_t *write_request = alloc_request_message(session->id, MSG_OP_WRITE); 
+    message_t *write_request = alloc_request_message(MSG_OP_WRITE); 
     head_size += sizeof(message_t);
 
     const char *key = udb->key;
@@ -144,7 +142,11 @@ int do_write_request(session_t *session, char *data, uint32_t data_size)
     uint32_t block_size = DEFAULT_SOCKBUF_SIZE - head_size - sizeof(uint32_t); /* data size*/
     block_size = data_size < block_size ? data_size : block_size;
     block_size -= block_size % 512;
+
     uint32_t writed = block_size;
+    if ( block_size + udb->total_writed > udb->object_size ){
+        writed = udb->object_size - udb->total_writed;
+    }
 
     /* FIXME */
     char *buf = data;
@@ -162,12 +164,13 @@ int do_write_request(session_t *session, char *data, uint32_t data_size)
     udb->data_size = writed;
 
     /* -------- CRC32 -------- */
-    uint32_t crc = crc32(0, buf, writed);
+    /* FIXME */
+    uint32_t crc = 0;
+    /*uint32_t crc = crc32(0, buf, writed);*/
     write_request = add_message_arg(write_request, &crc, sizeof(crc));
 
     /* -------- data -------- */
-    write_request = add_message_arg(write_request, (uint8_t *)buf, writed);
-    session->id++;
+    write_request = add_message_arg(write_request, buf, writed);
 
 
     /* -------- ubuf -------- */
@@ -181,6 +184,7 @@ int do_write_request(session_t *session, char *data, uint32_t data_size)
     /* -------- write_req -------- */
     uv_write_t *write_req;
     write_req = zmalloc(sizeof(uv_write_t));
+    memset(write_req, 0, sizeof(uv_write_t));
     write_req->data = session;
 
     int r = uv_write(write_req,

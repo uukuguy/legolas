@@ -104,6 +104,7 @@ static co_thread_state_t *coroutine_get_thread_state(void)
 		s = (co_thread_state_t*)zmalloc(sizeof(*s));
 		if (!s)
 			abort();
+        memset(s, 0, sizeof(*s));
 		s->current = &s->leader.base;
 		INIT_LIST_HEAD(&s->pool);
 		pthread_setspecific(thread_state_key, s);
@@ -215,9 +216,11 @@ static coroutine_t *__coroutine_new(void)
 	co = zmalloc(sizeof(*co));
 	if (!co)
 		abort();
+    memset(co, 0, sizeof(*co));
 	co->stack = zmalloc(stack_size);
 	if (!co->stack)
 		abort();
+    memset(co->stack, 0, sizeof(stack_size));
 #ifdef COROUTINE_DEBUG
 	init_stack(co);
 #endif
@@ -337,7 +340,7 @@ static void coroutine_swap(coroutine_t *from, coroutine_t *to)
 	}
 }
 
-void coroutine_enter(coroutine_t *co, void *opaque)
+void _coroutine_enter(coroutine_t *co, void *opaque)
 {
 	coroutine_t *self = coroutine_self();
 
@@ -351,7 +354,7 @@ void coroutine_enter(coroutine_t *co, void *opaque)
 	coroutine_swap(self, co);
 }
 
-void coroutine_yield(void)
+void _coroutine_yield(void)
 {
 	coroutine_t *self = coroutine_self();
 	coroutine_t *to = self->caller;

@@ -56,7 +56,7 @@ int udb_do(udb_t *udb, on_ready_cb on_ready)
     pthread_mutex_destroy(&udb->main_pending_lock);
     pthread_cond_destroy(&udb->main_pending_cond);
 
-    notice_log("udb_do() done!");
+    notice_log("--- udb_do() udb(%d) done! ---", udb->id);
 
     return ret;
 }
@@ -71,17 +71,22 @@ void udb_done(udb_t *udb)
     session_rx_off(session);
     session->waiting_for_close = 1;
     session_shutdown(session);
+
     /*pthread_cond_signal(&udb->main_pending_cond);*/
 }
 
 /* ==================== udb_new() ==================== */ 
 udb_t *udb_new(const char *ip, int port, void *user_data)
 {
+
     udb_t *udb = (udb_t*)zmalloc(sizeof(udb_t));
     memset(udb, 0, sizeof(udb_t));
 
-    __sync_add_and_fetch(&udb_id, 1);
     udb->id = udb_id;
+    __sync_add_and_fetch(&udb_id, 1);
+
+    notice_log("udb_new(), udb_id=%d", udb->id);
+
     udb->ip = ip;
     udb->port = port;
 
@@ -97,7 +102,6 @@ udb_t *udb_new(const char *ip, int port, void *user_data)
 
 void udb_free(udb_t *udb)
 {
-    notice_log("enter udb_free().");
     if ( udb != NULL ) {
 
         if ( udb->writing_objects != NULL ){
@@ -211,8 +215,11 @@ int udb_session_init(session_t *session)
 void udb_session_destroy(session_t *session) 
 {
     /* FIXME */
-    udb_t *udb = udb(session);
-    pthread_cond_signal(&udb->main_pending_cond);
+    if ( session != NULL ){
+        udb_t *udb = udb(session);
+        zfree(session);
+        pthread_cond_signal(&udb->main_pending_cond);
+    }
 }
 
 /* ==================== udb_loop() ==================== */ 
@@ -307,8 +314,6 @@ static void* udb_thread_main(void *arg)
     if ( rc != 0 ){
         error_log("udb_creat_session() failed.");
     }
-
-    pthread_cond_signal(&udb->on_ready_cond);
 
     notice_log("udb_thread_main() %d exit.", udb->id);
 

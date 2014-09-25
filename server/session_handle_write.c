@@ -108,6 +108,8 @@ object_t *session_write_to_cache(session_t *session, msgidx_t *msgidx){
 /* ==================== session_write_to_storage() ==================== */ 
 int session_write_to_storage(session_t *session, object_t *object)
 {
+    if ( object == NULL ) return -1;
+
     UNUSED vnode_t *vnode = get_vnode_by_key(SERVER(session), &object->key_md5);
     assert(vnode != NULL);
 
@@ -148,6 +150,9 @@ int session_handle_write(session_t *session, message_t *request)
      *    Write cache
      *  ---------------------------------------- */
 
+    /* FIXME */
+    /*session->total_writed += msgidx.data_size;*/
+
     object_t *object = session_write_to_cache(session, &msgidx);
     if (  object == NULL ) {
         error_log("session_write_block() failed.");
@@ -162,6 +167,7 @@ int session_handle_write(session_t *session, message_t *request)
 
         /* FIXME */
         vnode_kvdb_queue_entry_t *entry = (vnode_kvdb_queue_entry_t*)zmalloc(sizeof(vnode_kvdb_queue_entry_t));
+        memset(entry, 0, sizeof(vnode_kvdb_queue_entry_t));
         entry->session = session;
         entry->object = object;
 

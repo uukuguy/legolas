@@ -453,6 +453,7 @@ int object_compare_md5_func(void *first, void *second)
 object_queue_t *object_queue_new(object_compare_func_t func)
 {
     object_queue_t *oq = (object_queue_t*)zmalloc(sizeof(object_queue_t));
+    memset(oq, 0, sizeof(object_queue_t));
 
     oq->objects = skiplist_new(16, 0.5, 0, 0, func);
 
