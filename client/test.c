@@ -17,6 +17,7 @@
 #include "client.h"
 #include "crc32.h"
 #include "md5.h"
+#include "sysinfo.h"
 
 #include "udb.h"
 
@@ -55,6 +56,7 @@ void try_write_next_file(udb_t *udb)
 
         if ( client_runtime->total_send % 100 == 0 ) {
             notice_log("\n-------- Session(%d) udb(%d) start to write %d/%d files", udb->session->id, udb->id, client_runtime->total_send, client->total_files);
+            log_sysinfo();
         }
 
         client_runtime->total_send++;
@@ -122,6 +124,7 @@ void try_read_next_file(udb_t *udb)
 
         if ( client_runtime->total_recv % 100 == 0 ) {
             notice_log("\n-------- Session(%d) start to read %d/%d files", udb->id, client_runtime->total_recv, client->total_files);
+            log_sysinfo();
         }
 
         client_runtime->total_recv++;
@@ -169,7 +172,7 @@ static int read_file(udb_t *udb)
 
     return 0;
 }
-
+ 
 /* ==================== try_delete_next_file() ==================== */ 
 void try_delete_next_file(udb_t *udb)
 {
@@ -179,6 +182,7 @@ void try_delete_next_file(udb_t *udb)
 
         if ( client_runtime->total_del % 100 == 0 ) {
             notice_log("\n-------- Session(%d) start to delete %d/%d files", udb->id, client_runtime->total_del, client->total_files);
+            log_sysinfo();
         }
 
         client_runtime->total_del++;

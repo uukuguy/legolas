@@ -5,7 +5,7 @@ LEGOLAS_OBJS = legolas/legolas.o legolas/message.o
 
 BASE_OBJS = base/logger.o base/daemon.o base/wu_coroutine.o
 #base/coroutine.o 
-BASE_OBJS += base/zmalloc.o base/work.o base/md5.o base/byteblock.o base/filesystem.o
+BASE_OBJS += base/zmalloc.o base/work.o base/md5.o base/byteblock.o base/filesystem.o base/sysinfo.o
 BASE_OBJS += base/skiplist.o base/adlist.o base/threadpool.o base/crc32.o base/http_parser.o
 
 CC = gcc
