@@ -85,8 +85,6 @@ udb_t *udb_new(const char *ip, int port, void *user_data)
     udb->id = udb_id;
     __sync_add_and_fetch(&udb_id, 1);
 
-    notice_log("udb_new(), udb_id=%d", udb->id);
-
     udb->ip = ip;
     udb->port = port;
 

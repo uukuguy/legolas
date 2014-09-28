@@ -255,7 +255,7 @@ int test_run_task(client_t *client, int id)
 
     client_runtime_t *client_runtime = client_runtime_new(client);
 
-    udb_t *udb = udb_new("127.0.0.1", DEFAULT_PORT, (void*)client_runtime);
+    udb_t *udb = udb_new(client->ip, client->port, (void*)client_runtime);
 
     /*udb->on_ready = test_on_ready;*/
     /*udb->after_write_finished = test_after_write_finished;*/

@@ -201,7 +201,6 @@ session_t* session_new(void *parent, const session_callbacks_t *callbacks, void 
     session->id = session_id;
     __sync_add_and_fetch(&session_id, 1);
 
-    notice_log("session_new() session_id=%d", session->id);
     if ( callbacks != NULL )
         session->callbacks = *callbacks;
 	pthread_mutex_init(&session->recv_pending_lock, NULL);
