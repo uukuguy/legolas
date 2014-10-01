@@ -9,7 +9,7 @@
  */
 
 #include "common.h"
-#include "legolas.h"
+#include "net.h"
 #include "message.h"
 #include "daemon.h"
 #include "client.h"

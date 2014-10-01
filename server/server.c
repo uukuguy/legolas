@@ -8,11 +8,10 @@
  * 
  */
 
-#include "legolas.h"
 #include "server.h"
 #include "service.h"
-#include "vnode.h"
 #include "session.h"
+#include "vnode.h"
 #include "session_handle.h"
 #include "list.h"
 #include "work.h"

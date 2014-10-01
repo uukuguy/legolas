@@ -119,16 +119,6 @@ int session_write_to_storage(session_t *session, object_t *object)
     object_queue_remove(vnode->caching_objects, object);
     session->total_writed = 0;
 
-    /* FIXME 2014-10-10 18:57:20 */
-    __sync_add_and_fetch(&session->finished_works, 1);
-
-    uint32_t total_committed = __sync_add_and_fetch(&vnode->total_committed, 1);
-    if ( total_committed > 800 ) {
-        __sync_sub_and_fetch(&vnode->total_committed, total_committed);
-        /*fsync(vnode->logFile);*/
-        /*kvdb_flush(vnode->kvdb);*/
-    }
-
     return ret;
 }
 

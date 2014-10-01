@@ -11,8 +11,6 @@
 #include "udb.h"
 #include "service.h"
 #include "session.h"
-#include "legolas.h"
-
 #include "zmalloc.h"
 #include "adlist.h"
 #include "adlist.h"

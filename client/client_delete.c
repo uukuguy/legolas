@@ -14,7 +14,6 @@
 #include "filesystem.h"
 #include "logger.h"
 #include "message.h"
-#include "legolas.h"
 #include "crc32.h"
 #include "md5.h"
 #include "session.h"

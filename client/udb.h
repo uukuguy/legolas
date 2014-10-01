@@ -14,7 +14,6 @@
 #include <stdint.h>
 #include <limits.h>
 #include <pthread.h>
-#include "legolas.h"
 #include "service.h"
 
 typedef struct list list;

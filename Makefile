@@ -1,12 +1,12 @@
 SERVER = bin/legolasd
 CLIENT = bin/legolas
 
-LEGOLAS_OBJS = legolas/legolas.o legolas/message.o 
-
 BASE_OBJS = base/logger.o base/daemon.o base/wu_coroutine.o
 #base/coroutine.o 
 BASE_OBJS += base/zmalloc.o base/work.o base/md5.o base/byteblock.o base/filesystem.o base/sysinfo.o
 BASE_OBJS += base/skiplist.o base/adlist.o base/threadpool.o base/crc32.o base/http_parser.o
+
+NET_OBJS = net/net.o net/message.o net/service.o net/session.o net/sockbuf_message.o
 
 CC = gcc
 LD = ld
@@ -18,7 +18,7 @@ AR = ar
 #GPROF_FLAGS = -pg
 
 #CFLAGS_UCONTEXT=-D_XOPEN_SOURCE # ucontext.h error: The deprecated ucontext routines require _XOPEN_SOURCE to be defined.
-COMMON_CFLAGS = ${GPROF_FLAGS} -ggdb -fPIC -m64 -Wall -D_GNU_SOURCE -I./include -I./legolas ${CFLAGS_UCONTEXT} 
+COMMON_CFLAGS = ${GPROF_FLAGS} -ggdb -fPIC -m64 -Wall -D_GNU_SOURCE -I./include -I./net ${CFLAGS_UCONTEXT} 
 
 KVDB_OBJS = base/kvdb.o 
 
@@ -43,9 +43,6 @@ COMMON_CFLAGS += ${KVDB_CFLAGS}
 
 SERVER_OBJS = server/main.o \
 			  server/server.o \
-			  legolas/service.o \
-			  legolas/session.o \
-			  legolas/sockbuf_message.o \
 			  server/session_handle.o \
 			  server/session_handle_write.o \
 			  server/session_handle_read.o \
@@ -65,9 +62,6 @@ CLIENT_OBJS = client/main.o \
 			  client/udb_write_data.o \
 			  client/udb_read_data.o \
 			  client/udb_delete_data.o \
-			  legolas/service.o \
-			  legolas/session.o \
-			  legolas/sockbuf_message.o \
 			  client/client_write.o \
 			  client/client_read.o \
 			  client/client_delete.o \
@@ -496,21 +490,21 @@ ifeq (${UNAME}, Darwin)
 	FINAL_CFLAGS += ${CFLAGS_UCONTEXT}
 endif
 
-#${SERVER}: deps ${BASE_OBJS} ${SERVER_OBJS} ${LEGOLAS_OBJS} bin
-${SERVER}: ${BASE_OBJS} ${SERVER_OBJS} ${LEGOLAS_OBJS} ${KVDB_OBJS}  
+#${SERVER}: deps ${BASE_OBJS} ${SERVER_OBJS} ${NET_OBJS} bin
+${SERVER}: ${BASE_OBJS} ${SERVER_OBJS} ${NET_OBJS} ${KVDB_OBJS}  
 	${CC} -o ${SERVER} \
 		${BASE_OBJS} \
 		${SERVER_OBJS} \
-		${LEGOLAS_OBJS} \
+		${NET_OBJS} \
 		${KVDB_OBJS} \
 		${FINAL_LDFLAGS} 
 
 
-${CLIENT}: ${BASE_OBJS} ${CLIENT_OBJS} ${LEGOLAS_OBJS} 
+${CLIENT}: ${BASE_OBJS} ${CLIENT_OBJS} ${NET_OBJS} 
 	${CC} -o ${CLIENT} \
 		${BASE_OBJS} \
 		${CLIENT_OBJS} \
-		${LEGOLAS_OBJS} \
+		${NET_OBJS} \
 		${FINAL_LDFLAGS}
 
 bin:
@@ -534,7 +528,7 @@ clean:
 		${BASE_OBJS} \
 		${SERVER_OBJS} \
 		${CLIENT_OBJS} \
-		${LEGOLAS_OBJS} \
+		${NET_OBJS} \
 		${LSM_OBJS} \
 		${LEVELDB_OBJS} \
 		${ROCKSDB_OBJS} \

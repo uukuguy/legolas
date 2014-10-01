@@ -8,10 +8,9 @@
  * 
  */
 
-#include "logger.h"
 #include "daemon.h"
-#include "legolas.h"
 #include "server.h"
+#include "net.h"
 #include "filesystem.h"
 #include <stdlib.h>
 #include <stdio.h>

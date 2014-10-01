@@ -402,25 +402,6 @@ void session_consume_sockbuf(sockbuf_t *sockbuf)
         session->sockbuf = sockbuf;
 
         coroutine_enter(session, session);
-        /* -------- libcoro -------- */
-/*#ifdef USE_LIBCORO*/
-        /*coroutine_enter(session);*/
-/*#endif*/
-
-        /* -------- cgreenlent -------- */
-/*#ifdef USE_CGREENLET*/
-        /*coroutine_enter(session->rx_coroutine, session);*/
-/*#endif*/
-
-        /* -------- wu_coroutine -------- */
-/*#ifdef USE_WU_COROUTINE*/
-        /*coroutine_enter(session);*/
-/*#endif*/
-
-        /* -------- coroutine -------- */
-/*#ifdef USE_COROUTINE*/
-        /*coroutine_enter(session);*/
-/*#endif*/
 
     } else {
         /* -------- remain bytes == 0 -------- */

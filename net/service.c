@@ -11,6 +11,7 @@
 #include "service.h"
 #include "zmalloc.h"
 #include "sysinfo.h"
+#include "logger.h"
 
 /* ==================== service_new() ==================== */ 
 service_t *service_new(void *parent)
@@ -36,9 +37,10 @@ void service_free(service_t *service)
 void session_consume_sockbuf(sockbuf_t *sockbuf); /* in session_sockbuf_message.c */
 void parse_queue_handle_request(work_queue_t *wq)
 {
-    void *nodeData = NULL;
-    while ( (nodeData = dequeue_work(wq)) != NULL ){
-       session_consume_sockbuf((sockbuf_t*)nodeData);
+    void *data = NULL;
+    while ( (data = dequeue_work(wq)) != NULL ){
+        sockbuf_t *sockbuf = (sockbuf_t*)data;
+        session_consume_sockbuf(sockbuf);
     }
 }
 
@@ -47,7 +49,9 @@ int service_init(service_t *service)
 {
     sysinfo_t sysinfo;
     flush_sysinfo(&sysinfo);
-    service->num_processors = sysinfo.num_processors;
+    /* FIXME 2014-10-10 01:53:42 */
+    /*service->num_processors = sysinfo.num_processors;*/
+    service->num_processors = 1;
 
     /* -------- parse_queue -------- */
     uint32_t parse_threads = service->num_processors;

@@ -11,6 +11,7 @@
 #ifndef __COMMON_BASE_DAEMON__
 #define __COMMON_BASE_DAEMON__
 
+#include <stdlib.h>
 
 typedef int(*DAEMON_LOOP)(void *data);
 

@@ -39,7 +39,7 @@ typedef struct vnode_t {
 
     kvdb_t *kvdb;
     int logFile;
-    uint32_t total_committed;
+    //uint32_t total_committed;
 
     object_queue_t *caching_objects;
 
