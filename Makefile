@@ -43,6 +43,7 @@ COMMON_CFLAGS += ${KVDB_CFLAGS}
 
 SERVER_OBJS = server/main.o \
 			  server/server.o \
+			  legolas/service.o \
 			  legolas/session.o \
 			  legolas/sockbuf_message.o \
 			  server/session_handle.o \
@@ -64,6 +65,7 @@ CLIENT_OBJS = client/main.o \
 			  client/udb_write_data.o \
 			  client/udb_read_data.o \
 			  client/udb_delete_data.o \
+			  legolas/service.o \
 			  legolas/session.o \
 			  legolas/sockbuf_message.o \
 			  client/client_write.o \
@@ -703,4 +705,6 @@ massif:
 strace:
 	strace -C -tt -T -f -o strace.log ${VALGRIND_PROGRAME} ${VALGRIND_PROGRAME_ARGS}
 
+dd:
+	dd if=/dev/zero of=dd.dat bs=1024k count=1024 conv=fdatasync
 

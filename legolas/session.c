@@ -190,13 +190,14 @@ int destroy_session_coroutine(session_t *session);
 
 static uint32_t session_id = 0;
 /* ==================== session_new() ==================== */ 
-session_t* session_new(void *parent, const session_callbacks_t *callbacks, void *user_data)
+session_t* session_new(service_t *service, const session_callbacks_t *callbacks, void *user_data)
 {
 
     /* -------- session -------- */
     session_t *session = (session_t*)zmalloc(sizeof(session_t));
     memset(session, 0, sizeof(session_t));
-    session->parent = parent;
+
+    session->service = service;
 
     session->id = session_id;
     __sync_add_and_fetch(&session_id, 1);

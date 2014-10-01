@@ -28,6 +28,7 @@
 #define DEFAULT_SOCKBUF_SIZE 64 * 1024
 
 typedef struct network_instance_t network_instance_t;
+typedef struct service_t service_t;
 typedef struct session_t session_t;
 typedef struct storage_file_t storage_file_t;
 typedef struct object_t object_t;
@@ -138,7 +139,8 @@ typedef struct session_callbacks_t {
 typedef struct session_t{
     //session_id sid;
     connection_t connection;  /* Connection with the SOCKS client. */
-    void *parent;
+    service_t *service;
+
     uint32_t id;
     void *user_data;
 
@@ -212,7 +214,7 @@ typedef struct session_t{
 #define session_udp(session) \
     session->connection.handle.udp
 
-extern session_t* session_new(void *parent, const session_callbacks_t *callbacks, void *user_data);
+extern session_t* session_new(service_t *service, const session_callbacks_t *callbacks, void *user_data);
 extern void session_free(session_t *session);
 extern int session_accept(session_t *session, uv_tcp_t *parent_tcp);
 

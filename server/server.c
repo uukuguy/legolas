@@ -10,6 +10,7 @@
 
 #include "legolas.h"
 #include "server.h"
+#include "service.h"
 #include "vnode.h"
 #include "session.h"
 #include "session_handle.h"
@@ -19,8 +20,8 @@
 #include "storage.h"
 #include "common.h"
 #include "logfile.h"
+#include "sysinfo.h"
 
-int server_init(server_t *server);
 int init_server_work_queue(server_t *server);
 int exit_server_work_queue(server_t *server);
 
@@ -59,7 +60,7 @@ static void on_connection(uv_stream_t *stream, int status)
         .on_connect = NULL,
         .handle_read_response = NULL,
     };
-    session_t *session = session_new((void*)server, &callbacks, NULL);
+    session_t *session = session_new(server->service, &callbacks, NULL);
     if ( session == NULL ){
         error_log("session_new() failed. session == NULL.");
         return;
@@ -76,15 +77,23 @@ static void on_connection(uv_stream_t *stream, int status)
 }
 
 /* ==================== server_new() ==================== */ 
-server_t *server_new(void)
+server_t *server_new(const server_options_t *server_options)
 {
     server_t *server= (server_t*)zmalloc(sizeof(server_t));
     memset(server, 0, sizeof(server_t));
+    memcpy(&server->options, server_options, sizeof(server_options_t));
 
     server->cached_bytes = 0;
     server->total_requests = 0;
 
+    sysinfo_t sysinfo;
+    flush_sysinfo(&sysinfo);
+    server->num_processors = sysinfo.num_processors;
+
+    server->service = service_new(server);
+
     connection_init(&server->connection);
+
 
     return server;
 }
@@ -114,6 +123,7 @@ void server_free(server_t *server)
     }
 
     connection_destroy(&server->connection);
+    service_destroy(server->service);
 
     pthread_mutex_destroy(&server->send_pending_lock);
     pthread_cond_destroy(&server->send_pending_cond);
@@ -121,24 +131,17 @@ void server_free(server_t *server)
     zfree(server);
 }
 
-/* ==================== start_listen() ==================== */ 
-int start_listen(int listen_port, const char *data_dir)
+/* ==================== server_listen() ==================== */ 
+int server_listen(server_t *server) 
 {
     int r;
+    int listen_port = server->options.listen_port;
 
     /* -------- server_addr -------- */
     struct sockaddr_in server_addr;
     r = uv_ip4_addr("0.0.0.0", listen_port, &server_addr);
     if ( r ) {
         error_log("uv_ip4_addr() failed.");
-        return -1;
-    }
-
-    /* -------- server-------- */
-    server_t *server = server_new();
-
-    if ( server_init(server) != 0 ){
-        error_log("server_init() failed.");
         return -1;
     }
 
@@ -189,10 +192,6 @@ int start_listen(int listen_port, const char *data_dir)
     /*close_loop(loop);      */
     /*uv_loop_delete(loop);  */
 
-    server_free(server);
-
-    notice_log("Server exit.");
-
     return 0;
 }
 
@@ -205,6 +204,24 @@ int start_listen(int listen_port, const char *data_dir)
 void recv_queue_handle_request(work_queue_t *wq);
 void send_queue_handle_response(work_queue_t *wq);
 
+/* ==================== server_create_vnode() ==================== */ 
+vnode_t * server_create_vnode(server_t *server, int vnode_id)
+{
+    /* -------- storage_dir -------- */
+    char storage_dir[NAME_MAX];
+    sprintf(storage_dir, "%s/storage", server->data_dir);
+    if ( mkdir_if_not_exist(storage_dir) != 0 ){
+        error_log("mkdir %s failed.", storage_dir);
+        return NULL;
+    }
+
+    vnode_t *vnode = vnode_new(storage_dir, vnode_id, server->options.storage_type);
+    server->vnodes[vnode_id] = vnode;
+
+    return vnode;
+}
+
+/* ==================== server_init() ==================== */ 
 int server_init(server_t *server)
 {
     assert(server!= NULL);
@@ -214,36 +231,39 @@ int server_init(server_t *server)
 
     UNUSED int r;
 
+    /* -------- server->root_dir -------- */
     get_instance_parent_full_path(server->root_dir, NAME_MAX);
 
-    sprintf(server->storage.storage_dir, "%s/data/storage", server->root_dir);
-    if ( mkdir_if_not_exist(server->storage.storage_dir) != 0 ){
-        error_log("mkdir %s failed.", server->storage.storage_dir);
-        return -1;
+    /* -------- server->data_dir -------- */
+    if ( server->options.data_dir == NULL ){
+        sprintf(server->data_dir, "%s/data", server->root_dir);
+    } else if ( server->options.data_dir[0] == '/' ) {
+        sprintf(server->data_dir, "%s", server->options.data_dir);
+    } else {
+        sprintf(server->data_dir, "%s/%s", server->root_dir, server->options.data_dir);
     }
 
-    char log_dir[NAME_MAX];
-    sprintf(log_dir, "%s/data/log", server->root_dir);
-    if ( mkdir_if_not_exist(log_dir) != 0 ) {
-        error_log("mkdir %s failed.", log_dir);
-        return -1;
-    }
-
-    /*r = storage_init(&server->storage);*/
+    /* -------- Create vnodes -------- */
     int i;
     for ( i = 0 ; i < VNODES ; i++ ){
-        vnode_t *vnode = vnode_new(server->storage.storage_dir, i);
+        vnode_t *vnode = server_create_vnode(server, i);
         if ( vnode == NULL ){
             error_log("vnode_init() failed. id:%d", i);
             return -1;
         }
-        server->vnodes[i] = vnode;
     }
 
-    /* logfile */
+    /* -------- logfile_dir -------- */
+    char logfile_dir[NAME_MAX];
+    sprintf(logfile_dir, "%s/log", server->data_dir);
+    if ( mkdir_if_not_exist(logfile_dir) != 0 ) {
+        error_log("mkdir %s failed.", logfile_dir);
+        return -1;
+    }
+
     for ( i = 0 ; i < LOGFILES ; i++ ) {
         char logfile_name[NAME_MAX];
-        sprintf(logfile_name, "%s/%02d.log", log_dir, i);
+        sprintf(logfile_name, "%s/%02d.log", logfile_dir, i);
 
         logfile_t *logfile = logfile_new(i, logfile_name);
 
@@ -254,6 +274,7 @@ int server_init(server_t *server)
 
         server->logfiles[i] = logfile;
     }
+
 
     /* FIXME */
     r = init_server_work_queue(server);
@@ -288,14 +309,26 @@ int init_server_work_queue(server_t *server)
 
 	int i;
 
-	for ( i = 0; i < RECV_THREADS; i++ ) {
+    /* -------- recv_queue -------- */
+    uint32_t recv_threads = server->num_processors;
+    server->recv_threads = recv_threads;
+
+    server->recv_queue = (work_queue_t**)zmalloc(sizeof(work_queue_t*) * recv_threads);
+
+	for ( i = 0; i < recv_threads; i++ ) {
 		server->recv_queue[i] = init_work_queue(recv_queue_handle_request, RECV_INTERVAL);
 		if ( server->recv_queue[i] == NULL ){
 			return -1;
         }
 	}
 
-    for ( i = 0; i < SEND_THREADS; i++ ) {
+    /* -------- send_queue -------- */
+    uint32_t send_threads = server->num_processors;
+    server->send_threads = send_threads;
+
+    server->send_queue = (work_queue_t**)zmalloc(sizeof(work_queue_t*) * send_threads);
+
+    for ( i = 0; i < send_threads; i++ ) {
         server->send_queue[i] = init_work_queue(send_queue_handle_response, SEND_INTERVAL);
         if ( server->send_queue[i] == NULL )
             return -1;
@@ -309,7 +342,9 @@ int exit_server_work_queue(server_t *server)
 {
 	int i;
 
-	for ( i = 0; i < RECV_THREADS; i++ ) {
+    /* -------- recv_queue -------- */
+    uint32_t recv_threads = server->recv_threads;
+	for ( i = 0; i < recv_threads; i++ ) {
         work_queue_t *wq = server->recv_queue[i];
         if ( wq != NULL ) {
             exit_work_queue(wq);
@@ -317,8 +352,12 @@ int exit_server_work_queue(server_t *server)
             server->recv_queue[i] = NULL;
         }
 	}
+    zfree(server->recv_queue);
+    server->recv_queue = NULL;
 
-    for ( i = 0; i < SEND_THREADS; i++ ) {
+    /* -------- send_queue -------- */
+    uint32_t send_threads = server->send_threads;
+    for ( i = 0; i < send_threads; i++ ) {
         work_queue_t *wq = server->send_queue[i];
         if ( wq != NULL ) {
             exit_work_queue(wq);
@@ -326,6 +365,8 @@ int exit_server_work_queue(server_t *server)
             server->send_queue[i] = NULL;
         }
     }
+    zfree(server->send_queue);
+    server->send_queue = NULL;
 
     /*pthread_key_delete(key_actived_sockbuf);*/
 
@@ -354,18 +395,21 @@ logfile_t *get_logfile_by_session(server_t *server, session_t *session)
 work_queue_t *get_recv_queue_by_session(server_t *server, session_t *session)
 {
 
+    uint32_t recv_threads = server->recv_threads;
+
     int fd = session_fd(session);    
-    int idx = fd % RECV_THREADS;
-    assert(idx >= 0 && idx < RECV_THREADS);
+    int idx = fd % recv_threads;
+    assert(idx >= 0 && idx < recv_threads);
     return server->recv_queue[idx];
 }
 
 work_queue_t *get_send_queue_by_session(server_t *server, session_t *session)
 {
+    uint32_t send_threads = server->send_threads;
 
     int fd = session_fd(session);    
-    int idx = fd % SEND_THREADS;
-    assert(idx >= 0 && idx < SEND_THREADS);
+    int idx = fd % send_threads;
+    assert(idx >= 0 && idx < send_threads);
     return server->send_queue[idx];
 }
 
@@ -392,3 +436,4 @@ sockbuf_t *dequeue_recv_queue(session_t *session)
 
     return NULL;
 }
+

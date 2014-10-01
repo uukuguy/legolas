@@ -15,9 +15,11 @@
 #include <limits.h>
 #include <pthread.h>
 #include "legolas.h"
+#include "service.h"
 
 typedef struct list list;
 typedef struct udb_t udb_t;
+typedef struct service_t service_t;
 typedef struct session_t session_t;
 typedef struct message_t message_t;
 typedef struct msgidx_t msgidx_t;
@@ -55,7 +57,9 @@ typedef struct udb_t {
     char *data;
     uint32_t data_size;
 
-    list *writing_objects;
+    service_t *service;
+
+    //list *writing_objects;
 
     on_ready_cb on_ready;
     after_write_finished_cb after_write_finished;
@@ -105,7 +109,7 @@ int udb_delete_data(udb_t *udb, after_delete_finished_cb after_delete_finished);
 
 
 
-#define udb(session) (udb_t*)(session->parent)
+#define udb(session) (udb_t*)(session->service->parent)
 
 #endif /* __udb_H__ */
 

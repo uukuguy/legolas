@@ -13,6 +13,7 @@
 #include "message.h"
 #include "daemon.h"
 #include "client.h"
+#include "filesystem.h"
 
 static char program_name[] = "legolas";
 static int msec0, msec1;
@@ -129,10 +130,16 @@ int runclient(program_options_t *program_options)
     int log_level = program_options->log_level;
 
     /* -------- Init logger -------- */
-    /*char logfile[PATH_MAX];*/
-    /*strncpy(logfile, log_dir, sizeof(logfile));*/
-    /*strncat(logfile, "/legolasd.log", sizeof(logfile) - strlen(logfile) - 1);*/
-    const char *logfile = "/tmp/legolas.log";
+    char root_dir[NAME_MAX];
+    get_instance_parent_full_path(root_dir, NAME_MAX);
+
+    char log_dir[NAME_MAX];
+    sprintf(log_dir, "%s/log", root_dir);
+    mkdir_if_not_exist(log_dir);
+
+    char logfile[PATH_MAX];
+    sprintf(logfile, "%s/legolas.log", log_dir);
+
     if (log_init(program_name, LOG_SPACE_SIZE, is_daemon, log_level, logfile))
         return -1;
 

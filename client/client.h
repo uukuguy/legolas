@@ -12,12 +12,11 @@
 #define __CLIENT_H__ 
 
 #include "zmalloc.h"
-#include "list.h"
-#include "adlist.h"
 #include "uv.h"
 #include "work.h"
 #include "logger.h"
 #include "message.h"
+#include "service.h"
 #include "session.h"
 
 typedef struct client_args_t {
@@ -85,7 +84,7 @@ typedef struct client_t {
 client_runtime_t *client_runtime_new(client_t *client);
 void client_runtime_free(client_runtime_t *client_runtime);
 
-#define CLIENT(session) (client_t*)(session->parent)
+#define CLIENT(session) (client_t*)(session->service->parent)
 #define CLIENT_ARGS(session) (client_args_t*)(session->user_data)
 
 client_t *client_new(const char *ip, int port, int op_code, const char *key, const char *file, int start_index, int total_files, int nthreads);

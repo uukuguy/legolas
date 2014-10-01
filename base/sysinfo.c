@@ -15,7 +15,7 @@
 #include "sysinfo.h"
 
 
-int retrive_sysinfo(sysinfo_t *sysinfo)
+int flush_sysinfo(sysinfo_t *sysinfo)
 {
     memset(sysinfo, 0, sizeof(sysinfo_t));
 
@@ -46,7 +46,7 @@ void sysinfo_format(sysinfo_t *sysinfo, char *buf)
 void log_sysinfo(void)
 {
     sysinfo_t sysinfo;
-    retrive_sysinfo(&sysinfo);
+    flush_sysinfo(&sysinfo);
     char szSysinfo[1024];
     sysinfo_format(&sysinfo, szSysinfo);
 

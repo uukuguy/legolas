@@ -9,6 +9,7 @@
  */
 
 #include "udb.h"
+#include "service.h"
 #include "session.h"
 #include "legolas.h"
 
@@ -82,6 +83,8 @@ udb_t *udb_new(const char *ip, int port, void *user_data)
     udb_t *udb = (udb_t*)zmalloc(sizeof(udb_t));
     memset(udb, 0, sizeof(udb_t));
 
+    udb->service = service_new(udb);
+
     udb->id = udb_id;
     __sync_add_and_fetch(&udb_id, 1);
 
@@ -89,7 +92,7 @@ udb_t *udb_new(const char *ip, int port, void *user_data)
     udb->port = port;
 
     udb->user_data = user_data;
-    udb->writing_objects = listCreate();
+    /*udb->writing_objects = listCreate();*/
 
 	pthread_mutex_init(&udb->on_ready_lock, NULL);
 	pthread_cond_init(&udb->on_ready_cond, NULL);
@@ -102,10 +105,10 @@ void udb_free(udb_t *udb)
 {
     if ( udb != NULL ) {
 
-        if ( udb->writing_objects != NULL ){
-            listRelease(udb->writing_objects);
-            udb->writing_objects = NULL;
-        }
+        /*if ( udb->writing_objects != NULL ){*/
+            /*listRelease(udb->writing_objects);*/
+            /*udb->writing_objects = NULL;*/
+        /*}*/
 
         if ( udb->user_data != NULL ){
             zfree(udb->user_data);
@@ -252,7 +255,7 @@ static int udb_loop(udb_t *udb)
 
     const session_callbacks_t *callbacks = &udb_callbacks;
 
-    session_t *session = session_new((void*)udb, callbacks, NULL);
+    session_t *session = session_new(udb->service, callbacks, NULL);
     udb->session = session;
 
     /* -------- loop -------- */

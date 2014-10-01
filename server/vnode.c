@@ -18,8 +18,6 @@
 #include "server.h"
 #include "session.h"
 
-#define STORAGE_KVDB
-
 #define VNODE_KVDB_QUEUE_INTERVAL 1 /* ms */
 
 void vnode_kvdb_queue_handle_write(work_queue_t *wq)
@@ -33,16 +31,20 @@ void vnode_kvdb_queue_handle_write(work_queue_t *wq)
         
         session_write_to_storage(session, object);
 
+        /* FIXME 2014-10-10 18:56:55 */
+        /*session_response(session, RESULT_SUCCESS);*/
+
         sched_yield();
     }
 }
 
-vnode_t *vnode_new(char *root_dir, uint32_t id)
+vnode_t *vnode_new(char *root_dir, uint32_t id, enum eVnodeStorageType storage_type)
 {
     vnode_t *vnode = (vnode_t*)zmalloc(sizeof(vnode_t));
 
     memset(vnode, 0, sizeof(vnode_t));
     vnode->id = id;
+    vnode->storage_type = storage_type;
 
     /* Create vnode root dir */
     sprintf(vnode->root_dir, "%s/%04d", root_dir, id);
@@ -66,20 +68,19 @@ vnode_t *vnode_new(char *root_dir, uint32_t id)
     char dbpath[NAME_MAX];
     sprintf(dbpath, "%s/manifest.db", vnode->root_dir);
 
-#ifdef STORAGE_KVDB
-    kvdb_t *kvdb = kvdb_open("lmdb", dbpath); 
-    /*kvdb_t *kvdb = kvdb_open("rocksdb", dbpath); */
-    /*kvdb_t *kvdb = kvdb_open("leveldb", dbpath); */
-    /*kvdb_t *kvdb = kvdb_open("lsm", dbpath); */
+    if ( vnode->storage_type == STORAGE_KVDB ){
+        kvdb_t *kvdb = kvdb_open("lmdb", dbpath); 
+        /*kvdb_t *kvdb = kvdb_open("rocksdb", dbpath); */
+        /*kvdb_t *kvdb = kvdb_open("leveldb", dbpath); */
+        /*kvdb_t *kvdb = kvdb_open("lsm", dbpath); */
 
-    /*if ( kvdb == NULL ){*/
-        /*error_log("kvdb_init() failed. vnode(%d) dir:%s", id, vnode->root_dir);*/
-        /*zfree(vnode);*/
-        /*return NULL;*/
-    /*}*/
-    vnode->kvdb = kvdb;
-#endif
-
+        if ( kvdb == NULL ){
+            error_log("kvdb_init() failed. vnode(%d) dir:%s", id, vnode->root_dir);
+            zfree(vnode);
+            return NULL;
+        }
+        vnode->kvdb = kvdb;
+    }
 
     vnode->caching_objects = object_queue_new(object_compare_md5_func);
 
@@ -180,13 +181,11 @@ int vnode_write_to_storage(vnode_t *vnode, object_t *object)
 {
     int ret = 0;
 
-#ifdef STORAGE_KVDB
-    ret = vnode_write_to_kvdb(vnode, object);
-#else
-    /* FIXME 2014-09-09 21:19:54 */
-    /*ret = 0;*/
-    ret = vnode_write_to_file(vnode, object);
-#endif
+    if ( vnode->storage_type == STORAGE_KVDB ){
+        ret = vnode_write_to_kvdb(vnode, object);
+    } else if ( vnode->storage_type == STORAGE_LOGFILE ){
+        ret = vnode_write_to_file(vnode, object);
+    }
 
     return ret;
 }
@@ -195,10 +194,10 @@ object_t *vnode_read_from_storage(vnode_t *vnode, md5_value_t key_md5)
 {
     object_t *object = NULL;
     
-#ifdef STORAGE_KVDB
-    object = object_get_from_kvdb(vnode->kvdb, key_md5);
-#else
-#endif
+    if ( vnode->storage_type == STORAGE_KVDB ){
+        object = object_get_from_kvdb(vnode->kvdb, key_md5);
+    } else if ( vnode->storage_type == STORAGE_LOGFILE ){
+    } 
 
     return object;
 }
@@ -207,10 +206,10 @@ int vnode_get_slice_from_storage(vnode_t *vnode, md5_value_t key_md5, uint32_t s
 {
     int ret = -1;
 
-#ifdef STORAGE_KVDB
-    ret = object_get_slice_from_kvdb(vnode->kvdb, key_md5, slice_idx, ppbuf, pbuf_size);
-#else
-#endif
+    if ( vnode->storage_type == STORAGE_KVDB ){
+        ret = object_get_slice_from_kvdb(vnode->kvdb, key_md5, slice_idx, ppbuf, pbuf_size);
+    } else if ( vnode->storage_type == STORAGE_LOGFILE ){
+    }
 
     return ret;
 }

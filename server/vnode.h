@@ -23,9 +23,16 @@ typedef struct session_t session_t;
 
 typedef struct datazone_t datazone_t;
 
+typedef enum eVnodeStorageType {
+    STORAGE_NONE = 0,
+    STORAGE_KVDB,
+    STORAGE_LOGFILE
+} eVnodeStorageType;
+
 typedef struct vnode_t {
     uint32_t id;
     char root_dir[NAME_MAX];
+    enum eVnodeStorageType storage_type;
 
     uint32_t n_datazones;
     datazone_t *datazones[MAX_DATAZONES];
@@ -50,7 +57,7 @@ typedef struct vnode_kvdb_queue_entry_t{
     object_t *object;
 } vnode_kvdb_queue_entry_t;
 
-vnode_t *vnode_new(char *root_dir, uint32_t id);
+vnode_t *vnode_new(char *root_dir, uint32_t id, enum eVnodeStorageType storage_type);
 void vnode_free(vnode_t *vnode);
 
 datazone_t *get_datazone_by_object(vnode_t *vnode, object_t *object);

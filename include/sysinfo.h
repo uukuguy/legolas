@@ -22,7 +22,7 @@ typedef struct sysinfo_t {
     int free_mem;
 } sysinfo_t;
 
-int retrieve_sysinfo(sysinfo_t *sysinfo);
+int flush_sysinfo(sysinfo_t *sysinfo);
 void sysinfo_format(sysinfo_t *sysinfo, char *buf);
 void log_sysinfo(void);
 

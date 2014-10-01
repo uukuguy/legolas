@@ -12,10 +12,12 @@
 #include "daemon.h"
 #include "legolas.h"
 #include "server.h"
+#include "filesystem.h"
 #include <stdlib.h>
 #include <stdio.h>
 #include <signal.h>
 #include <getopt.h>
+#include <string.h>
 
 static char program_name[] = "legolasd";
 
@@ -31,6 +33,7 @@ static void usage(int status)
                 -d, --daemon            run in the daemon mode\n\
                 -v, --verbose           print debug messages\n\
                 -t, --trace             print trace messages\n\
+                -s, --storage           set storage type.(kvdb, logfile, none)\n\
                 -h, --help              display this help and exit\n\
 ");
     }
@@ -43,43 +46,43 @@ static struct option const long_options[] = {
 	{"daemon", no_argument, NULL, 'd'},
 	{"verbose", no_argument, NULL, 'v'},
 	{"trace", no_argument, NULL, 't'},
+    {"storage", required_argument, NULL, 's'},
 	{"help", no_argument, NULL, 'h'},
 
 	{NULL, 0, NULL, 0},
 };
 static const char *short_options = "p:dvth";
 
-extern int start_listen(int port, const char *data_dir); /* in server.c */
-
 typedef struct program_options_t {
-    int port;
+    int listen_port;
     const char *data_dir;
-    const char *log_dir;
-    int is_daemon;
-    int log_level;
+    enum eVnodeStorageType storage_type;
+
+    /*const char *log_dir;*/
+    /*int is_daemon;*/
+    /*int log_level;*/
 
 } program_options_t;
 
-/* ==================== runserver() ==================== */ 
-int runserver(program_options_t *program_options)
+/* ==================== run_server() ==================== */ 
+int run_server(program_options_t *program_options)
 {
-    int port = program_options->port;
-    const char *data_dir = program_options->data_dir;
-    const char *log_dir = program_options->log_dir;
-    int is_daemon = program_options->is_daemon;
-    int log_level = program_options->log_level;
-
-    char logfile[PATH_MAX];
-    strncpy(logfile, log_dir, sizeof(logfile));
-    strncat(logfile, "/legolasd.log", sizeof(logfile) - strlen(logfile) - 1);
-    if (log_init(program_name, LOG_SPACE_SIZE, is_daemon, log_level, logfile))
-        return -1;
-
     notice_log("==> Start Legolas Server.");
 
     pth_init();
 
-    int ret = start_listen(port, data_dir);
+    int ret = -1;
+
+    server_options_t server_options;
+    server_options.listen_port = program_options->listen_port;
+    server_options.data_dir = program_options->data_dir;
+    server_options.storage_type = program_options->storage_type;
+
+    server_t *server = server_new(&server_options);
+    if ( server_init(server) == 0 ){
+        ret = server_listen(server);
+    }
+    server_free(server);
 
     pth_kill();
 
@@ -91,7 +94,25 @@ int runserver(program_options_t *program_options)
 /* ==================== daemon_loop() ==================== */ 
 int daemon_loop(void *data)
 {
-    return runserver((program_options_t *)data);
+    return run_server((program_options_t *)data);
+}
+
+/* ==================== init_logger() ==================== */ 
+int init_logger(int is_daemon, int log_level)
+{
+    char root_dir[NAME_MAX];
+    get_instance_parent_full_path(root_dir, NAME_MAX);
+
+    char log_dir[NAME_MAX];
+    sprintf(log_dir, "%s/log", root_dir);
+    mkdir_if_not_exist(log_dir);
+
+    char logfile[PATH_MAX];
+    sprintf(logfile, "%s/legolasd.log", log_dir);
+
+    int ret = log_init(program_name, LOG_SPACE_SIZE, is_daemon, log_level, logfile);
+
+    return ret;
 }
 
 /* ==================== main() ==================== */ 
@@ -100,29 +121,32 @@ int main(int argc, char* argv[])
 
     program_options_t program_options;
 
-	program_options.port = DEFAULT_PORT;
+	program_options.listen_port = DEFAULT_PORT;
 	program_options.data_dir = "./data";
-    /*program_options.log_dir = "/Users/jwsu/sandbox/geek/udbfs/log";*/
-    program_options.log_dir = "/tmp";
-    program_options.is_daemon = 0;
-    program_options.log_level = LOG_INFO;
+
+    int is_daemon = 0;
+    int log_level = LOG_INFO;
+    const char *sz_storage_type = NULL;
 
 	int ch, longindex;
 	while ((ch = getopt_long(argc, argv, short_options, long_options,
 				 &longindex)) >= 0) {
 		switch (ch) {
 		case 'p':
-			program_options.port = atoi(optarg);
+			program_options.listen_port = atoi(optarg);
 			break;
         case 'd':
-            program_options.is_daemon = 1;
+            is_daemon = 1;
             break;
         case 'v':
-            program_options.log_level = LOG_DEBUG;
+            log_level = LOG_DEBUG;
             break;
 		case 't':
-            program_options.log_level = LOG_TRACE;
+            log_level = LOG_TRACE;
 			break;
+        case 's':
+            sz_storage_type = optarg;
+            break;
 		case 'h':
 			usage(0);
 			break;
@@ -135,9 +159,29 @@ int main(int argc, char* argv[])
 	if (optind != argc)
 		program_options.data_dir = argv[optind];
 
-    if ( program_options.is_daemon )
+    /* -------- storage_type -------- */
+    eVnodeStorageType storage_type = STORAGE_KVDB;
+    if ( sz_storage_type != NULL ){
+        if ( strcmp(sz_storage_type, "logfile") == 0 ){
+            storage_type = STORAGE_LOGFILE;
+        } else if ( strcmp(sz_storage_type, "kvdb" ) == 0 ){
+            storage_type = STORAGE_KVDB;
+        } else if ( strcmp(sz_storage_type, "none" ) == 0 ){
+            storage_type = STORAGE_NONE;
+        }
+    }
+    program_options.storage_type = storage_type;
+
+    /* -------- logger -------- */
+    if ( init_logger(is_daemon, log_level) != 0 ){
+        printf("init_logger() failed.\n");
+        return -1;
+    }
+
+    /* -------- run_server -------- */
+    if ( is_daemon )
         return daemon_fork(daemon_loop, (void*)&program_options); 
     else
-        return runserver(&program_options);
+        return run_server(&program_options);
 }
 

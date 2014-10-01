@@ -13,7 +13,7 @@
  */
 
 #include "common.h"
-/*#include "server.h"*/
+#include "service.h"
 #include "session.h"
 #include "work.h"
 #include "logger.h"
@@ -392,7 +392,10 @@ int destroy_session_coroutine(session_t *session)
 /* ==================== session_consume_sockbuf() ==================== */ 
 void session_consume_sockbuf(sockbuf_t *sockbuf)
 {
+
     session_t *session = sockbuf->session;
+
+    /*pthread_mutex_lock(&session->recv_pending_lock);*/
 
     if ( likely( sockbuf->remain_bytes > 0 ) ) {
         /* FIXME coroutine */
@@ -428,11 +431,23 @@ void session_consume_sockbuf(sockbuf_t *sockbuf)
     __sync_add_and_fetch(&session->total_saved_buffers, 1);
 
     /*pthread_yield();*/
-    sched_yield();
+    /*sched_yield();*/
 
+    /*pthread_mutex_unlock(&session->recv_pending_lock);*/
 }
 
+void after_read_task(uv_work_t *work)
+{
+    sockbuf_t *sockbuf =(sockbuf_t*)work->data;
+    assert(sockbuf != NULL);
 
+    session_consume_sockbuf(sockbuf);
+}
+
+void after_read_task_done(uv_work_t *work, int status)
+{
+    /*zfree(work);*/
+}
 
 /* ==================== after_read() ==================== */ 
 /*
@@ -458,16 +473,24 @@ void after_read(uv_stream_t *handle, ssize_t nread, const uv_buf_t *buf)
         /*trace_log("\n........\nfd(%d) block(%d) nread=%zu bytes. write_head:%d, remain_bytes=%d, total_bytes=%d\n", session_fd(session), sockbuf->blockid, nread, sockbuf->write_head, sockbuf->remain_bytes, session->connection.total_bytes);*/
 
 
+        /* FIXME 2014-10-10 23:20:15 */
         __sync_add_and_fetch(&session->total_received_buffers, 1);
+
+        /*enqueue_parse_queue(session, sockbuf);*/
+
         if ( session->callbacks.consume_sockbuf != NULL ){
             session->callbacks.consume_sockbuf(sockbuf);
         } else {
             session_consume_sockbuf(sockbuf);
         }
 
-        /*session_response(session, RESULT_SUCCESS);*/
-        /*sockbuf_free(sockbuf);*/
-        /*session_finish_saving_buffer(session);*/
+        /*uv_work_t *work = (uv_work_t*)zmalloc(sizeof(uv_work_t));*/
+        /*memset(work, 0, sizeof(uv_work_t));*/
+        /*work->data = sockbuf;*/
+        /*server_t *server = (server_t*)session->service->parent;*/
+        /*uv_loop_t *loop = &server->connection.loop;*/
+        /*uv_queue_work(loop, work, after_read_task, after_read_task_done);*/
+
 
         /* FIXME */
         /*while ( server->cached_bytes > MAX_CACHED_BYTES ) {*/
