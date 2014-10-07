@@ -23,9 +23,13 @@ typedef struct service_t
     void *parent;
 
     uint32_t num_processors;
+    uint32_t parse_threads;
 
     work_queue_t **parse_queue;
-    uint32_t parse_threads;
+
+    /* FIXME 2014-10-10 11:35:51 */
+    coroutine_t **rx_coroutines;
+
 
 } service_t;
 

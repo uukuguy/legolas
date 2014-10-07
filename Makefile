@@ -1,8 +1,8 @@
 SERVER = bin/legolasd
 CLIENT = bin/legolas
 
-BASE_OBJS = base/logger.o base/daemon.o base/wu_coroutine.o
-#base/coroutine.o 
+BASE_OBJS = base/logger.o base/daemon.o base/coroutine.o
+
 BASE_OBJS += base/zmalloc.o base/work.o base/md5.o base/byteblock.o base/filesystem.o base/sysinfo.o
 BASE_OBJS += base/skiplist.o base/adlist.o base/threadpool.o base/crc32.o base/http_parser.o
 
@@ -38,6 +38,10 @@ KVDB_OBJS += ${LEVELDB_OBJS}
 KVDB_CFLAGS += -DHAS_LMDB 
 LMDB_OBJS = base/kvdb_lmdb.o 
 KVDB_OBJS += ${LMDB_OBJS}
+
+KVDB_CFLAGS += -DHAS_EBLOB
+EBLOB_OBJS = base/kvdb_eblob.o
+KVDB_OBJS += ${EBLOB_OBJS}
 
 COMMON_CFLAGS += ${KVDB_CFLAGS}
 
@@ -88,6 +92,9 @@ LIBCORO=libcoro-1.67
 PCL=pcl-1.12
 LIBLFDS=liblfds-6.1.1
 
+REACT=react-2.3.1
+EBLOB=eblob-0.22.8
+
 UNAME := $(shell uname)
 
 ifeq (${UNAME}, Linux)
@@ -110,9 +117,9 @@ server: ${SERVER}
 client: ${CLIENT}
 
 # ---------------- deps ----------------
-.PHONY: jemalloc libuv leveldb lmdb zeromq czmq zyre liblfds pcl 
+.PHONY: jemalloc libuv leveldb lmdb zeromq czmq zyre liblfds pcl react eblob
 
-deps: jemalloc libuv leveldb lmdb lsm-sqlite4 zeromq czmq zyre msgpack cgreenlet crush lthread  pth libcoro rocksdb
+deps: jemalloc libuv leveldb lmdb lsm-sqlite4 zeromq czmq zyre msgpack cgreenlet crush lthread  pth libcoro rocksdb react eblob
 #pcl 
 
 # ................ jemalloc ................
@@ -427,6 +434,47 @@ deps/pcl:
 	./configure && \
 	make 
 
+# ................ react ................
+
+CFLAGS_REACT=-I./deps/react/include
+LDFLAGS_REACT=-lreact
+
+react: deps/react
+
+deps/react:
+	cd deps && \
+	tar zxvf ${REACT}.tar.gz && \
+	ln -sf ${REACT} react && \
+	cd ${REACT} && \
+	ln -s -r foreign/rapidjson include/react/ && \
+	sed -i -e 's/react SHARED/react STATIC/g' CMakeLists.txt && \
+	mkdir build && \
+	cd build && \
+	cmake -DCMAKE_BUILD_TYPE=Release .. && \
+	make && \
+	cp -f libreact.a ../../../lib/
+
+# ................ eblob ................
+
+CFLAGS_EBLOB=-I./deps/eblob/include
+LDFLAGS_EBLOB=-leblob -leblob_react
+
+eblob: deps/eblob
+
+deps/eblob:
+	cd deps && \
+	tar zxvf ${EBLOB}.tar.gz && \
+	ln -sf ${EBLOB} eblob && \
+	cd ${EBLOB} && \
+	sed -i -e 's/SHARED/STATIC/g' library/CMakeLists.txt && \
+	sed -i -e 's/SHARED/STATIC/g' bindings/cpp/CMakeLists.txt && \
+	sed -i -e 's/SHARED/STATIC/g' bindings/python/CMakeLists.txt && \
+	mkdir build && \
+	cd build && \
+	cmake -DREACT_INCLUDE_DIRS="`pwd`/../../react/include" -DREACT_LIBRARY_DIRS="`pwd`/../../react/build" -DCMAKE_BUILD_TYPE=Release .. && \
+	make && \
+	cp -f library/libeblob.a library/react/libeblob_react.a bindings/cpp/libeblob_cpp.a bindings/python/libeblob_python.a ../../../lib/
+
 # ---------------- all ----------------
 	
 #CFLAGS_UCONTEXT=-D_XOPEN_SOURCE # ucontext.h error: The deprecated ucontext routines require _XOPEN_SOURCE to be defined.
@@ -443,7 +491,9 @@ COMMON_CFLAGS += ${CFLAGS_LIBUV} \
 				 ${CFLAGS_CRUSH} \
 				 ${CFLAGS_LTHREAD} \
 				 ${CFLAGS_PTH} \
-				 ${CFLAGS_LIBCORO}
+				 ${CFLAGS_LIBCORO} \
+				 ${CFLAGS_REACT} \
+				 ${CFLAGS_EBLOB}
 FINAL_CFLAGS = -std=c11 -Wstrict-prototypes \
 			   ${COMMON_CFLAGS} \
 			   ${CFLAGS}
@@ -473,6 +523,8 @@ FINAL_LDFLAGS += ${LDFLAGS_LIBUV} \
 				${LDFLAGS_LTHREAD} \
 				${LDFLAGS_PTH} \
 				${LDFLAGS_LIBCORO} \
+				${LDFLAGS_EBLOB} \
+				${LDFLAGS_REACT} \
 				${LDFLAGS} -lsnappy -lpthread -lssl -lcrypto -lstdc++ -lm -lz
 
 #${LDFLAGS_LIBLFDS} 

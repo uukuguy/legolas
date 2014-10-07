@@ -163,8 +163,14 @@ int main(int argc, char* argv[])
     if ( sz_storage_type != NULL ){
         if ( strcmp(sz_storage_type, "logfile") == 0 ){
             storage_type = STORAGE_LOGFILE;
-        } else if ( strcmp(sz_storage_type, "kvdb" ) == 0 ){
-            storage_type = STORAGE_KVDB;
+        } else if ( strcmp(sz_storage_type, "eblob" ) == 0 ){
+            storage_type = STORAGE_KVDB_EBLOB;
+        } else if ( strcmp(sz_storage_type, "lmdb" ) == 0 ){
+            storage_type = STORAGE_KVDB_LMDB;
+        } else if ( strcmp(sz_storage_type, "leveldb" ) == 0 ){
+            storage_type = STORAGE_KVDB_LEVELDB;
+        } else if ( strcmp(sz_storage_type, "rocksdb" ) == 0 ){
+            storage_type = STORAGE_KVDB_ROCKSDB;
         } else if ( strcmp(sz_storage_type, "none" ) == 0 ){
             storage_type = STORAGE_NONE;
         }

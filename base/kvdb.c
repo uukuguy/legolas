@@ -29,6 +29,10 @@ kvdb_t *kvdb_rocksdb_open(const char *dbpath);
 kvdb_t *kvdb_lsm_open(const char *dbpath);
 #endif
 
+#ifdef HAS_EBLOB
+kvdb_t *kvdb_eblob_open(const char *dbpath);
+#endif
+
 typedef struct kvdb_classes_t {
     const char *dbclass;
     kvdb_t *(*kvdb_open)(const char*);
@@ -46,6 +50,9 @@ static kvdb_classes_t kvdb_classes[] ={
 #endif
 #ifdef HAS_LSM
     {"lsm", kvdb_lsm_open},
+#endif
+#ifdef HAS_EBLOB
+    {"eblob", kvdb_eblob_open}, 
 #endif
 };
 

@@ -25,8 +25,14 @@ typedef struct datazone_t datazone_t;
 
 typedef enum eVnodeStorageType {
     STORAGE_NONE = 0,
+    STORAGE_LOGFILE,
+
     STORAGE_KVDB,
-    STORAGE_LOGFILE
+    STORAGE_KVDB_LMDB,
+    STORAGE_KVDB_EBLOB,
+    STORAGE_KVDB_LEVELDB,
+    STORAGE_KVDB_ROCKSDB,
+    STORAGE_KVDB_LSM
 } eVnodeStorageType;
 
 typedef struct vnode_t {

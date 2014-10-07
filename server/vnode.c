@@ -77,19 +77,28 @@ vnode_t *vnode_new(char *root_dir, uint32_t id, enum eVnodeStorageType storage_t
     char dbpath[NAME_MAX];
     sprintf(dbpath, "%s/manifest.db", vnode->root_dir);
 
-    if ( vnode->storage_type == STORAGE_KVDB ){
-        kvdb_t *kvdb = kvdb_open("lmdb", dbpath); 
-        /*kvdb_t *kvdb = kvdb_open("rocksdb", dbpath); */
-        /*kvdb_t *kvdb = kvdb_open("leveldb", dbpath); */
-        /*kvdb_t *kvdb = kvdb_open("lsm", dbpath); */
+    kvdb_t *kvdb = NULL;
 
-        if ( kvdb == NULL ){
-            error_log("kvdb_init() failed. vnode(%d) dir:%s", id, vnode->root_dir);
-            zfree(vnode);
-            return NULL;
-        }
-        vnode->kvdb = kvdb;
+    if ( vnode->storage_type == STORAGE_KVDB ){
+        kvdb = kvdb_open("lmdb", dbpath);
+    } else if ( vnode->storage_type == STORAGE_KVDB_EBLOB ){
+        kvdb = kvdb_open("eblob", dbpath);
+    } else if ( vnode->storage_type == STORAGE_KVDB_LMDB ){
+        kvdb = kvdb_open("lmdb", dbpath);
+    } else if ( vnode->storage_type == STORAGE_KVDB_LEVELDB ){
+        kvdb = kvdb_open("leveldb", dbpath);
+    } else if ( vnode->storage_type == STORAGE_KVDB_ROCKSDB ){
+        kvdb = kvdb_open("rocksdb", dbpath);
+    } else if ( vnode->storage_type == STORAGE_KVDB_LSM ){
+        kvdb = kvdb_open("lsm", dbpath);
     }
+
+    if ( kvdb == NULL ){
+        error_log("kvdb_init() failed. vnode(%d) dir:%s", id, vnode->root_dir);
+        zfree(vnode);
+        return NULL;
+    }
+    vnode->kvdb = kvdb;
 
     vnode->caching_objects = object_queue_new(object_compare_md5_func);
 
@@ -190,7 +199,7 @@ int vnode_write_to_storage(vnode_t *vnode, object_t *object)
 {
     int ret = 0;
 
-    if ( vnode->storage_type == STORAGE_KVDB ){
+    if ( vnode->storage_type >= STORAGE_KVDB ){
         ret = vnode_write_to_kvdb(vnode, object);
     } else if ( vnode->storage_type == STORAGE_LOGFILE ){
         ret = vnode_write_to_file(vnode, object);
@@ -203,7 +212,7 @@ object_t *vnode_read_from_storage(vnode_t *vnode, md5_value_t key_md5)
 {
     object_t *object = NULL;
     
-    if ( vnode->storage_type == STORAGE_KVDB ){
+    if ( vnode->storage_type >= STORAGE_KVDB ){
         object = object_get_from_kvdb(vnode->kvdb, key_md5);
     } else if ( vnode->storage_type == STORAGE_LOGFILE ){
     } 
@@ -215,7 +224,7 @@ int vnode_get_slice_from_storage(vnode_t *vnode, md5_value_t key_md5, uint32_t s
 {
     int ret = -1;
 
-    if ( vnode->storage_type == STORAGE_KVDB ){
+    if ( vnode->storage_type >= STORAGE_KVDB ){
         ret = object_get_slice_from_kvdb(vnode->kvdb, key_md5, slice_idx, ppbuf, pbuf_size);
     } else if ( vnode->storage_type == STORAGE_LOGFILE ){
     }

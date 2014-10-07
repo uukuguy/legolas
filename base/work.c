@@ -17,21 +17,22 @@
 #include <unistd.h>
 #include <pthread.h>
 /*#include "pcl.h"*/
-#include "list.h"
+/*#include "list.h"*/
 #include "util.h"
 #include "work.h"
 #include "zmalloc.h"
 #include "logger.h"
 #include "adlist.h"
 
-static LIST_HEAD(work_queue_list);
+/*static LIST_HEAD(work_queue_list);*/
 
 typedef struct work_queue_t {
-	struct list_head worker_queue_siblings;
+	/*struct list_head worker_queue_siblings;*/
+    int id;
 
 	pthread_cond_t pending_cond;
 	pthread_mutex_t pending_lock;
-	struct list_head q;
+	/*struct list_head q;*/
     list *queue;
 
 	work_func_t fn;
@@ -41,6 +42,16 @@ typedef struct work_queue_t {
 
 	pthread_t worker_thread;
 } work_queue_t;
+
+void work_queue_set_id(work_queue_t *wq, int id)
+{
+    wq->id = id;
+}
+
+int work_queue_get_id(work_queue_t *wq)
+{
+    return wq->id;
+}
 
 void remove_work(work_queue_t *wq, struct list_head *w_list){
     pthread_mutex_lock(&wq->pending_lock);
@@ -186,7 +197,7 @@ work_queue_t *init_work_queue(work_func_t fn, int interval)
 
 	wq->fn = fn;
 	wq->interval = interval;
-	INIT_LIST_HEAD(&wq->q);
+	/*INIT_LIST_HEAD(&wq->q);*/
 
     wq->queue = listCreate();
 
@@ -201,7 +212,7 @@ work_queue_t *init_work_queue(work_func_t fn, int interval)
 		goto destroy_threads;
 	}
 
-	list_add(&wq->worker_queue_siblings, &work_queue_list);
+	/*list_add(&wq->worker_queue_siblings, &work_queue_list);*/
 
 	return wq;
 destroy_threads:

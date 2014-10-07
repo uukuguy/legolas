@@ -256,6 +256,7 @@ void session_rx_coroutine(struct schedule *s, void *opaque)
 void *session_rx_coroutine(void *opaque)
 #endif
 {
+    trace_log("enter session_rx_coroutine().");
     UNUSED int ret;
     session_t *session = (session_t*)opaque;
 
@@ -269,7 +270,9 @@ void *session_rx_coroutine(void *opaque)
         /*session = coroutine_self_data();*/
         sockbuf_t *sockbuf = session->sockbuf;
         message_t *message = NULL;
+        trace_log("Ready to session_do_read().");
         ret = session_do_read(sockbuf, &message);
+        trace_log("After session_do_read().");
 
         /* FIXME coroutine */
         /*session = coroutine_self_data();*/
@@ -292,6 +295,7 @@ void *session_rx_coroutine(void *opaque)
         }
     }
 
+    trace_log("leave session_rx_coroutine().");
 #ifdef USE_CGREENLET
     return NULL;
 #endif

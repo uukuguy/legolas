@@ -1,5 +1,5 @@
 directory ./server:./client:./base:./legolas:./deps/libuv
-set args --trace --storage none
+set args --trace --storage eblob
 b main
 run
 
