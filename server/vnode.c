@@ -11,20 +11,19 @@
 #include "vnode.h"
 #include "filesystem.h"
 #include "logger.h"
-#include "kvdb.h"
 #include "object.h"
 #include "zmalloc.h"
 #include "work.h"
 #include "server.h"
 #include "session.h"
 
-#define VNODE_KVDB_QUEUE_INTERVAL 1 /* ms */
+#define VNODE_WRITE_QUEUE_INTERVAL 1 /* ms */
 
-void vnode_kvdb_queue_handle_write(work_queue_t *wq)
+void vnode_write_queue_handle_write(work_queue_t *wq)
 {
     void *node_data = NULL;
     while ( (node_data = dequeue_work(wq)) != NULL ){
-        vnode_kvdb_queue_entry_t *entry = (vnode_kvdb_queue_entry_t*)node_data;
+        vnode_write_queue_entry_t *entry = (vnode_write_queue_entry_t*)node_data;
         session_t *session = entry->session;
         object_t *object = entry->object;
         zfree(entry);
@@ -74,31 +73,33 @@ vnode_t *vnode_new(char *root_dir, uint32_t id, enum eVnodeStorageType storage_t
     }
 
     /* Index DB */
-    char dbpath[NAME_MAX];
-    sprintf(dbpath, "%s/manifest.db", vnode->root_dir);
+    if ( vnode->storage_type != STORAGE_NONE ){
+        char dbpath[NAME_MAX];
+        sprintf(dbpath, "%s/manifest.db", vnode->root_dir);
 
-    kvdb_t *kvdb = NULL;
+        kvdb_t *kvdb = NULL;
 
-    if ( vnode->storage_type == STORAGE_KVDB ){
-        kvdb = kvdb_open("lmdb", dbpath);
-    } else if ( vnode->storage_type == STORAGE_KVDB_EBLOB ){
-        kvdb = kvdb_open("eblob", dbpath);
-    } else if ( vnode->storage_type == STORAGE_KVDB_LMDB ){
-        kvdb = kvdb_open("lmdb", dbpath);
-    } else if ( vnode->storage_type == STORAGE_KVDB_LEVELDB ){
-        kvdb = kvdb_open("leveldb", dbpath);
-    } else if ( vnode->storage_type == STORAGE_KVDB_ROCKSDB ){
-        kvdb = kvdb_open("rocksdb", dbpath);
-    } else if ( vnode->storage_type == STORAGE_KVDB_LSM ){
-        kvdb = kvdb_open("lsm", dbpath);
+        if ( vnode->storage_type == STORAGE_KVDB ){
+            kvdb = kvdb_open("lmdb", dbpath);
+        } else if ( vnode->storage_type == STORAGE_KVDB_EBLOB ){
+            kvdb = kvdb_open("eblob", dbpath);
+        } else if ( vnode->storage_type == STORAGE_KVDB_LMDB ){
+            kvdb = kvdb_open("lmdb", dbpath);
+        } else if ( vnode->storage_type == STORAGE_KVDB_LEVELDB ){
+            kvdb = kvdb_open("leveldb", dbpath);
+        } else if ( vnode->storage_type == STORAGE_KVDB_ROCKSDB ){
+            kvdb = kvdb_open("rocksdb", dbpath);
+        } else if ( vnode->storage_type == STORAGE_KVDB_LSM ){
+            kvdb = kvdb_open("lsm", dbpath);
+        }
+
+        if ( kvdb == NULL ){
+            error_log("kvdb_init() failed. vnode(%d) dir:%s", id, vnode->root_dir);
+            zfree(vnode);
+            return NULL;
+        }
+        vnode->kvdb = kvdb;
     }
-
-    if ( kvdb == NULL ){
-        error_log("kvdb_init() failed. vnode(%d) dir:%s", id, vnode->root_dir);
-        zfree(vnode);
-        return NULL;
-    }
-    vnode->kvdb = kvdb;
 
     vnode->caching_objects = object_queue_new(object_compare_md5_func);
 
@@ -107,18 +108,18 @@ vnode_t *vnode_new(char *root_dir, uint32_t id, enum eVnodeStorageType storage_t
     vnode->standby_objects = listCreate();
     vnode->standby_object_size = 0;
 
-    vnode->kvdb_queue = init_work_queue(vnode_kvdb_queue_handle_write, VNODE_KVDB_QUEUE_INTERVAL);
+    vnode->write_queue = init_work_queue(vnode_write_queue_handle_write, VNODE_WRITE_QUEUE_INTERVAL);
 
     return vnode;
 }
 
 void vnode_free(vnode_t *vnode){
 
-    work_queue_t *wq = vnode->kvdb_queue;
+    work_queue_t *wq = vnode->write_queue;
     if ( wq != NULL ) {
         exit_work_queue(wq);
         zfree(wq);
-        vnode->kvdb_queue = NULL;
+        vnode->write_queue = NULL;
     }
 
     if ( vnode->logFile != 0 ){

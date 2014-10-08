@@ -54,14 +54,14 @@ typedef struct vnode_t {
     list *standby_objects; /* objects waiting for write */
     uint32_t standby_object_size;
 
-    work_queue_t *kvdb_queue;
+    work_queue_t *write_queue;
 
 } vnode_t;
 
-typedef struct vnode_kvdb_queue_entry_t{
+typedef struct vnode_write_queue_entry_t{
     session_t *session;
     object_t *object;
-} vnode_kvdb_queue_entry_t;
+} vnode_write_queue_entry_t;
 
 vnode_t *vnode_new(char *root_dir, uint32_t id, enum eVnodeStorageType storage_type);
 void vnode_free(vnode_t *vnode);

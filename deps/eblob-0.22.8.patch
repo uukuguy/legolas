@@ -1,0 +1,12 @@
+diff -rupN eblob-0.22.8/include/eblob/blob.h eblob-0.22.8-new/include/eblob/blob.h
+--- eblob-0.22.8/include/eblob/blob.h	2014-10-02 20:43:31.000000000 +0800
++++ eblob-0.22.8-new/include/eblob/blob.h	2014-10-08 16:57:13.329161132 +0800
+@@ -101,7 +101,7 @@ struct eblob_log {
+  * Function that returns trace_id can be set externally to allow trace_id consistency.
+  */
+ void eblob_set_trace_id_function(uint64_t (*trace_id_function)(void));
+-uint64_t eblob_get_trace_id();
++uint64_t eblob_get_trace_id(void);
+ 
+ /*
+  * Used in trace_id for ignoring current log level

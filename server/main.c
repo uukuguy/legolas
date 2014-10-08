@@ -159,7 +159,7 @@ int main(int argc, char* argv[])
 		program_options.data_dir = argv[optind];
 
     /* -------- storage_type -------- */
-    eVnodeStorageType storage_type = STORAGE_KVDB;
+    eVnodeStorageType storage_type = STORAGE_NONE;
     if ( sz_storage_type != NULL ){
         if ( strcmp(sz_storage_type, "logfile") == 0 ){
             storage_type = STORAGE_LOGFILE;

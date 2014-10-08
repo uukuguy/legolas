@@ -1,0 +1,56 @@
+diff -rupN react-2.3.1/include/react/call_tree.hpp react-2.3.1-new/include/react/call_tree.hpp
+--- react-2.3.1/include/react/call_tree.hpp	2014-04-30 02:43:12.000000000 +0800
++++ react-2.3.1-new/include/react/call_tree.hpp	2014-10-08 16:36:44.417146600 +0800
+@@ -271,9 +271,12 @@ private:
+ 	rapidjson::Value& to_json(p_node_t current_node, rapidjson::Value &stat_value,
+ 							  rapidjson::Document::AllocatorType &allocator) const {
+ 		if (current_node != root) {
++            int64_t start_time = (int64_t) get_node_start_time(current_node);
++            int64_t stop_time = (int64_t) get_node_stop_time(current_node);
+ 			stat_value.AddMember("name", actions_set.get_action_name(get_node_action_code(current_node)).c_str(), allocator);
+-			stat_value.AddMember("start_time", (int64_t) get_node_start_time(current_node), allocator);
+-			stat_value.AddMember("stop_time", (int64_t) get_node_stop_time(current_node), allocator);
++			stat_value.AddMember("start_time", start_time, allocator);
++			stat_value.AddMember("stop_time", stop_time, allocator);
++            stat_value.AddMember("total_time", stop_time - start_time, allocator);
+ 		} else {
+ 			for (auto it = stats.begin(); it != stats.end(); ++it) {
+ 				boost::apply_visitor(JsonRenderer(it->first, stat_value, allocator), it->second);
+diff -rupN react-2.3.1/include/react/react.h react-2.3.1-new/include/react/react.h
+--- react-2.3.1/include/react/react.h	2014-04-30 02:43:12.000000000 +0800
++++ react-2.3.1-new/include/react/react.h	2014-10-08 16:36:31.845146451 +0800
+@@ -39,7 +39,7 @@ Q_EXTERN_C int react_define_new_action(c
+  * \brief Checks whether react monitoring is turned on
+  * \return Returns 1 if react monitoring is on and 0 otherwise
+  */
+-Q_EXTERN_C int react_is_active();
++Q_EXTERN_C int react_is_active(void);
+ 
+ /*!
+  * \brief Creates react thread context for monitoring and sets aggregator as sink
+@@ -52,7 +52,7 @@ Q_EXTERN_C int react_activate(void *reac
+  * \brief Sends thread context to aggregator and cleanups context
+  * \return Returns error code
+  */
+-Q_EXTERN_C int react_deactivate();
++Q_EXTERN_C int react_deactivate(void);
+ 
+ /*!
+  * \brief Starts new action with action code \a action_code in thread_local context
+@@ -79,14 +79,14 @@ Q_EXTERN_C int react_add_stat_string(con
+ /*!
+  * \brief Submits current context to aggregator
+  */
+-Q_EXTERN_C int react_submit_progress();
++Q_EXTERN_C int react_submit_progress(void);
+ 
+ /*!
+  * \brief Creates aggregator that can be passed to subthread in order to monitor it
+  *          and merge result of monitoring with current thread context
+  * \return Returns pointer to newly created aggregator for subthread
+  */
+-Q_EXTERN_C void *react_create_subthread_aggregator();
++Q_EXTERN_C void *react_create_subthread_aggregator(void);
+ 
+ /*!
+  * \brief Destroys aggregator

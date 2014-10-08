@@ -17,6 +17,7 @@
 #include "session.h"
 #include "work.h"
 #include "logger.h"
+#include "react_utils.h"
 
 /*#include "coroutine.h"*/
 
@@ -120,6 +121,7 @@ void coroutine_yield(session_t *session)
  */
 void do_read_data(sockbuf_t *sockbuf, void *buf, size_t count)
 {
+
     session_t *session = sockbuf->session;
 
     assert(sockbuf != NULL);
@@ -169,6 +171,7 @@ void do_read_data(sockbuf_t *sockbuf, void *buf, size_t count)
         /*TRACE_LOG_SESSION_SOCKBUF("Called do_read_data().");*/
         YIELD_AND_CONTINUE;
     }
+
 }
 
 /* ==================== session_do_read() ==================== */ 
@@ -256,6 +259,8 @@ void session_rx_coroutine(struct schedule *s, void *opaque)
 void *session_rx_coroutine(void *opaque)
 #endif
 {
+    /*REACT_ACTION_START(session_rx_coroutine);*/
+
     trace_log("enter session_rx_coroutine().");
     UNUSED int ret;
     session_t *session = (session_t*)opaque;
@@ -296,6 +301,10 @@ void *session_rx_coroutine(void *opaque)
     }
 
     trace_log("leave session_rx_coroutine().");
+
+
+    /*REACT_ACTION_STOP(session_rx_coroutine);*/
+
 #ifdef USE_CGREENLET
     return NULL;
 #endif
@@ -396,6 +405,7 @@ int destroy_session_coroutine(session_t *session)
 /* ==================== session_consume_sockbuf() ==================== */ 
 void session_consume_sockbuf(sockbuf_t *sockbuf)
 {
+    REACT_ACTION_START(session_consume_sockbuf);
 
     session_t *session = sockbuf->session;
 
@@ -419,6 +429,8 @@ void session_consume_sockbuf(sockbuf_t *sockbuf)
     /*sched_yield();*/
 
     /*pthread_mutex_unlock(&session->recv_pending_lock);*/
+
+    REACT_ACTION_STOP(session_consume_sockbuf);
 }
 
 void after_read_task(uv_work_t *work)

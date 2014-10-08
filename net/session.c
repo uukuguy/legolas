@@ -16,6 +16,7 @@
 /*#include "coroutine.h"*/
 #include "crc32.h"
 #include "byteblock.h"
+#include "react_utils.h"
 #include <uuid/uuid.h>
 #include <pthread.h>
 #include <stdlib.h>
@@ -197,6 +198,13 @@ session_t* session_new(service_t *service, const session_callbacks_t *callbacks,
     session_t *session = (session_t*)zmalloc(sizeof(session_t));
     memset(session, 0, sizeof(session_t));
 
+    char react_filename[NAME_MAX];
+    sprintf(react_filename, "./session_%d.json", session_id);
+    session->react_ctx = REACT_INIT(react_filename);
+
+    session->react_id_session = react_define_new_action("session"); 
+    react_start_action(session->react_id_session);
+
     session->service = service;
 
     session->id = session_id;
@@ -246,6 +254,8 @@ session_t* session_new(service_t *service, const session_callbacks_t *callbacks,
 /* ==================== session_accept() ==================== */ 
 int session_accept(session_t *session, uv_tcp_t *parent_tcp)
 {
+    REACT_ACTION_START(session_accept);
+
     int ret = 0;
 
     /* -------- tcp_handle -------- */
@@ -300,6 +310,8 @@ int session_accept(session_t *session, uv_tcp_t *parent_tcp)
         return -1; 
     }
 
+    REACT_ACTION_STOP(session_accept);
+
     return ret;
 }
 
@@ -329,6 +341,11 @@ void session_free(session_t *session)
     pthread_cond_destroy(&session->recv_pending_cond);
     pthread_mutex_destroy(&session->send_pending_lock);
     pthread_cond_destroy(&session->send_pending_cond);
+
+
+    react_stop_action(session->react_id_session);
+
+    REACT_CLEANUP(session->react_ctx);
 
     if ( session->callbacks.session_destroy != NULL ) {
         session->callbacks.session_destroy(session);

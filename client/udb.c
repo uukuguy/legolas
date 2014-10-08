@@ -17,6 +17,8 @@
 #include "uv.h"
 #include "logger.h"
 
+#include "react_utils.h"
+
 static uint32_t udb_id = 0;
 
 int udb_is_write_done(udb_t *udb)
@@ -46,7 +48,11 @@ int udb_do(udb_t *udb, on_ready_cb on_ready)
 	pthread_mutex_init(&udb->main_pending_lock, NULL);
 	pthread_cond_init(&udb->main_pending_cond, NULL);
 
+    REACT_ACTION_START(udb_run);
+
     udb_run(udb);
+
+    REACT_ACTION_STOP(udb_run);
 
     pthread_mutex_lock(&udb->main_pending_lock);
     pthread_cond_wait(&udb->main_pending_cond, &udb->main_pending_lock);
@@ -324,6 +330,7 @@ int udb_run(udb_t *udb)
 {
     int rc = 0;
 
+    udb->react_aggregator = REACT_CREATE_SUBTHREAD_AGGREGATOR();
     /*pthread_attr_t attr;*/
     /*pthread_attr_init(&attr);*/
     /*phread_attr_setdetachstate(&attr, PTHREAD_CREATE_DETACHED);*/
@@ -332,6 +339,8 @@ int udb_run(udb_t *udb)
     pthread_mutex_lock(&udb->on_ready_lock);
     pthread_cond_wait(&udb->on_ready_cond, &udb->on_ready_lock);
     pthread_mutex_unlock(&udb->on_ready_lock);
+
+    REACT_DESTROY_SUBTHREAD_AGGREGATOR(udb->react_aggregator);
 
     return rc;
 }

@@ -11,6 +11,8 @@
 #include "operation.h"
 #include "logger.h"
 
+#define ARRAY_SIZE(x) (sizeof(x) / sizeof((x)[0]))
+
 static int exec_read_request(const message_t *request, message_t **rsp, session_t *session){
     int ret = 0;
 

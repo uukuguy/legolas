@@ -1,7 +1,7 @@
 SERVER = bin/legolasd
 CLIENT = bin/legolas
 
-BASE_OBJS = base/logger.o base/daemon.o base/coroutine.o
+BASE_OBJS = base/logger.o base/daemon.o base/coroutine.o base/react_utils.oo
 
 BASE_OBJS += base/zmalloc.o base/work.o base/md5.o base/byteblock.o base/filesystem.o base/sysinfo.o
 BASE_OBJS += base/skiplist.o base/adlist.o base/threadpool.o base/crc32.o base/http_parser.o
@@ -446,6 +446,7 @@ deps/react:
 	tar zxvf ${REACT}.tar.gz && \
 	ln -sf ${REACT} react && \
 	cd ${REACT} && \
+	patch -p1 < ../${REACT}.patch && \
 	ln -s -r foreign/rapidjson include/react/ && \
 	sed -i -e 's/react SHARED/react STATIC/g' CMakeLists.txt && \
 	mkdir build && \
@@ -466,6 +467,7 @@ deps/eblob:
 	tar zxvf ${EBLOB}.tar.gz && \
 	ln -sf ${EBLOB} eblob && \
 	cd ${EBLOB} && \
+	patch -p1 < ../${EBLOB}.patch && \
 	sed -i -e 's/SHARED/STATIC/g' library/CMakeLists.txt && \
 	sed -i -e 's/SHARED/STATIC/g' bindings/cpp/CMakeLists.txt && \
 	sed -i -e 's/SHARED/STATIC/g' bindings/python/CMakeLists.txt && \
@@ -502,7 +504,7 @@ FINAL_CFLAGS = -std=c11 -Wstrict-prototypes \
 #${CFLAGS_PCL} 
 #${CFLAGS_COLIB} 
 #-DUSE_PRCTL
-FINAL_CXXFLAGS=${COMMON_CFLAGS} ${CXXFLAGS}
+FINAL_CXXFLAGS=${COMMON_CFLAGS} -std=c++11 ${CXXFLAGS}
 
 FINAL_LDFLAGS = ${GPROF_FLAGS} -L./lib 
 ifeq (${UNAME}, Linux)

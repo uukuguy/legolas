@@ -141,6 +141,9 @@ typedef struct session_t{
     connection_t connection;  /* Connection with the SOCKS client. */
     service_t *service;
 
+    void *react_ctx;
+    int react_id_session;
+
     uint32_t id;
     void *user_data;
 
