@@ -28,7 +28,7 @@ typedef struct service_t
     work_queue_t **parse_queue;
 
     /* FIXME 2014-10-10 11:35:51 */
-    coroutine_t **rx_coroutines;
+    //coroutine_t **rx_coroutines;
 
 
 } service_t;

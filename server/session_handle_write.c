@@ -16,13 +16,13 @@
 #include "logger.h"
 #include "vnode.h"
 #include "md5.h"
-#include "react_utils.h"
+/*#include "react_utils.h"*/
 #include <msgpack.h>
 
 /* ==================== parse_write_request() ==================== */ 
 int parse_write_request(session_t *session, message_t *request, msgidx_t *msgidx)
 {
-    REACT_ACTION_START(parse_write_request);
+    /*REACT_ACTION_START(parse_write_request);*/
 
     msgidx->message = request;
 
@@ -67,7 +67,7 @@ int parse_write_request(session_t *session, message_t *request, msgidx_t *msgidx
     msgidx->data_size = argData->size;
 
 
-    REACT_ACTION_STOP(parse_write_request);
+    /*REACT_ACTION_STOP(parse_write_request);*/
 
     return 0;
 }
@@ -75,7 +75,7 @@ int parse_write_request(session_t *session, message_t *request, msgidx_t *msgidx
 object_t *session_write_to_cache(session_t *session, msgidx_t *msgidx)
 {
 
-    REACT_ACTION_START(session_write_to_cache);
+    /*REACT_ACTION_START(session_write_to_cache);*/
 
     vnode_t *vnode = get_vnode_by_key(SERVER(session), msgidx->key_md5);
     assert(vnode != NULL);
@@ -109,7 +109,7 @@ object_t *session_write_to_cache(session_t *session, msgidx_t *msgidx)
 
     session->total_writed += msgidx->data_size;
 
-    REACT_ACTION_STOP(session_write_to_cache);
+    /*REACT_ACTION_STOP(session_write_to_cache);*/
 
     return object;
 
@@ -122,7 +122,7 @@ int session_write_to_storage(session_t *session, object_t *object)
     int ret = 0;
 
 
-    REACT_ACTION_START(session_write_to_storage);
+    /*REACT_ACTION_START(session_write_to_storage);*/
 
     if ( object != NULL ) {
         UNUSED vnode_t *vnode = get_vnode_by_key(SERVER(session), &object->key_md5);
@@ -136,7 +136,7 @@ int session_write_to_storage(session_t *session, object_t *object)
         ret = -1;
     }
 
-    REACT_ACTION_STOP(session_write_to_storage);
+    /*REACT_ACTION_STOP(session_write_to_storage);*/
 
     return ret;
 }
@@ -144,7 +144,7 @@ int session_write_to_storage(session_t *session, object_t *object)
 /* ==================== session_handle_write() ==================== */ 
 int session_handle_write(session_t *session, message_t *request)
 {
-    REACT_ACTION_START(session_handle_write);
+    /*REACT_ACTION_START(session_handle_write);*/
 
     int ret = 0;
     msgidx_t msgidx;
@@ -190,7 +190,7 @@ int session_handle_write(session_t *session, message_t *request)
         }
     }
 
-    REACT_ACTION_STOP(session_handle_write);
+    /*REACT_ACTION_STOP(session_handle_write);*/
 
     return ret;
 }

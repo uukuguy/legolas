@@ -23,6 +23,8 @@
 Q_EXTERN_C void *react_init(const char *react_log_filename);
 Q_EXTERN_C void react_cleanup(void* react_ctx);
 
+#ifdef USE_REACT
+
 #define REACT_INIT(log_filename) react_init(log_filename)
 
 #define REACT_CLEANUP(react_ctx) react_cleanup(react_ctx)
@@ -47,6 +49,27 @@ Q_EXTERN_C void react_cleanup(void* react_ctx);
 #define REACT_DESTROY_SUBTHREAD_AGGREGATOR(aggregator) \
     react_destroy_subthread_aggregator(aggregator);
 
+/* #ifdef USE_REACT */
+//#else
+
+//#define REACT_INIT(log_filename) {}
+
+//#define REACT_CLEANUP(react_ctx) {}
+
+//#define REACT_ACTION_START(actionString) {}
+
+//#define REACT_ACTION_STOP(actionString) {}
+
+//#define REACT_ACTIVATE(aggregator) {}
+
+//#define REACT_DEACTIVATE() {}
+
+//#define REACT_CREATE_SUBTHREAD_AGGREGATOR() {}
+
+//#define REACT_DESTROY_SUBTHREAD_AGGREGATOR(aggregator) {}
+
+/* #ifdef USE_REACT */
+#endif
 
 #endif /* __REACT_UTILS_H__ */
 

@@ -34,9 +34,9 @@ typedef struct storage_file_t storage_file_t;
 typedef struct object_t object_t;
 
 //#define USE_WU_COROUTINE
-//#define USE_CGREENLET
+#define USE_CGREENLET
 //#define USE_LIBCORO
-#define USE_COROUTINE
+//#define USE_COROUTINE
 
 //typedef struct coroutine_t coroutine_t;
 /* -------- cgreenlet -------- */
@@ -141,8 +141,8 @@ typedef struct session_t{
     connection_t connection;  /* Connection with the SOCKS client. */
     service_t *service;
 
-    void *react_ctx;
-    int react_id_session;
+    //void *react_ctx;
+    //int react_id_session;
 
     uint32_t id;
     void *user_data;

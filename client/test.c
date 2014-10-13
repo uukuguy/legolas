@@ -21,7 +21,7 @@
 
 #include "udb.h"
 
-#include "react_utils.h"
+/*#include "react_utils.h"*/
 
 #define PREPARE_CLIENT \
     UNUSED client_runtime_t *client_runtime = (client_runtime_t*)udb_get_user_data(udb); \
@@ -279,11 +279,11 @@ int test_run_task(client_t *client, int id)
     /*udb->after_write_object_slice = test_after_write_object_slice;*/
     /*udb->after_read_object_slice = test_after_read_object_slice;*/
 
-    REACT_ACTION_START(udb_do);
+    /*REACT_ACTION_START(udb_do);*/
 
     ret = udb_do(udb, test_first_file);
 
-    REACT_ACTION_STOP(udb_do);
+    /*REACT_ACTION_STOP(udb_do);*/
 
     udb_free(udb);
 

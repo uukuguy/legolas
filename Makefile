@@ -6,6 +6,10 @@ BASE_OBJS = base/logger.o base/daemon.o base/coroutine.o base/react_utils.oo
 BASE_OBJS += base/zmalloc.o base/work.o base/md5.o base/byteblock.o base/filesystem.o base/sysinfo.o
 BASE_OBJS += base/skiplist.o base/adlist.o base/threadpool.o base/crc32.o base/http_parser.o
 
+GENCCONT_OBJS = base/binary_tree.o base/chaining_hash_table.o base/dlist.o base/hash_shared.o base/linear_probing_hash_table.o base/range_binary_tree.o base/slist.o base/slist_queue.o
+
+BASE_OBJS += ${GENCCONT_OBJS}
+
 NET_OBJS = net/net.o net/message.o net/service.o net/session.o net/sockbuf_message.o
 
 CC = gcc
@@ -15,10 +19,11 @@ AR = ar
 #LD = nccld
 #AR = nccar
 
+INSTRUMENT_OBJS = base/instrument.o base/function.o base/calltree.o
 #GPROF_FLAGS = -pg
-
+INSTRUMENT_FLAGS = -finstrument-functions
 #CFLAGS_UCONTEXT=-D_XOPEN_SOURCE # ucontext.h error: The deprecated ucontext routines require _XOPEN_SOURCE to be defined.
-COMMON_CFLAGS = ${GPROF_FLAGS} -ggdb -fPIC -m64 -Wall -D_GNU_SOURCE -I./include -I./net ${CFLAGS_UCONTEXT} 
+COMMON_CFLAGS = ${GPROF_FLAGS} -g ${INSTRUMENT_FLAGS} -fPIC -m64 -Wall -D_GNU_SOURCE -I./include -I./net ${CFLAGS_UCONTEXT} 
 
 KVDB_OBJS = base/kvdb.o 
 
@@ -59,6 +64,8 @@ SERVER_OBJS = server/main.o \
 			  server/logfile.o \
 			  server/object.o
 
+#SERVER_OBJS += ${INSTRUMENT_OBJS}
+
 CLIENT_OBJS = client/main.o \
 			  client/test.o \
 			  client/client.o \
@@ -71,6 +78,8 @@ CLIENT_OBJS = client/main.o \
 			  client/client_delete.o \
 			  client/client_session_handle.o \
 			  client/client_execute.o
+
+CLIENT_OBJS += ${INSTRUMENT_OBJS}
 
 
 LIBUV=libuv-v0.11.22
@@ -105,7 +114,7 @@ ifeq (${UNAME}, Darwin)
 	SO=dylib
 endif
 
-.PHONY: udbroker server client deps data
+.PHONY: udbroker server client deps data test
 
 all: bin lib deps udbroker server client
 
@@ -576,6 +585,7 @@ lib:
 # ---------------- clean ----------------
 
 clean:
+	${MAKE} -C test clean && \
 	rm -fr \
 		${SERVER} \
 		${CLIENT} \
@@ -632,7 +642,8 @@ data:
 	dd if=/dev/urandom of=data/samples/2M.dat bs=1M count=2
 
 test:
-	nc localhost 16076
+	${MAKE} -C test && \
+		bin/test_legolas
 
 check:
 	@base64 result/result.dat > result/result.txt

@@ -47,7 +47,7 @@ void service_consume_sockbuf(coroutine_t *rx_coroutine, sockbuf_t *sockbuf)
 
         /*coroutine_enter(session, session);*/
         /*greenlet_switch_to(rx_coroutine, session);*/
-        _coroutine_enter(rx_coroutine, session);
+        coroutine_enter(rx_coroutine, session);
 
 
     } else {
@@ -73,14 +73,14 @@ void parse_queue_handle_request(work_queue_t *wq)
         sockbuf_t *sockbuf = (sockbuf_t*)data;
 
         /* FIXME 2014-10-10 11:34:28 */
-        session_t *session = sockbuf->session;
-        service_t *service = session->service;
+        /*session_t *session = sockbuf->session;*/
+        /*service_t *service = session->service;*/
 
-        int wq_id = work_queue_get_id(wq);
-        coroutine_t *rx_coroutine = service->rx_coroutines[wq_id];
+        /*int wq_id = work_queue_get_id(wq);*/
+        /*coroutine_t *rx_coroutine = service->rx_coroutines[wq_id];*/
 
-        /*session_consume_sockbuf(sockbuf);*/
-        service_consume_sockbuf(rx_coroutine, sockbuf);
+        /*service_consume_sockbuf(rx_coroutine, sockbuf);*/
+        session_consume_sockbuf(sockbuf);
     }
 }
 
@@ -91,8 +91,8 @@ int service_init(service_t *service)
     sysinfo_t sysinfo;
     flush_sysinfo(&sysinfo);
     /* FIXME 2014-10-10 01:53:42 */
-    /*service->num_processors = sysinfo.num_processors;*/
-    service->num_processors = 1;
+    service->num_processors = sysinfo.num_processors;
+    /*service->num_processors = 1;*/
 
     /* -------- parse_queue -------- */
     uint32_t parse_threads = service->num_processors;
@@ -100,7 +100,7 @@ int service_init(service_t *service)
 
     service->parse_queue = (work_queue_t**)zmalloc(sizeof(work_queue_t*) * parse_threads);
     /* FIXME 2014-10-10 11:34:43 */
-    service->rx_coroutines = (coroutine_t**)zmalloc(sizeof(coroutine_t*) * parse_threads);
+    /*service->rx_coroutines = (coroutine_t**)zmalloc(sizeof(coroutine_t*) * parse_threads);*/
 
     int i;
 	for ( i = 0; i < parse_threads; i++ ) {
@@ -113,11 +113,11 @@ int service_init(service_t *service)
         work_queue_set_id(service->parse_queue[i], i);
 
         /*service->rx_coroutines[i] = greenlet_new(session_rx_coroutine, greenlet_current(), 64 * 1024);*/
-        service->rx_coroutines[i] = coroutine_create(session_rx_coroutine);
-        if ( service->rx_coroutines[i] == NULL ) {
-            error_log("Cann't create coroutine session->rx_coroutine");
-            return -1;
-        }
+        /*service->rx_coroutines[i] = coroutine_create(session_rx_coroutine);*/
+        /*if ( service->rx_coroutines[i] == NULL ) {*/
+            /*error_log("Cann't create coroutine session->rx_coroutine");*/
+            /*return -1;*/
+        /*}*/
 	}
 
     return 0;
@@ -138,18 +138,18 @@ void service_destroy(service_t *service)
         }
 
         /* FIXME 2014-10-10 11:35:10 */
-        if ( service->rx_coroutines[i] != NULL ){
+        /*if ( service->rx_coroutines[i] != NULL ){*/
             /*greenlet_destroy(service->rx_coroutines[i]);*/
-            coroutine_delete(service->rx_coroutines[i]);
-            service->rx_coroutines[i] = NULL;
-        }
+            /*coroutine_delete(service->rx_coroutines[i]);*/
+            /*service->rx_coroutines[i] = NULL;*/
+        /*}*/
 	}
     zfree(service->parse_queue);
     service->parse_queue = NULL;
 
     /* FIXME 2014-10-10 11:35:28 */
-    zfree(service->rx_coroutines);
-    service->rx_coroutines = NULL;
+    /*zfree(service->rx_coroutines);*/
+    /*service->rx_coroutines = NULL;*/
 
 }
 

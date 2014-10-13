@@ -42,7 +42,7 @@ typedef struct udb_t {
 
     int op_code;
 
-    void *react_aggregator;
+    //void *react_aggregator;
 
     char key[NAME_MAX];
     uint32_t keylen;

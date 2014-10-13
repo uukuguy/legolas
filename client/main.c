@@ -15,7 +15,7 @@
 #include "client.h"
 #include "filesystem.h"
 
-#include "react_utils.h"
+/*#include "react_utils.h"*/
 
 static char program_name[] = "legolas";
 static int msec0, msec1;
@@ -43,7 +43,7 @@ typedef struct{
 typedef struct thread_args_t {
     int id;
     client_t *client;
-    void *react_aggregator;
+    /*void *react_aggregator;*/
 } thread_args_t;
 
 int client_execute(client_t *client);
@@ -60,13 +60,13 @@ static void* client_thread(void *arg)
     
     thread_args_t *t_args = (thread_args_t*)arg;
 
-    REACT_ACTIVATE(t_args->react_aggregator);
+    /*REACT_ACTIVATE(t_args->react_aggregator);*/
 
     UNUSED int ret;
     /*ret = start_connect(t_args->client, &callbacks, t_args->id);*/
     ret = run_task(t_args->client, t_args->id);
 
-    REACT_DEACTIVATE();
+    /*REACT_DEACTIVATE();*/
 
     return NULL;
 }
@@ -90,7 +90,7 @@ int start_client_threads(client_t *client)
 
         t_args[i].id = i;
         t_args[i].client = client;
-        t_args[i].react_aggregator = REACT_CREATE_SUBTHREAD_AGGREGATOR();
+        /*t_args[i].react_aggregator = REACT_CREATE_SUBTHREAD_AGGREGATOR();*/
         ret = pthread_create(&tid[i], NULL, client_thread, &t_args[i]);
         /*pthread_attr_destroy(&attr);*/
         if ( ret != 0 ){
@@ -104,7 +104,7 @@ int start_client_threads(client_t *client)
     for ( i = 0 ; i < threads ; i++ ){
         void *pret = NULL;
         ret = pthread_join(tid[i], &pret);
-        REACT_DESTROY_SUBTHREAD_AGGREGATOR(t_args[i].react_aggregator);
+        /*REACT_DESTROY_SUBTHREAD_AGGREGATOR(t_args[i].react_aggregator);*/
         if ( ret != 0 ){
             error_log("pthread_join() failed. i:%d", i);
         } else {
@@ -285,11 +285,47 @@ static struct option const long_options[] = {
 };
 static const char *short_options = "es:p:wrxk:b:n:u:dvth";
 
+/*void test11()*/
+/*{*/
+/*}*/
+
+/*void test12()*/
+/*{*/
+/*}*/
+
+/*void test21()*/
+/*{*/
+/*}*/
+
+/*void test1()*/
+/*{*/
+    /*test11();*/
+    /*test12();*/
+/*}*/
+
+/*void test2()*/
+/*{*/
+    /*test21();*/
+/*}*/
+
+/*void test3()*/
+/*{*/
+/*}*/
+
+/*void instrumentation_test()*/
+/*{*/
+    /*test1();*/
+    /*test2();*/
+    /*test3();*/
+/*}*/
+
 /* ==================== main() ==================== */ 
 int main(int argc, char *argv[])
 {
+    /*instrumentation_test();*/
+    /*return 0;*/
 
-    void *react_ctx = REACT_INIT("./client_calltree.json");
+    /*void *react_ctx = REACT_INIT("./client_calltree.json");*/
 
     program_options_t program_options;
     memset(&program_options, 0, sizeof(program_options_t));
@@ -368,13 +404,13 @@ int main(int argc, char *argv[])
 
     int ret = 0;
     
-    REACT_ACTION_START(runclient);
+    /*REACT_ACTION_START(runclient);*/
 
     ret = runclient(&program_options);
 
-    REACT_ACTION_STOP(runclient);
+    /*REACT_ACTION_STOP(runclient);*/
 
-    REACT_CLEANUP(react_ctx);
+    /*REACT_CLEANUP(react_ctx);*/
 
     return ret;
 

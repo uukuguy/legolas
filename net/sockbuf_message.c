@@ -17,7 +17,7 @@
 #include "session.h"
 #include "work.h"
 #include "logger.h"
-#include "react_utils.h"
+/*#include "react_utils.h"*/
 
 /*#include "coroutine.h"*/
 
@@ -405,7 +405,7 @@ int destroy_session_coroutine(session_t *session)
 /* ==================== session_consume_sockbuf() ==================== */ 
 void session_consume_sockbuf(sockbuf_t *sockbuf)
 {
-    REACT_ACTION_START(session_consume_sockbuf);
+    /*REACT_ACTION_START(session_consume_sockbuf);*/
 
     session_t *session = sockbuf->session;
 
@@ -430,7 +430,7 @@ void session_consume_sockbuf(sockbuf_t *sockbuf)
 
     /*pthread_mutex_unlock(&session->recv_pending_lock);*/
 
-    REACT_ACTION_STOP(session_consume_sockbuf);
+    /*REACT_ACTION_STOP(session_consume_sockbuf);*/
 }
 
 void after_read_task(uv_work_t *work)
