@@ -110,6 +110,9 @@ static int write_file(udb_t *udb)
 {
     PREPARE_CLIENT;
 
+    /* FIXME 2014-10-1t 05:08:19 */
+    session_waiting_message(udb->session);
+
     reset_udb_key_by_client(udb, client_runtime->total_send);
 
     int handle = -1;

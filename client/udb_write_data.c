@@ -44,6 +44,7 @@ int udb_handle_write_response(session_t *session, message_t *response)
     return ret;
 }
 
+void try_write_next_file(udb_t *udb); /* in test.c */
 /* ==================== after_write_request() ==================== */ 
 static void after_write_request(uv_write_t *write_req, int status) 
 {
@@ -75,6 +76,7 @@ static void after_write_request(uv_write_t *write_req, int status)
     /* Keep write next block? */
     if ( udb->total_writed >= udb->object_size ){
         session_waiting_message(session);
+        /*try_write_next_file(udb);*/
     }
 }
 
