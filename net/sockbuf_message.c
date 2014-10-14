@@ -275,9 +275,7 @@ void *session_rx_coroutine(void *opaque)
         /*session = coroutine_self_data();*/
         sockbuf_t *sockbuf = session->sockbuf;
         message_t *message = NULL;
-        trace_log("Ready to session_do_read().");
         ret = session_do_read(sockbuf, &message);
-        trace_log("After session_do_read().");
 
         /* FIXME coroutine */
         /*session = coroutine_self_data();*/
@@ -446,6 +444,12 @@ void after_read_task_done(uv_work_t *work, int status)
     /*zfree(work);*/
 }
 
+/*void read_consume_thread_main(void *opaque)*/
+/*{*/
+    /*sockbuf_t *sockbuf = (sockbuf_t*)opaque;*/
+    /*session_consume_sockbuf(sockbuf);*/
+/*}*/
+
 /* ==================== after_read() ==================== */ 
 /*
  * nread <= DEFAULT_CONN_BUF_SIZE 64 * 1024
@@ -474,6 +478,9 @@ void after_read(uv_stream_t *handle, ssize_t nread, const uv_buf_t *buf)
         __sync_add_and_fetch(&session->total_received_buffers, 1);
 
         /*enqueue_parse_queue(session, sockbuf);*/
+
+        /*uv_thread_t tid;*/
+        /*uv_thread_create(&tid, read_consume_thread_main, sockbuf);*/
 
         if ( session->callbacks.consume_sockbuf != NULL ){
             session->callbacks.consume_sockbuf(sockbuf);

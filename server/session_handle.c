@@ -142,7 +142,6 @@ void session_idle_cb(uv_idle_t *idle_handle, int status)
         __sync_sub_and_fetch(&session->finished_works, finished_works);
         __sync_add_and_fetch(&session->total_finished_works, 1);
         while ( finished_works-- > 0 ) {
-            trace_log("Send client a response.");
             session_response(session, RESULT_SUCCESS);
         }
     }

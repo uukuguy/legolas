@@ -28,6 +28,7 @@ int udb_handle_write_response(session_t *session, message_t *response)
 
     int ret = 0;
 
+    /* FIXME 2014-10-15 04:16:41 */
     session_rx_off(session);
 
     if ( response->result != RESULT_SUCCESS ) {

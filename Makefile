@@ -1,7 +1,8 @@
 SERVER = bin/legolasd
 CLIENT = bin/legolas
 
-BASE_OBJS = base/logger.o base/daemon.o base/coroutine.o base/react_utils.oo
+BASE_OBJS = base/logger.o base/daemon.o 
+#base/coroutine.o  base/react_utils.oo
 
 BASE_OBJS += base/zmalloc.o base/work.o base/md5.o base/byteblock.o base/filesystem.o base/sysinfo.o
 BASE_OBJS += base/skiplist.o base/adlist.o base/threadpool.o base/crc32.o base/http_parser.o
@@ -760,6 +761,11 @@ annotate:
 helgrind:
 
 massif:
+
+dot:
+	rm -f calltree.jpg && \
+	cat calltree.dot | dot -Tjpg -o calltree.jpg && \
+		eog calltree.jpg
 
 strace:
 	strace -C -tt -T -f -o strace.log ${VALGRIND_PROGRAME} ${VALGRIND_PROGRAME_ARGS}

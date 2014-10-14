@@ -54,6 +54,7 @@ static void after_session_send_data(uv_write_t *write_rsp, int status)
 
 int session_send_data(session_t *session, char *buf, uint32_t buf_size, void *user_data, uv_write_cb after_write)
 {
+    trace_log("Enter session_send_data()");
     int ret = 0;
 
     /* -------- response message -------- */
@@ -76,6 +77,7 @@ int session_send_data(session_t *session, char *buf, uint32_t buf_size, void *us
         error_log("response failed");
     }
 
+    trace_log("Leave session_send_data()");
     return ret;
 }
 

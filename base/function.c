@@ -12,6 +12,20 @@
 #include <memory.h>
 #include "function.h"
 
+function_finder_t *function_finder_new(function_t *func) 
+{
+    function_finder_t *function_finder = (function_finder_t*)malloc(sizeof(function_finder_t));
+    memset(function_finder, 0, sizeof(function_finder_t));
+    function_finder->func = func;
+    genc_dlist_init(&function_finder->dl_head);
+    return function_finder;
+}
+
+void function_finder_free(function_finder_t *function_finder)
+{
+    free(function_finder);
+}
+
 /* ================ function_new() ================ */
 function_t *function_new(uint64_t function_addr, const char *function_name, uint32_t name_len) 
 {
@@ -20,8 +34,8 @@ function_t *function_new(uint64_t function_addr, const char *function_name, uint
 
     function->function_addr = function_addr;
 
-    genc_dlist_init(&function->from_functions_list_head);
-    genc_dlist_init(&function->to_functions_list_head);
+    function->from_functions = function_finder_new(NULL);
+    function->to_functions = function_finder_new(NULL);
 
     if ( name_len > 0 ){
         uint32_t len = name_len < 128 ? name_len : 127;
@@ -43,6 +57,8 @@ function_t *function_new(uint64_t function_addr, const char *function_name, uint
 /* ================ function_free() ================ */
 void function_free(function_t *function) 
 {
+    function_finder_free(function->from_functions);
+    function_finder_free(function->to_functions);
     free(function);
 }
 
@@ -50,22 +66,29 @@ void function_free(function_t *function)
 genc_bool_t function_address_less_cb(genc_bt_node_head_t* a, genc_bt_node_head_t* b, void* opaque) 
 {
 
-    function_t *func_a = genc_container_of_notnull(a, function_t, functions_bt_head);
-    function_t *func_b = genc_container_of_notnull(b, function_t, functions_bt_head);
+    name_by_address_t *func_a = genc_container_of_notnull(a, name_by_address_t, bt_head);
+    name_by_address_t *func_b = genc_container_of_notnull(b, name_by_address_t, bt_head);
 
-    /*return func_a->function_addr < func_b->function_addr;*/
-    return strcmp(func_a->function_name, func_b->function_name);
+    return func_a->function_addr < func_b->function_addr;
 }
 
+genc_bool_t function_name_less_cb(genc_bt_node_head_t* a, genc_bt_node_head_t* b, void* opaque) 
+{
+
+    function_t *func_a = genc_container_of_notnull(a, function_t, functions_by_name_bt_head);
+    function_t *func_b = genc_container_of_notnull(b, function_t, functions_by_name_bt_head);
+
+    /*return func_a->function_addr < func_b->function_addr;*/
+    return strcmp(func_a->function_name, func_b->function_name) < 0;
+}
 /* ================ function_find_from_function() ================ */
 int function_find_from_function(function_t *function, function_t *from_function) 
 {
     uint32_t idx = 0;
 
-    struct dlist_head *functions = &function->from_functions_list_head;
-    genc_dlist_for_each_object(function_t, from_functions_list_head, func, functions) {
-        /*if ( func->function_addr == from_function->function_addr ||  */
-        if ( strcmp(func->function_name, from_function->function_name) == 0 ){
+    struct dlist_head *functions = &function->from_functions->dl_head;
+    genc_dlist_for_each_object(function_finder_t, dl_head, function_finder, functions) {
+        if ( function_finder->func == from_function ){
             return idx;
         }
         idx++;
@@ -79,10 +102,9 @@ int function_find_to_function(function_t *function, function_t *to_function)
 {
     uint32_t idx = 0;
 
-    struct dlist_head *functions = &function->to_functions_list_head;
-    genc_dlist_for_each_object(function_t, to_functions_list_head, func, functions) {
-        /*if ( func->function_addr == to_function->function_addr || */
-        if ( strcmp(func->function_name, to_function->function_name) == 0 ){
+    struct dlist_head *functions = &function->to_functions->dl_head;
+    genc_dlist_for_each_object(function_finder_t, dl_head, function_finder, functions) {
+        if ( function_finder->func == to_function ){
             return idx;
         }
         idx++;
@@ -95,8 +117,10 @@ int function_find_to_function(function_t *function, function_t *to_function)
 /* ================ function_add_from_function() ================ */
 int function_add_from_function(function_t *function, function_t *from_function)
 {
-    struct dlist_head *pos = &function->from_functions_list_head;
-    genc_dlist_insert_after(&from_function->from_functions_list_head, pos);
+    struct dlist_head *pos = &function->from_functions->dl_head;
+
+    function_finder_t *function_finder = function_finder_new(from_function);
+    genc_dlist_insert_after(&function_finder->dl_head, pos);
     __sync_add_and_fetch(&function->from_functions_count, 1);
 
     return 0;
@@ -108,15 +132,16 @@ int function_add_from_function_if_not_exist(function_t *function, function_t *fr
     if ( function_find_from_function(function, from_function) < 0 ) {
         return function_add_from_function(function, from_function);
     } else
-        return -1;
+        return -1; 
 }
 
 /* ================ function_add_to_function() ================ */
 int function_add_to_function(function_t *function, function_t *to_function)
 {
-    struct dlist_head *pos = &function->to_functions_list_head;
+    struct dlist_head *pos = &function->to_functions->dl_head;
 
-    genc_dlist_insert_after(&to_function->to_functions_list_head, pos);
+    function_finder_t *function_finder = function_finder_new(to_function);
+    genc_dlist_insert_before(&function_finder->dl_head, pos);
     __sync_add_and_fetch(&function->to_functions_count, 1);
 
     return 0;
@@ -144,7 +169,7 @@ int get_function_name_from_address(uint64_t function_addr, char *function_name)
     if ( len > 0 ){
         int n;
         for ( n = 0 ; n < len ; n++ ){
-            if ( function_name[n] == ' ' || n >= 49){
+            if ( function_name[n] == ' ' || function_name[n] == '.'){
                 function_name[n] = '\0';
                 len = n;
                 break;

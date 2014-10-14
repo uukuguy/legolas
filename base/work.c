@@ -26,6 +26,9 @@
 
 /*static LIST_HEAD(work_queue_list);*/
 
+#include "greenlet.h"
+typedef greenlet_t coroutine_t;
+
 typedef struct work_queue_t {
 	/*struct list_head worker_queue_siblings;*/
     int id;
@@ -41,6 +44,10 @@ typedef struct work_queue_t {
 	int stop;
 
 	pthread_t worker_thread;
+
+
+    coroutine_t *rx_coroutine;
+
 } work_queue_t;
 
 void work_queue_set_id(work_queue_t *wq, int id)
@@ -103,9 +110,19 @@ uint32_t get_work_queue_count(work_queue_t *wq)
 	/*pthread_cond_signal(&wq->pending_cond);*/
 /*}*/
 
+void set_work_queue_coroutine(work_queue_t *wq, coroutine_t *rx_coroutine)
+{
+    wq->rx_coroutine = rx_coroutine;
+}
+coroutine_t *get_work_queue_coroutine(work_queue_t *wq)
+{
+    return wq->rx_coroutine;
+}
+
 static void *worker_routine(void *arg)
 {
 	work_queue_t *wq = (work_queue_t*)arg;
+
 
     /*if ( co_thread_init() != 0 ){*/
         /*error_log("Call co_thread_init() failed.");*/
