@@ -261,7 +261,6 @@ void *session_rx_coroutine(void *opaque)
 {
     /*REACT_ACTION_START(session_rx_coroutine);*/
 
-    trace_log("enter session_rx_coroutine().");
     UNUSED int ret;
     session_t *session = (session_t*)opaque;
 
@@ -297,8 +296,6 @@ void *session_rx_coroutine(void *opaque)
             YIELD_AND_CONTINUE;
         }
     }
-
-    trace_log("leave session_rx_coroutine().");
 
 
     /*REACT_ACTION_STOP(session_rx_coroutine);*/

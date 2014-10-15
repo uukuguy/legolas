@@ -75,8 +75,9 @@ static void after_write_request(uv_write_t *write_req, int status)
     }
     /* Keep write next block? */
     if ( udb->total_writed >= udb->object_size ){
-        session_waiting_message(session);
-        /*try_write_next_file(udb);*/
+        /* FIXME 2014-10-15 10:35:19 */
+        /*session_waiting_message(session);*/
+        try_write_next_file(udb);
     }
 }
 

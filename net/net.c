@@ -9,5 +9,10 @@
  */
 
 #include "net.h"
+#include <signal.h>
 
+static void __attribute__((constructor)) net_init(void)
+{
+    signal(SIGPIPE, SIG_IGN);
+}
 

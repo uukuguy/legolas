@@ -54,7 +54,8 @@ static void after_session_send_data(uv_write_t *write_rsp, int status)
 
 int session_send_data(session_t *session, char *buf, uint32_t buf_size, void *user_data, uv_write_cb after_write)
 {
-    trace_log("Enter session_send_data()");
+    /*pthread_mutex_lock(&session->send_pending_lock);*/
+
     int ret = 0;
 
     /* -------- response message -------- */
@@ -77,7 +78,9 @@ int session_send_data(session_t *session, char *buf, uint32_t buf_size, void *us
         error_log("response failed");
     }
 
-    trace_log("Leave session_send_data()");
+
+    /*pthread_mutex_unlock(&session->send_pending_lock);*/
+
     return ret;
 }
 
@@ -195,6 +198,8 @@ static uint32_t session_id = 0;
 /* ==================== session_new() ==================== */ 
 session_t* session_new(service_t *service, const session_callbacks_t *callbacks, void *user_data)
 {
+
+    signal(SIGPIPE, SIG_IGN);
 
     /* -------- session -------- */
     session_t *session = (session_t*)zmalloc(sizeof(session_t));

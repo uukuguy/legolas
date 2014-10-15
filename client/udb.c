@@ -73,7 +73,10 @@ void udb_done(udb_t *udb)
     /* FIXME */
     /* Check is time to shutdown now? */
     session_t *session = udb->session; 
-    session_rx_off(session);
+
+    /* FIXME 2014-10-15 10:38:05 */
+    /*session_rx_off(session);*/
+
     session->waiting_for_close = 1;
     session_shutdown(session);
 

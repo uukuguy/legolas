@@ -158,6 +158,9 @@ int session_handle_write(session_t *session, message_t *request)
         ret = -1;
     } else {
 
+        if ( session->total_writed == 0 ){
+            __sync_add_and_fetch(&session->running_tasks, 1);
+        }
         /** ----------------------------------------
          *    Write cache
          *  ---------------------------------------- */

@@ -123,7 +123,7 @@ int session_is_idle(session_t *session)
     int ret = 0;
 
     if ( session->total_received_buffers == 
-            session->total_saved_buffers ){
+            session->total_saved_buffers && session->running_tasks == 0 && session->finished_works == 0){
         ret = 1;
     } else {
         ret = 0;
@@ -142,7 +142,9 @@ void session_idle_cb(uv_idle_t *idle_handle, int status)
         __sync_sub_and_fetch(&session->finished_works, finished_works);
         __sync_add_and_fetch(&session->total_finished_works, 1);
         while ( finished_works-- > 0 ) {
-            session_response(session, RESULT_SUCCESS);
+            __sync_sub_and_fetch(&session->running_tasks, 1);
+            if ( session->waiting_for_close == 0 )
+                session_response(session, RESULT_SUCCESS);
         }
     }
 
