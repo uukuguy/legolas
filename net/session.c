@@ -199,8 +199,6 @@ static uint32_t session_id = 0;
 session_t* session_new(service_t *service, const session_callbacks_t *callbacks, void *user_data)
 {
 
-    signal(SIGPIPE, SIG_IGN);
-
     /* -------- session -------- */
     session_t *session = (session_t*)zmalloc(sizeof(session_t));
     memset(session, 0, sizeof(session_t));

@@ -65,9 +65,10 @@ void main_constructor( void )
 /* ================ main_deconstructor() ================ */
 void main_destructor( void )
 {
-    pthread_mutex_destroy(&g_calltree_lock);
 
     if ( g_calltree != NULL ){
+        pthread_mutex_destroy(&g_calltree_lock);
+
         gettimeofday(&g_calltree->end_time, NULL);
         printf("\n=-= Start to dump =-=\n");
         /*int file = open("./call_infos.log", O_CREAT | O_TRUNC | O_WRONLY, 0640);*/
@@ -76,7 +77,7 @@ void main_destructor( void )
         struct dlist_head *call_infos = &g_calltree->call_infos->dl_head;
         genc_dlist_for_each_object(call_info_t, dl_head, call_info, call_infos) {
             idx++;
-            if ( idx % 100 == 0 || (idx + 5 >= g_total_functions) )
+            if ( idx % 10000 == 0 || (idx + 5 >= g_total_functions) )
             printf("Processing %zu/%zu\n", idx, g_total_functions);
 
             /*char caller_name[256];*/

@@ -169,7 +169,9 @@ void do_read_data(sockbuf_t *sockbuf, void *buf, size_t count)
         }
 
         /*TRACE_LOG_SESSION_SOCKBUF("Called do_read_data().");*/
-        YIELD_AND_CONTINUE;
+        /*YIELD_AND_CONTINUE;*/
+        coroutine_yield(session); 
+        continue;
     }
 
 }
@@ -196,6 +198,7 @@ int session_do_read(sockbuf_t *sockbuf, message_t **p_message)
     /* -------- check message message_header -------- */
     if ( check_message((message_t*)&message_header) != 0) {
         WARNING_LOG_SESSION_SOCKBUF("Check magic_code in message message_header failed!");
+        /*assert(1==0);*/
         return -1;
     } else {
         /*TRACE_LOG_SESSION_sockbuf("Check magic_code in message message_header OK!");*/
@@ -278,7 +281,7 @@ void *session_rx_coroutine(void *opaque)
 
         /* FIXME coroutine */
         /*session = coroutine_self_data();*/
-        sockbuf = session->sockbuf;
+        /*sockbuf = session->sockbuf;*/
 
         /* FIXME coroutine */
         /*sockbuf = coroutine_self_data();*/
@@ -293,7 +296,9 @@ void *session_rx_coroutine(void *opaque)
             zfree(message);
             message = NULL;
         } else {
-            YIELD_AND_CONTINUE;
+            coroutine_yield(session); 
+            continue;
+            /*YIELD_AND_CONTINUE;*/
         }
     }
 

@@ -53,34 +53,50 @@ static int delete_file(udb_t *udb);
 void try_write_next_file(udb_t *udb)
 {
     PREPARE_CLIENT;
-
+ 
     if ( client_runtime->total_send < client->total_files - 1 ) {
 
         if ( client_runtime->total_send % 100 == 0 ) {
-            notice_log("\n-------- Session(%d) udb(%d) start to write %d/%d files", udb->session->id, udb->id, client_runtime->total_send, client->total_files);
+            trace_log("\n-------- Session(%d) udb(%d) start to write %d/%d files", udb->session->id, udb->id, client_runtime->total_send, client->total_files);
 
             if ( client_runtime->total_send % 1000 == 0 ) {
                 log_sysinfo();
             }
         }
-
         client_runtime->total_send++;
+
         write_file(udb);
 
     } else {
 
-        notice_log("\n===== Session(%d) udb(%d) Write %d files done. =====\n", udb->session->id, udb->id, client->total_files);
+        /*notice_log("\n===== Session(%d) udb(%d) Write %d files done. =====\n", udb->session->id, udb->id, client->total_files);*/
 
-        udb_done(udb);
+        /*udb_done(udb);*/
     }
 }
 
 /* ==================== test_after_write_finished() ==================== */ 
 int test_after_write_finished(udb_t *udb, message_t *response) 
 {
+    PREPARE_CLIENT;
+
     trace_log("after_write_finished() key: %s object_size: %d", udb->key, udb->object_size);
 
-    try_write_next_file(udb);
+    /*try_write_next_file(udb);*/
+
+    uint32_t total_finished = __sync_add_and_fetch(&client_runtime->total_finished, 1);
+    if ( total_finished >=  client->total_files ){
+        notice_log("\n===== Session(%d) udb(%d) Write %d files done. =====\n", udb->session->id, udb->id, client->total_files);
+        udb_done(udb);
+    } else {
+        if ( total_finished % 100 == 1 || total_finished + 5 >= client->total_files) {
+            notice_log("\n!!!----- Session(%d) udb(%d) finish write %d/%d files", udb->session->id, udb->id, total_finished, client->total_files);
+
+            if ( total_finished % 1000 == 0 ) {
+                log_sysinfo();
+            }
+        }
+    }
 
     return 0;
 }

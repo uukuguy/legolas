@@ -21,8 +21,9 @@ AR = ar
 #AR = nccar
 
 INSTRUMENT_OBJS = base/instrument.o base/function.o base/calltree.o
-#GPROF_FLAGS = -pg
 INSTRUMENT_FLAGS = -finstrument-functions
+
+#GPROF_FLAGS = -pg
 #CFLAGS_UCONTEXT=-D_XOPEN_SOURCE # ucontext.h error: The deprecated ucontext routines require _XOPEN_SOURCE to be defined.
 COMMON_CFLAGS = ${GPROF_FLAGS} -g ${INSTRUMENT_FLAGS} -fPIC -m64 -Wall -D_GNU_SOURCE -I./include -I./net ${CFLAGS_UCONTEXT} 
 

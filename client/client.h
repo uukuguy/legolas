@@ -47,6 +47,8 @@ typedef struct client_runtime_t {
     uint32_t total_recv;
     uint32_t total_del;
 
+    uint32_t total_finished;
+
 } client_runtime_t;
 
 typedef struct client_t {
