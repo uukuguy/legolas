@@ -1,0 +1,67 @@
+digraph client {
+    client_run_task;
+    udb_new;
+    udb_do;
+    udb_free;
+
+    client_run_task -> udb_new -> udb_do -> udb_free;
+
+    udb_run;
+    udb_main_pending_cond [label="udb->main_pending_cond"];
+
+    udb_do -> udb_run [style=dotted];
+    udb_run -> udb_main_pending_cond;
+
+    udb_thread_main;
+    udb_on_ready_cond [label="udb->on_read_cond"];
+
+    udb_run -> udb_thread_main [style=dotted];
+    udb_thread_main -> udb_on_ready_cond;
+
+    udb_loop;
+    udb_thread_main -> udb_loop;
+    udb_loop -> udb_on_ready_cond[style=dotted];
+
+    session_new;
+    uv_tcp_connect;
+    uv_run;
+
+    udb_loop -> session_new[style=dotted];
+    session_new -> uv_tcp_connect -> uv_run;
+
+    on_connect;
+    udb_on_ready [label="udb->on_ready"];
+
+    uv_tcp_connect -> on_connect[style=dotted];
+    on_connect -> udb_on_ready;
+    udb_on_ready -> udb_on_ready_cond[style=dotted];
+
+    udb_handle_message;
+
+    client_execute;
+
+    udb_on_ready -> client_execute[style=dotted];
+    client_execute -> write_file;
+    client_execute -> read_file;
+    client_execute -> delete_file;
+
+    write_file -> session_waiting_message [style=dotted];
+    session_waiting_message -> reset_udb_key_by_client -> udb_write_data;
+
+    udb_write_data -> udb_append_data [style=dotted];
+
+    udb_append_data -> do_write_request [style=dotted];
+
+    do_write_request -> alloc_request_message [style=dotted];
+    alloc_request_message -> add_message_arg -> uv_write -> request_message_free;
+
+    udb_after_write_object_slice [label="udb->after_write_object_slice"];
+    uv_write -> after_write_request [style=dotted];
+    after_write_request -> udb_after_write_object_slice -> try_write_next_file;
+
+    udb_after_write_object_slice -> client_after_write_object_slice [style=dotted];
+    client_after_write_object_slice -> udb_append_data;
+
+}
+
+

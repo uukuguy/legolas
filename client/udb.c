@@ -122,6 +122,8 @@ void udb_free(udb_t *udb)
             udb->user_data = NULL;
         }
 
+        service_destroy(udb->service);
+
         pthread_mutex_destroy(&udb->on_ready_lock);
         pthread_cond_destroy(&udb->on_ready_cond);
 

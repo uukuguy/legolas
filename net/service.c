@@ -146,9 +146,7 @@ void parse_queue_handle_request(work_queue_t *wq)
         /*coroutine_t *rx_coroutine = service->rx_coroutines[wq_id];*/
 
         coroutine_t *rx_coroutine = get_work_queue_coroutine(wq);
-        trace_log("Before service_consume_sockbuf()");
         service_consume_sockbuf(rx_coroutine, sockbuf);
-        trace_log("After service_consume_sockbuf()");
 
         /*session_consume_sockbuf(sockbuf);*/
     }

@@ -433,25 +433,6 @@ void session_consume_sockbuf(sockbuf_t *sockbuf)
     /*REACT_ACTION_STOP(session_consume_sockbuf);*/
 }
 
-void after_read_task(uv_work_t *work)
-{
-    sockbuf_t *sockbuf =(sockbuf_t*)work->data;
-    assert(sockbuf != NULL);
-
-    session_consume_sockbuf(sockbuf);
-}
-
-void after_read_task_done(uv_work_t *work, int status)
-{
-    /*zfree(work);*/
-}
-
-/*void read_consume_thread_main(void *opaque)*/
-/*{*/
-    /*sockbuf_t *sockbuf = (sockbuf_t*)opaque;*/
-    /*session_consume_sockbuf(sockbuf);*/
-/*}*/
-
 /* ==================== after_read() ==================== */ 
 /*
  * nread <= DEFAULT_CONN_BUF_SIZE 64 * 1024
@@ -481,21 +462,11 @@ void after_read(uv_stream_t *handle, ssize_t nread, const uv_buf_t *buf)
 
         /*enqueue_parse_queue(session, sockbuf);*/
 
-        /*uv_thread_t tid;*/
-        /*uv_thread_create(&tid, read_consume_thread_main, sockbuf);*/
-
         if ( session->callbacks.consume_sockbuf != NULL ){
             session->callbacks.consume_sockbuf(sockbuf);
         } else {
             session_consume_sockbuf(sockbuf);
         }
-
-        /*uv_work_t *work = (uv_work_t*)zmalloc(sizeof(uv_work_t));*/
-        /*memset(work, 0, sizeof(uv_work_t));*/
-        /*work->data = sockbuf;*/
-        /*server_t *server = (server_t*)session->service->parent;*/
-        /*uv_loop_t *loop = &server->connection.loop;*/
-        /*uv_queue_work(loop, work, after_read_task, after_read_task_done);*/
 
 
         /* FIXME */
