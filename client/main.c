@@ -15,17 +15,15 @@
 #include "client.h"
 #include "filesystem.h"
 
-/*#include "react_utils.h"*/
-
 static char program_name[] = "legolas";
 static int msec0, msec1;
 
 /*UNUSED static sem_t sem;*/
 
+int client_run_task(client_t *client, int id); /* in client.c */
+
 typedef struct{
     int id;
-
-    int is_execute;
 
     const char *ip;
     int port;
@@ -36,6 +34,7 @@ typedef struct{
     int total_files;
 
     int is_daemon;
+    int is_batch;
     int log_level;
     int threads;
 } program_options_t;
@@ -43,16 +42,7 @@ typedef struct{
 typedef struct thread_args_t {
     int id;
     client_t *client;
-    /*void *react_aggregator;*/
 } thread_args_t;
-
-int client_execute(client_t *client);
-
-int client_run_task(client_t *client, int id);
-int test_run_task(client_t *client, int id);
-
-/*#define run_task client_run_task*/
-#define run_task test_run_task
 
 /* ==================== client_thread() ==================== */ 
 static void* client_thread(void *arg)
@@ -60,13 +50,8 @@ static void* client_thread(void *arg)
     
     thread_args_t *t_args = (thread_args_t*)arg;
 
-    /*REACT_ACTIVATE(t_args->react_aggregator);*/
-
     UNUSED int ret;
-    /*ret = start_connect(t_args->client, &callbacks, t_args->id);*/
-    ret = run_task(t_args->client, t_args->id);
-
-    /*REACT_DEACTIVATE();*/
+    ret = client_run_task(t_args->client, t_args->id);
 
     return NULL;
 }
@@ -90,7 +75,6 @@ int start_client_threads(client_t *client)
 
         t_args[i].id = i;
         t_args[i].client = client;
-        /*t_args[i].react_aggregator = REACT_CREATE_SUBTHREAD_AGGREGATOR();*/
         ret = pthread_create(&tid[i], NULL, client_thread, &t_args[i]);
         /*pthread_attr_destroy(&attr);*/
         if ( ret != 0 ){
@@ -104,7 +88,6 @@ int start_client_threads(client_t *client)
     for ( i = 0 ; i < threads ; i++ ){
         void *pret = NULL;
         ret = pthread_join(tid[i], &pret);
-        /*REACT_DESTROY_SUBTHREAD_AGGREGATOR(t_args[i].react_aggregator);*/
         if ( ret != 0 ){
             error_log("pthread_join() failed. i:%d", i);
         } else {
@@ -127,8 +110,7 @@ int start_client_normal(client_t *client)
 {
     int ret;
 
-    /*ret = start_connect(client, &callbacks, 0);*/
-    ret = run_task(client, 0);
+    ret = client_run_task(client, 0);
 
     return ret;
 }
@@ -136,7 +118,6 @@ int start_client_normal(client_t *client)
 /* ==================== runclient() ==================== */ 
 int runclient(program_options_t *program_options)
 {
-    UNUSED int is_execute = program_options->is_execute;
     int is_daemon = program_options->is_daemon;
     int log_level = program_options->log_level;
 
@@ -169,7 +150,8 @@ int runclient(program_options_t *program_options)
             program_options->filename, 
             program_options->start_index,
             program_options->total_files,
-            program_options->threads);
+            program_options->threads,
+            program_options->is_batch);
 
     if ( client->op_code == MSG_OP_WRITE ){
         FILE *file = fopen(client->filename, "rb");
@@ -199,16 +181,11 @@ int runclient(program_options_t *program_options)
 
     /* -------- start_client (normal or thread)-------- */
 
-    int ret;
-
-    if ( is_execute == 1 ) {
-        ret = client_execute(client);
+    int ret = 0;
+    if ( program_options->threads > 0 ){
+        ret = start_client_threads(client);
     } else {
-        if ( program_options->threads > 0 ){
-            ret = start_client_threads(client);
-        } else {
-            ret = start_client_normal(client);
-        }
+        ret = start_client_normal(client);
     }
 
 
@@ -245,17 +222,17 @@ static void usage(int status)
     else {
         printf("Usage: %s [OPTION] [PATH]\n", program_name);
         printf("Legolas Client\n\
-                -e, --execute           execute single command\n\
-                -s, --server            specify the remote server\n\
+                -i, --ip            specify the remote server\n\
                 -p, --port              specify the listen port number\n\
                 -w, --write             upload file to server\n\
                 -r, --read              download file from server\n\
                 -x, --delete            delete file in server\n\
                 -k, --key               key of the file\n\
-                -b, --start             start of count\n\
+                -s, --start             start of count\n\
                 -n, --count             count of loop\n\
                 -u, --threads           count of threads\n\
                 -d, --daemon            run in the daemon mode. \n\
+                -b, --batch             batch mode. \n\
                 -v, --verbose           print debug messages\n\
                 -t, --trace             print trace messages\n\
                 -h, --help              display this help and exit\n\
@@ -266,8 +243,7 @@ static void usage(int status)
 
 static struct option const long_options[] = {
 	/* common options */
-	{"execute", no_argument, NULL, 'e'},
-	{"server", required_argument, NULL, 's'},
+	{"ip", required_argument, NULL, 'i'},
 	{"port", required_argument, NULL, 'p'},
 	{"write", no_argument, NULL, 'w'},
 	{"read", no_argument, NULL, 'r'},
@@ -277,60 +253,21 @@ static struct option const long_options[] = {
 	{"count", required_argument, NULL, 'n'},
 	{"threads", required_argument, NULL, 'u'},
 	{"daemon", no_argument, NULL, 'd'},
+	{"batch", no_argument, NULL, 'b'},
 	{"verbose", no_argument, NULL, 'v'},
 	{"trace", no_argument, NULL, 't'},
 	{"help", no_argument, NULL, 'h'},
 
 	{NULL, 0, NULL, 0},
 };
-static const char *short_options = "es:p:wrxk:b:n:u:dvth";
-
-/*void test11()*/
-/*{*/
-/*}*/
-
-/*void test12()*/
-/*{*/
-/*}*/
-
-/*void test21()*/
-/*{*/
-/*}*/
-
-/*void test1()*/
-/*{*/
-    /*test11();*/
-    /*test12();*/
-/*}*/
-
-/*void test2()*/
-/*{*/
-    /*test21();*/
-/*}*/
-
-/*void test3()*/
-/*{*/
-/*}*/
-
-/*void instrumentation_test()*/
-/*{*/
-    /*test1();*/
-    /*test2();*/
-    /*test3();*/
-/*}*/
+static const char *short_options = "es:p:wrxk:b:n:u:dbvth";
 
 /* ==================== main() ==================== */ 
 int main(int argc, char *argv[])
 {
-    /*instrumentation_test();*/
-    /*return 0;*/
-
-    /*void *react_ctx = REACT_INIT("./client_calltree.json");*/
-
     program_options_t program_options;
     memset(&program_options, 0, sizeof(program_options_t));
 
-    program_options.is_execute = 0;
     program_options.ip = "127.0.0.1";
 	program_options.port = DEFAULT_PORT;
     program_options.filename = "data/32K.dat";
@@ -338,6 +275,7 @@ int main(int argc, char *argv[])
     program_options.threads = 0;
     program_options.start_index = 0;
     program_options.is_daemon = 0;
+    program_options.is_batch = 0;
     program_options.log_level = LOG_INFO;
     program_options.op_code = MSG_OP_NONE;
 
@@ -345,10 +283,7 @@ int main(int argc, char *argv[])
 	while ((ch = getopt_long(argc, argv, short_options, long_options,
 				 &longindex)) >= 0) {
 		switch (ch) {
-            case 'e':
-                program_options.is_execute = 1;
-                break;
-            case 's':
+            case 'i':
                 program_options.ip = optarg;
                 break;
             case 'p':
@@ -366,7 +301,7 @@ int main(int argc, char *argv[])
             case 'k':
                 program_options.key = optarg;
                 break;
-            case 'b':
+            case 's':
                 program_options.start_index = atoi(optarg);
                 break;
             case 'n':
@@ -383,6 +318,9 @@ int main(int argc, char *argv[])
                 break;
             case 'd':
                 program_options.is_daemon = 1;
+                break;
+            case 'b':
+                program_options.is_batch = 1;
                 break;
             case 'v':
                 program_options.log_level = LOG_DEBUG;
@@ -404,13 +342,7 @@ int main(int argc, char *argv[])
 
     int ret = 0;
     
-    /*REACT_ACTION_START(runclient);*/
-
     ret = runclient(&program_options);
-
-    /*REACT_ACTION_STOP(runclient);*/
-
-    /*REACT_CLEANUP(react_ctx);*/
 
     return ret;
 

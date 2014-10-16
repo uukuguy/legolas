@@ -20,9 +20,9 @@ if [ -z $count ]; then
     count=1
 fi
 
-server=$5
-if [ -z $server ]; then
-    server=127.0.0.1
+ip=$5
+if [ -z $ip ]; then
+    ip=127.0.0.1
 fi
 
 file=$6
@@ -35,10 +35,12 @@ if [ -z $operation ]; then
     operation=write
 fi
 
+args=$8
+
 start=$(date "+%s")
 for (( i = 0; i < $num ; i++ ))
 do
-    bin/legolas --$operation --threads $threads --start $start_index --count $count --server $server data/samples/$file.dat 
+    bin/legolas --$operation --threads $threads --start $start_index --count $count --ip $ip $args data/samples/$file.dat 
     echo ++++++++ $i ++++++++++
 done
 

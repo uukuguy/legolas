@@ -74,7 +74,7 @@ vnode_t *vnode_new(char *root_dir, uint32_t id, enum eVnodeStorageType storage_t
     }
 
     /* Index DB */
-    if ( vnode->storage_type != STORAGE_NONE ){
+    if ( vnode->storage_type >= STORAGE_KVDB ){
         char dbpath[NAME_MAX];
         sprintf(dbpath, "%s/manifest.db", vnode->root_dir);
 

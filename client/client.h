@@ -60,6 +60,8 @@ typedef struct client_t {
     char *file_data;
     uint32_t file_size;
 
+    int is_batch;
+
     //uint32_t total_readed;
     const char *filename;
     const char *key_prefix;
@@ -89,7 +91,7 @@ void client_runtime_free(client_runtime_t *client_runtime);
 #define CLIENT(session) (client_t*)(session->service->parent)
 #define CLIENT_ARGS(session) (client_args_t*)(session->user_data)
 
-client_t *client_new(const char *ip, int port, int op_code, const char *key, const char *file, int start_index, int total_files, int nthreads);
+client_t *client_new(const char *ip, int port, int op_code, const char *key, const char *file, int start_index, int total_files, int nthreads, int is_batch);
 void client_free(client_t *client);
 
 #endif /* __CLIENT_H__ */

@@ -32,7 +32,7 @@ static void usage(int status)
                 -d, --daemon            run in the daemon mode\n\
                 -v, --verbose           print debug messages\n\
                 -t, --trace             print trace messages\n\
-                -s, --storage           set storage type.(kvdb, logfile, none)\n\
+                -s, --storage           set storage type.(none, logfile, lmdb, eblob, leveldb, rocksdb, lsm)\n\
                 -h, --help              display this help and exit\n\
 ");
     }

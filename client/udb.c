@@ -325,6 +325,8 @@ static void* udb_thread_main(void *arg)
 
     notice_log("udb_thread_main() %d exit.", udb->id);
 
+    pthread_cond_signal(&udb->main_pending_cond);
+
     return NULL;
 }
 

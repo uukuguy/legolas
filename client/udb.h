@@ -58,6 +58,7 @@ typedef struct udb_t {
     uint32_t data_size;
 
     service_t *service;
+    int is_batch;
 
     //list *writing_objects;
 

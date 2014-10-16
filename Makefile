@@ -1,3 +1,14 @@
+# --------------------------------------------------
+ # @file   Makefile
+ # @author Jiangwen Su <uukuguy@gmail.com>
+ # @date   2014-10-16 14:52:09
+ # 
+ # @brief  
+ # 		INSTRUMENT=yes make
+ # 		<run bin/legolas>
+ # 		make dot
+# --------------------------------------------------
+
 SERVER = bin/legolasd
 CLIENT = bin/legolas
 
@@ -20,8 +31,10 @@ AR = ar
 #LD = nccld
 #AR = nccar
 
+#ifdef INSTRUMENT
 INSTRUMENT_OBJS = base/instrument.o base/function.o base/calltree.o
 INSTRUMENT_FLAGS = -finstrument-functions
+#endif
 
 #GPROF_FLAGS = -pg
 #CFLAGS_UCONTEXT=-D_XOPEN_SOURCE # ucontext.h error: The deprecated ucontext routines require _XOPEN_SOURCE to be defined.
@@ -66,22 +79,26 @@ SERVER_OBJS = server/main.o \
 			  server/logfile.o \
 			  server/object.o
 
+#ifdef INSTRUMENT
 #SERVER_OBJS += ${INSTRUMENT_OBJS}
+#endif
 
 CLIENT_OBJS = client/main.o \
-			  client/test.o \
 			  client/client.o \
 			  client/udb.o \
 			  client/udb_write_data.o \
 			  client/udb_read_data.o \
-			  client/udb_delete_data.o \
-			  client/client_write.o \
-			  client/client_read.o \
-			  client/client_delete.o \
-			  client/client_session_handle.o \
-			  client/client_execute.o
+			  client/udb_delete_data.o 
 
+			  #client/client_write.o \
+			  #client/client_read.o \
+			  #client/client_delete.o \
+			  #client/client_session_handle.o \
+			  #client/client_execute.o
+
+#ifdef INSTRUMENT
 CLIENT_OBJS += ${INSTRUMENT_OBJS}
+#endif
 
 
 LIBUV=libuv-v0.11.22

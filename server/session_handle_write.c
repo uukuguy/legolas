@@ -96,7 +96,11 @@ object_t *session_write_to_cache(session_t *session, msgidx_t *msgidx)
         object = object_new(msgidx->key, msgidx->keylen);
         object->object_size = object_size;
 
-        assert(check_md5(&object->key_md5, msgidx->key_md5) == 0 );
+        if ( check_md5(&object->key_md5, msgidx->key_md5) != 0 ){
+            error_log("Check md5 error. session(%d), block_id:%d, key:%s object->key:%s", session->id, blockid, msgidx->key, object->key);
+            object_free(object);
+            return NULL;
+        }
 
         object_queue_insert(caching_objects, object);
     }
