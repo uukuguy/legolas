@@ -31,10 +31,10 @@ AR = ar
 #LD = nccld
 #AR = nccar
 
-#ifdef INSTRUMENT
+ifeq (${INSTRUMENT}, yes)
 INSTRUMENT_OBJS = base/instrument.o base/function.o base/calltree.o
 INSTRUMENT_FLAGS = -finstrument-functions
-#endif
+endif
 
 #GPROF_FLAGS = -pg
 #CFLAGS_UCONTEXT=-D_XOPEN_SOURCE # ucontext.h error: The deprecated ucontext routines require _XOPEN_SOURCE to be defined.
@@ -79,9 +79,9 @@ SERVER_OBJS = server/main.o \
 			  server/logfile.o \
 			  server/object.o
 
-#ifdef INSTRUMENT
+ifeq (${INSTRUMENT}, yes)
 #SERVER_OBJS += ${INSTRUMENT_OBJS}
-#endif
+endif
 
 CLIENT_OBJS = client/main.o \
 			  client/client.o \
@@ -96,9 +96,9 @@ CLIENT_OBJS = client/main.o \
 			  #client/client_session_handle.o \
 			  #client/client_execute.o
 
-#ifdef INSTRUMENT
+ifeq (${INSTRUMENT}, yes)
 CLIENT_OBJS += ${INSTRUMENT_OBJS}
-#endif
+endif
 
 
 LIBUV=libuv-v0.11.22
