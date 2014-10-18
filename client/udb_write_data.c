@@ -44,11 +44,11 @@ int udb_handle_write_response(session_t *session, message_t *response)
     return ret;
 }
 
-void try_write_next_file(udb_t *udb); /* in test.c */
-/* ==================== after_write_request() ==================== */ 
-static void after_write_request(uv_write_t *write_req, int status) 
+void client_write_next_file(udb_t *udb); /* in client.c */
+/* ==================== udb_after_write_request() ==================== */ 
+static void udb_after_write_request(uv_write_t *write_req, int status) 
 {
-    debug_log("Enter after_write_request");
+    debug_log("Enter udb_after_write_request");
 
     session_t *session = (session_t*)write_req->data;
 
@@ -57,35 +57,34 @@ static void after_write_request(uv_write_t *write_req, int status)
 
     zfree(write_req);
 
+    msgidx_t *msgidx = zmalloc(sizeof(msgidx_t));
+    memset(msgidx, 0, sizeof(msgidx_t));
+
+    msgidx->object_size = udb->object_size;
+    msgidx->slice_idx = udb->slice_idx;
+    msgidx->nslices = udb->nslices;
+
+    msgidx->key = udb->key;
+    msgidx->keylen = udb->keylen;
+    msgidx->data_size = udb->data_size;
+
     if ( udb->after_write_object_slice != NULL ){
-        msgidx_t *msgidx = zmalloc(sizeof(msgidx_t));
-        memset(msgidx, 0, sizeof(msgidx_t));
-
-        msgidx->object_size = udb->object_size;
-        msgidx->slice_idx = udb->slice_idx;
-        msgidx->nslices = udb->nslices;
-
-        msgidx->key = udb->key;
-        msgidx->keylen = udb->keylen;
-        msgidx->data_size = udb->data_size;
 
         udb->after_write_object_slice(udb, msgidx);
 
-        zfree(msgidx);
     }
-    /* Keep write next block? */
-    if ( udb->total_writed >= udb->object_size ){
-        /* FIXME 2014-10-15 10:35:19 */
-        if ( udb->is_batch ){
-            try_write_next_file(udb);
-        } else {
-            /*session_waiting_message(session);*/
+
+    if ( udb->after_write_request_done != NULL ){
+        if ( udb->total_writed >= udb->object_size ){
+            udb->after_write_request_done(udb, msgidx);
         }
     }
+
+    zfree(msgidx);
 }
 
-/* ==================== do_write_request() ==================== */ 
-int do_write_request(session_t *session, char *data, uint32_t data_size)
+/* ==================== udb_write_request() ==================== */ 
+int udb_write_request(session_t *session, char *data, uint32_t data_size)
 {
     /**
      * Read DEFAULT_CONN_BUF_SIZE bytes into buf from file.
@@ -197,7 +196,7 @@ int do_write_request(session_t *session, char *data, uint32_t data_size)
             &session->connection.handle.stream,
             &ubuf,
             1,
-            after_write_request);
+            udb_after_write_request);
 
     zfree(write_request);
 
@@ -214,13 +213,14 @@ int udb_append_data(udb_t *udb, int handle, void *data, uint32_t len)
 {
     session_t *session = udb->session;
 
-    return do_write_request(session, data, len);
+    return udb_write_request(session, data, len);
 }
 
 /* ==================== udb_write_data() ==================== */ 
 int udb_write_data(udb_t *udb, int handle, void *data, uint32_t len, 
         after_write_object_slice_cb after_write_object_slice, 
-        after_write_finished_cb after_write_finished)
+        after_write_finished_cb after_write_finished,
+        after_write_request_done_cb after_write_request_done)
 {
     if ( after_write_object_slice != NULL ){
         udb->after_write_object_slice = after_write_object_slice;
@@ -228,6 +228,10 @@ int udb_write_data(udb_t *udb, int handle, void *data, uint32_t len,
 
     if ( after_write_finished != NULL ){
         udb->after_write_finished = after_write_finished;
+    }
+
+    if ( after_write_request_done != NULL ){
+        udb->after_write_request_done = after_write_request_done;
     }
 
     udb->total_writed = 0;

@@ -41,8 +41,8 @@ int parse_delete_request(session_t *session, message_t *request, msgidx_t *msgid
     return 0;
 }
 
-/* ==================== session_handle_delete() ==================== */ 
-int session_handle_delete(session_t *session, message_t *request)
+/* ==================== server_handle_delete() ==================== */ 
+int server_handle_delete(session_t *session, message_t *request)
 {
     /** ----------------------------------------
      *    Parse request
@@ -63,7 +63,7 @@ int session_handle_delete(session_t *session, message_t *request)
 
     vnode_t *vnode = get_vnode_by_key(SERVER(session), msgidx.key_md5);
     if ( vnode != NULL ) {
-        int rc = object_del_from_kvdb(vnode->kvdb, *msgidx.key_md5);
+        int rc = vnode_delete_from_storage(vnode, *msgidx.key_md5);
         if ( rc == 0 ){
             object_deleted = 1;
         }

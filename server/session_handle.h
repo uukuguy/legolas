@@ -18,11 +18,12 @@ typedef struct session_t session_t;
 typedef struct message_t message_t;
 typedef struct msgidx_t msgidx_t;
 
-void session_idle_cb(uv_idle_t *idle_handle, int status);
+void server_idle_cb(uv_idle_t *idle_handle, int status);
+int server_is_idle(session_t *session);
+
 void session_timer_cb(uv_timer_t *timer_handle, int status);
 void session_async_cb(uv_async_t *async_handle, int status);
-int session_is_idle(session_t *session);
-int session_handle_message(session_t *session, message_t *message);
+int server_handle_message(session_t *session, message_t *message);
 int session_init(session_t *session);
 void session_destroy(session_t *session);
 

@@ -228,14 +228,13 @@ extern int session_rx_on(session_t *session);
 extern void session_rx_off(session_t *session);
 
 extern void session_shutdown(session_t *session);
-extern void after_shutdown(uv_shutdown_t *shutdown_req, int status);
+extern void session_after_shutdown(uv_shutdown_t *shutdown_req, int status);
 
 extern int too_many_requests(session_t *session);
 
 extern int session_send_data(session_t *session, char *buf, uint32_t buf_size, void *user_data, uv_write_cb after_write);
 extern int session_response_data(session_t *session, char *buf, uint32_t buf_size);
 extern void session_response(session_t *session, enum MSG_RESULT result); 
-extern int session_write_to_storage(session_t *session, object_t *object);
 
 #define WARNING_LOG_SESSION_SOCKBUF(msg) \
     warning_log("\n........\n %s fd(%d) block(%d) read_head=%d write_head=%d, remain_bytes=%d\n", msg, session_fd(session), sockbuf->blockid, sockbuf->read_head, sockbuf->write_head, sockbuf->remain_bytes);

@@ -30,7 +30,7 @@ static uint32_t total_sessions = 0;
 
 /* in session_parsing_message.c */
 void session_alloc(uv_handle_t *handle, size_t suggested_size, uv_buf_t *buf);
-void after_read(uv_stream_t *handle, ssize_t nread, const uv_buf_t *buf);
+void session_after_read(uv_stream_t *handle, ssize_t nread, const uv_buf_t *buf);
 
 int connection_init(connection_t *connection)
 {
@@ -107,7 +107,7 @@ void session_response(session_t *session, enum MSG_RESULT result)
 /* =================== on_close() ==================== */ 
 /**
  * Try to destroy session after uv_close().
- * Called by after_shutdown().
+ * Called by session_after_shutdown().
  */
     /* FIXME */
 UNUSED static void on_close(uv_handle_t *tcp_handle) 
@@ -120,12 +120,12 @@ UNUSED static void on_close(uv_handle_t *tcp_handle)
     session_free(session);
 }
 
-/* ==================== after_shutdown() ==================== */ 
+/* ==================== session_after_shutdown() ==================== */ 
 /**
- * Called by after_read().
+ * Called by session_after_read().
  */
 
-void after_shutdown(uv_shutdown_t *shutdown_req, int status) 
+void session_after_shutdown(uv_shutdown_t *shutdown_req, int status) 
 {
     session_t *session = (session_t *)shutdown_req->data; 
 
@@ -183,7 +183,7 @@ void session_shutdown(session_t *session)
                 uv_shutdown_t* shutdown_req = (uv_shutdown_t*)zmalloc(sizeof(uv_shutdown_t));
                 memset(shutdown_req, 0, sizeof(uv_shutdown_t));
                 shutdown_req->data = session;
-                uv_shutdown(shutdown_req, &session->connection.handle.stream, after_shutdown);
+                uv_shutdown(shutdown_req, &session->connection.handle.stream, session_after_shutdown);
                 return;
             }
         }
@@ -320,6 +320,12 @@ int session_accept(session_t *session, uv_tcp_t *parent_tcp)
     return ret;
 }
 
+/* ==================== session_waiting_message() ==================== */ 
+int session_waiting_message(session_t *session)
+{
+    return uv_read_start((uv_stream_t*)&session_stream(session), session_alloc, session_after_read);
+}
+
 /* ************************************************************
  *
  *                 Session Private Functions
@@ -418,7 +424,7 @@ int too_many_requests(session_t *session)
 /* ==================== session_rx_on() ==================== */ 
 int session_rx_on(session_t *session)
 {
-    return uv_read_start((uv_stream_t*)&session_stream(session), session_alloc, after_read);
+    return uv_read_start((uv_stream_t*)&session_stream(session), session_alloc, session_after_read);
 }
 
 /* ==================== session_rx_off() ==================== */ 

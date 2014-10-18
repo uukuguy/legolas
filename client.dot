@@ -1,67 +1,263 @@
 digraph client {
-    client_run_task;
-    udb_new;
-    udb_do;
-    udb_free;
 
-    client_run_task -> udb_new -> udb_do -> udb_free;
+    node [ shape=box ];
 
-    udb_run;
-    udb_main_pending_cond [label="udb->main_pending_cond"];
 
-    udb_do -> udb_run [style=dotted];
-    udb_run -> udb_main_pending_cond;
+    subgraph cluster_net {
+        label = "Module net";
 
-    udb_thread_main;
-    udb_on_ready_cond [label="udb->on_read_cond"];
+        subgraph cluster_libuv {
+            //node [color=lightgray];
+            color = lightgray;
+            style = filled;
+            label = "libuv";
+            edge [color="#2e3436"];
+            rankdir=TB;
 
-    udb_run -> udb_thread_main [style=dotted];
-    udb_thread_main -> udb_on_ready_cond;
+            uv_tcp_connect;
+            uv_run;
+            uv_write;
+            uv_shutdown;
+            uv_close;
+        }
 
-    udb_loop;
-    udb_thread_main -> udb_loop;
-    udb_loop -> udb_on_ready_cond[style=dotted];
+        //subgraph cluster_message_c {
+            ////node [color=lightgray];
+            //color = lightgray;
+            //style = filled;
+            //label = "message.c";
+            //edge [color="#2e3436"];
+            ////rankdir=TB;
 
-    session_new;
-    uv_tcp_connect;
-    uv_run;
+            //alloc_request_message;
+            //request_message_free;
+            //add_message_arg;
+        //}
 
-    udb_loop -> session_new[style=dotted];
-    session_new -> uv_tcp_connect -> uv_run;
+        subgraph cluster_session_c {
+            //node [color=lightgray];
+            color = lightgray;
+            style = filled;
+            label = "session.c";
+            edge [color="#2e3436"];
+            //rankdir=TB;
 
-    on_connect;
-    udb_on_ready [label="udb->on_ready"];
+            session_new;
+            session_free;
+            session_shutdown;
+            session_after_shutdown;
+            on_close;
+            session_destroy [label="session->callbacks.session_destroy"];
 
-    uv_tcp_connect -> on_connect[style=dotted];
-    on_connect -> udb_on_ready;
-    udb_on_ready -> udb_on_ready_cond[style=dotted];
 
-    udb_handle_message;
+            uv_close -> on_close:n [style=dotted];
+            on_close -> session_free;
+            session_free -> session_destroy;
 
-    client_execute;
+            session_waiting_message;
+            session_after_read;
+            session_consume_sockbuf;
+            session_rx_coroutine;
+            session_handle_message [label="session->callbacks.handle_message"];
+
+            session_waiting_message -> session_after_read [style=dotted];
+            session_after_read -> session_consume_sockbuf;
+            session_consume_sockbuf -> session_rx_coroutine [style=dotted];
+            session_rx_coroutine -> session_handle_message;
+
+            session_shutdown -> uv_shutdown;
+            uv_shutdown -> session_after_shutdown [style=dotted];
+            session_after_shutdown -> uv_close;
+        }
+
+    }
+    //subgraph cluster_udb_c {
+        //node [];
+        //color = lightgray;
+        //style = filled;
+        //label = "udb.c";
+        //edge [color="#2e3436"];
+        //rankdir=TB;
+
+        //node[color=Gray, style=filled];
+
+
+        udb_new [color=Gray, style=filled];
+        udb_do [color=Gray, style=filled];
+        udb_done [color=Gray, style=filled];
+        udb_free [color=Gray, style=filled];
+        udb_run [color=Gray, style=filled];
+        udb_loop [color=Gray, style=filled];
+        udb_handle_message [color=Gray, style=filled];
+        udb_on_connect [color=Gray, style=filled];
+
+        udb_write_data [color=Gray, style=filled];
+        udb_append_data [color=Gray, style=filled];
+        udb_write_request [color=Gray, style=filled];
+        udb_after_write_request [color=Gray, style=filled];
+        udb_session_destroy [color=Gray, style=filled];
+
+        udb_handle_write_response [color=Gray, style=filled];
+        udb_handle_read_response [color=Gray, style=filled];
+        udb_handle_delete_response [color=Gray, style=filled];
+
+        udb_thread_main [shape=ellipse, color=Gray, style=filled, linecolor=blue];
+        udb_on_ready [label="udb->on_ready", color=Gray, style=filled];
+        udb_after_write_finished [label="udb->after_write_finished", shape=ellipse, color=Gray, style=filled];
+        udb_after_write_object_slice [label="udb->after_write_object_slice", color=Gray, style=filled];
+        udb_after_write_request_done [label="udb->after_write_request_done", color=Gray, style=filled];
+        udb_main_pending_cond [label="udb->main_pending_cond" shape=ellipse color=Red];
+        udb_on_ready_cond [label="udb->on_ready_cond" shape=ellipse color=Red];
+
+
+
+        udb_do -> udb_run;
+        udb_do -> udb_main_pending_cond [color=Red];
+
+        udb_run -> udb_thread_main [style=dotted]; 
+        udb_run -> udb_on_ready_cond [color=Red];
+
+        udb_thread_main -> udb_loop;
+        udb_thread_main -> udb_main_pending_cond[style=dotted, color=Green];
+
+        udb_loop -> session_new;
+        udb_loop -> uv_tcp_connect;
+        udb_loop -> uv_run;
+
+        uv_tcp_connect -> udb_on_connect[style=dotted];
+        udb_on_connect -> udb_on_ready;
+        udb_on_connect -> udb_on_ready_cond[style=dotted, color=Green];
+
+        udb_write_data -> udb_append_data;
+
+        udb_append_data -> udb_write_request;
+
+        //udb_write_request -> alloc_request_message;
+        //udb_write_request -> add_message_arg;
+        udb_write_request -> uv_write
+        //udb_write_request -> request_message_free;
+
+        uv_write -> udb_after_write_request [style=dotted];
+        udb_after_write_request -> udb_after_write_object_slice;
+        udb_after_write_request -> udb_after_write_request_done;
+
+
+        udb_handle_message -> udb_handle_write_response;
+        udb_handle_message -> udb_handle_read_response;
+        udb_handle_message -> udb_handle_delete_response;
+
+        udb_handle_write_response -> udb_after_write_finished;
+
+
+        udb_done -> session_shutdown;
+
+
+        session_destroy -> udb_session_destroy [style=dotted];
+        udb_session_destroy -> udb_main_pending_cond [style=dotted, color=Green];
+
+        session_handle_message -> udb_handle_message [style=dotted];
+
+        //subgraph cluster_udb_read_data {
+            //color = lightgray;
+            //label = "udb_read_data";
+
+            udb_read_data [color=Gray, style=filled];
+            //udb_read_request [color=Gray, style=filled];
+            //udb_after_read_request [color=Gray, style=filled];
+
+            //udb_read_data -> udb_read_request;
+            ////udb_read_request -> alloc_request_message;
+            ////udb_read_request -> add_message_arg;
+            //udb_read_request -> uv_write;
+            ////udb_read_request -> request_message_free;
+
+            //uv_write -> udb_after_read_request [style=dotted];
+            //udb_after_read_request -> session_waiting_message;
+        //}
+
+        //subgraph cluster_udb_delete_data {
+            //color = lightgray;
+            //label = "udb_delete_data";
+
+            udb_delete_data [color=Gray, style=filled];
+            //udb_delete_request [color=Gray, style=filled];
+            //udb_after_delete_request [color=Gray, style=filled];
+
+            //udb_delete_data -> udb_delete_request;
+            ////udb_delete_request -> alloc_request_message;
+            ////udb_delete_request -> add_message_arg;
+            //udb_delete_request -> uv_write;
+            ////udb_delete_request -> request_message_free;
+
+            //uv_write -> udb_after_delete_request [style=dotted];
+            //udb_after_delete_request -> session_waiting_message;
+        //}
+
+        //{rank=same;udb_write_data;udb_read_data;udb_delete_data};
+        //{rank=same;udb_after_write_request;udb_after_read_request;udb_after_delete_request};
+
+    //}
+
+    //subgraph cluster_client_c {
+        //node [];
+        //color = lightgray;
+        //style = filled;
+        //label = "client.c";
+        //edge [color="#2e3436"];
+        //rankdir=TB;
+
+        //node[color=lightblue, style=filled];
+
+        client_run_task [shape=Mdiamond, color=lightblue];
+
+        client_after_write_object_slice;
+
+        client_write_next_file;
+
+        client_after_write_finished;
+
+            client_execute;
+            client_write_file;
+            client_read_file;
+            client_delete_file;
+
+            client_execute -> client_write_file;
+            client_execute -> client_read_file;
+            client_execute -> client_delete_file;
+
+            client_write_file -> udb_write_data;
+            client_read_file -> udb_read_data;
+            client_delete_file -> udb_delete_data;
+
+        client_write_file -> session_waiting_message; 
+
+        {rank=same;client_write_file;client_read_file;client_delete_file};
+    //}
+
+
+
+    {rank=same;udb_run;udb_main_pending_cond};
+
+    client_run_task -> udb_new;
+    client_run_task -> udb_do;
+    client_run_task -> udb_free;
 
     udb_on_ready -> client_execute[style=dotted];
-    client_execute -> write_file;
-    client_execute -> read_file;
-    client_execute -> delete_file;
-
-    write_file -> session_waiting_message [style=dotted];
-    session_waiting_message -> reset_udb_key_by_client -> udb_write_data;
-
-    udb_write_data -> udb_append_data [style=dotted];
-
-    udb_append_data -> do_write_request [style=dotted];
-
-    do_write_request -> alloc_request_message [style=dotted];
-    alloc_request_message -> add_message_arg -> uv_write -> request_message_free;
-
-    udb_after_write_object_slice [label="udb->after_write_object_slice"];
-    uv_write -> after_write_request [style=dotted];
-    after_write_request -> udb_after_write_object_slice -> try_write_next_file;
 
     udb_after_write_object_slice -> client_after_write_object_slice [style=dotted];
     client_after_write_object_slice -> udb_append_data;
 
+    udb_after_write_request_done -> client_after_write_request_done [style=dotted];
+    client_after_write_request_done -> client_write_next_file;
+
+    client_write_next_file -> client_write_file;
+    client_write_next_file -> udb_done [style=dotted, color=Blue];
+
+
+    udb_after_write_finished -> client_after_write_finished [style=dotted];
+
+    client_after_write_finished -> udb_done;
+    client_after_write_finished -> client_write_next_file [style=dotted, color=Blue];
 }
 
 

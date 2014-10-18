@@ -22,8 +22,6 @@
 /* ==================== parse_write_request() ==================== */ 
 int parse_write_request(session_t *session, message_t *request, msgidx_t *msgidx)
 {
-    /*REACT_ACTION_START(parse_write_request);*/
-
     msgidx->message = request;
 
     /* -------- message args -------- */
@@ -67,15 +65,11 @@ int parse_write_request(session_t *session, message_t *request, msgidx_t *msgidx
     msgidx->data_size = argData->size;
 
 
-    /*REACT_ACTION_STOP(parse_write_request);*/
-
     return 0;
 }
 
-object_t *session_write_to_cache(session_t *session, msgidx_t *msgidx)
+object_t *server_write_to_cache(session_t *session, msgidx_t *msgidx)
 {
-
-    /*REACT_ACTION_START(session_write_to_cache);*/
 
     vnode_t *vnode = get_vnode_by_key(SERVER(session), msgidx->key_md5);
     assert(vnode != NULL);
@@ -113,20 +107,16 @@ object_t *session_write_to_cache(session_t *session, msgidx_t *msgidx)
 
     session->total_writed += msgidx->data_size;
 
-    /*REACT_ACTION_STOP(session_write_to_cache);*/
-
     return object;
 
 }
 
-/* ==================== session_write_to_storage() ==================== */ 
+/* ==================== server_write_to_storage() ==================== */ 
 /* called by vnode_write_queue_handle_write() in vnode.c */
-int session_write_to_storage(session_t *session, object_t *object)
+int server_write_to_storage(session_t *session, object_t *object)
 {
     int ret = 0;
 
-
-    /*REACT_ACTION_START(session_write_to_storage);*/
 
     if ( object != NULL ) {
         UNUSED vnode_t *vnode = get_vnode_by_key(SERVER(session), &object->key_md5);
@@ -140,16 +130,12 @@ int session_write_to_storage(session_t *session, object_t *object)
         ret = -1;
     }
 
-    /*REACT_ACTION_STOP(session_write_to_storage);*/
-
     return ret;
 }
 
-/* ==================== session_handle_write() ==================== */ 
-int session_handle_write(session_t *session, message_t *request)
+/* ==================== server_handle_write() ==================== */ 
+int server_handle_write(session_t *session, message_t *request)
 {
-    /*REACT_ACTION_START(session_handle_write);*/
-
     int ret = 0;
     msgidx_t msgidx;
 
@@ -169,7 +155,7 @@ int session_handle_write(session_t *session, message_t *request)
          *    Write cache
          *  ---------------------------------------- */
 
-        object_t *object = session_write_to_cache(session, &msgidx);
+        object_t *object = server_write_to_cache(session, &msgidx);
         if (  object == NULL ) {
             error_log("session_write_block() failed.");
             ret = -1;
@@ -181,14 +167,15 @@ int session_handle_write(session_t *session, message_t *request)
 
             if ( session->total_writed >= msgidx.object_size ){
 
-                /* FIXME */
-                vnode_write_queue_entry_t *entry = (vnode_write_queue_entry_t*)zmalloc(sizeof(vnode_write_queue_entry_t));
-                memset(entry, 0, sizeof(vnode_write_queue_entry_t));
-                entry->session = session;
-                entry->object = object;
-
                 vnode_t *vnode = get_vnode_by_key(SERVER(session), &object->key_md5);
-                enqueue_work(vnode->write_queue, entry);
+                vnode_enqueue_write_queue(vnode, session, object);
+                /* FIXME */
+                /*vnode_write_queue_entry_t *entry = (vnode_write_queue_entry_t*)zmalloc(sizeof(vnode_write_queue_entry_t));*/
+                /*memset(entry, 0, sizeof(vnode_write_queue_entry_t));*/
+                /*entry->session = session;*/
+                /*entry->object = object;*/
+
+                /*enqueue_work(vnode->write_queue, entry);*/
 
 
                 /*pthread_yield();*/
@@ -196,8 +183,6 @@ int session_handle_write(session_t *session, message_t *request)
             } 
         }
     }
-
-    /*REACT_ACTION_STOP(session_handle_write);*/
 
     return ret;
 }

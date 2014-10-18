@@ -76,7 +76,7 @@ int response_object_slice(session_t *session, vnode_t *vnode, object_t *object, 
 }
 
 /* ==================== session_handle_read() ==================== */ 
-int session_handle_read(session_t *session, message_t *request)
+int server_handle_read(session_t *session, message_t *request)
 {
     /** ----------------------------------------
      *    Parse request

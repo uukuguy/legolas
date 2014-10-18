@@ -16,9 +16,9 @@
 #include "kvdb.h"
 #include "vnode.h"
 
-int session_handle_write(session_t *session, message_t *message);
-int session_handle_read(session_t *session, message_t *message);
-int session_handle_delete(session_t *session, message_t *message);
+int server_handle_write(session_t *session, message_t *message);
+int server_handle_read(session_t *session, message_t *message);
+int server_handle_delete(session_t *session, message_t *message);
 
 typedef int (session_handle_func_t)(session_t*, message_t*);
 typedef struct session_handle_args_t {
@@ -55,7 +55,7 @@ int start_session_handle(session_handle_args_t *args)
     return 0;
 }
 
-int session_handle_message(session_t *session, message_t *message)
+int server_handle_message(session_t *session, message_t *message)
 {
     server_t *server = server(session);
     UNUSED uint32_t total_requests = __sync_add_and_fetch(&server->total_requests, 1);
@@ -66,11 +66,11 @@ int session_handle_message(session_t *session, message_t *message)
         switch ( message->op_code ){
             case MSG_OP_WRITE:
                 {
-                    ret = session_handle_write(session, message);
+                    ret = server_handle_write(session, message);
                     /*session_handle_args_t args = {*/
                         /*.session = session,*/
                         /*.message = message,*/
-                        /*.handle_func = session_handle_write,*/
+                        /*.handle_func = server_handle_write,*/
                     /*};*/
 
                     /*ret = start_session_handle(&args);*/
@@ -78,7 +78,7 @@ int session_handle_message(session_t *session, message_t *message)
                 } break;
             case MSG_OP_READ:
                 {
-                    ret = session_handle_read(session, message);
+                    ret = server_handle_read(session, message);
 
                     /*session_handle_args_t args = {*/
                         /*.session = session,*/
@@ -91,7 +91,7 @@ int session_handle_message(session_t *session, message_t *message)
                 } break;
             case MSG_OP_DEL:
                 {
-                    ret = session_handle_delete(session, message);
+                    ret = server_handle_delete(session, message);
 
                     /*session_handle_args_t args = {*/
                         /*.session = session,*/
@@ -115,8 +115,8 @@ int session_handle_message(session_t *session, message_t *message)
     return ret;
 }
 
-/* ==================== session_is_idle() ==================== */ 
-int session_is_idle(session_t *session)
+/* ==================== server_is_idle() ==================== */ 
+int server_is_idle(session_t *session)
 {
     assert(session->total_received_buffers >= session->total_saved_buffers);
 
@@ -132,7 +132,8 @@ int session_is_idle(session_t *session)
     return ret;
 }
 
-void session_idle_cb(uv_idle_t *idle_handle, int status) 
+/* ==================== server_idle_cb() ==================== */ 
+void server_idle_cb(uv_idle_t *idle_handle, int status) 
 {
     session_t *session = (session_t*)idle_handle->data;
 

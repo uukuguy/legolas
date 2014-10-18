@@ -48,11 +48,7 @@ int udb_do(udb_t *udb, on_ready_cb on_ready)
 	pthread_mutex_init(&udb->main_pending_lock, NULL);
 	pthread_cond_init(&udb->main_pending_cond, NULL);
 
-    /*REACT_ACTION_START(udb_run);*/
-
     udb_run(udb);
-
-    /*REACT_ACTION_STOP(udb_run);*/
 
     pthread_mutex_lock(&udb->main_pending_lock);
     pthread_cond_wait(&udb->main_pending_cond, &udb->main_pending_lock);
@@ -79,8 +75,6 @@ void udb_done(udb_t *udb)
 
     session->waiting_for_close = 1;
     session_shutdown(session);
-
-    /*pthread_cond_signal(&udb->main_pending_cond);*/
 }
 
 /* ==================== udb_new() ==================== */ 
@@ -181,8 +175,8 @@ int udb_handle_message(session_t *session, message_t *message)
     return ret;
 }
 
-/* ==================== on_connect() ==================== */ 
-static void on_connect(uv_connect_t *req, int status) 
+/* ==================== udb_on_connect() ==================== */ 
+static void udb_on_connect(uv_connect_t *req, int status) 
 {
     session_t *session = (session_t*)req->handle->data;
     UNUSED udb_t *udb= udb(session);
@@ -287,8 +281,7 @@ static int udb_loop(udb_t *udb)
     r = uv_tcp_connect(&connect_req,
             tcp_handle,
             (const struct sockaddr*) &server_addr,
-            callbacks != NULL && callbacks->on_connect != NULL ? callbacks->on_connect : on_connect);
-            /*on_connect);*/
+            callbacks != NULL && callbacks->on_connect != NULL ? callbacks->on_connect : udb_on_connect);
     if ( r ) {
         error_log("uv_tcp_connect() failed.");
         udb_free(udb);

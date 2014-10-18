@@ -121,8 +121,8 @@ int udb_handle_read_response(session_t *session, message_t *response)
     return ret;
 }
 
-/* ==================== after_read_request() ==================== */ 
-static void after_read_request(uv_write_t *read_req, int status) 
+/* ==================== udb_after_read_request() ==================== */ 
+static void udb_after_read_request(uv_write_t *read_req, int status) 
 {
     session_t *session = (session_t*)read_req->data;
 
@@ -135,8 +135,8 @@ static void after_read_request(uv_write_t *read_req, int status)
 
 }
 
-/* ==================== do_read_request() ==================== */ 
-int do_read_request(session_t *session)
+/* ==================== udb_read_request() ==================== */ 
+int udb_read_request(session_t *session)
 {
     udb_t *udb = udb(session);
 
@@ -176,7 +176,7 @@ int do_read_request(session_t *session)
             &session->connection.handle.stream,
             &ubuf,
             1,
-            after_read_request);
+            udb_after_read_request);
 
     zfree(read_request);
 
@@ -205,6 +205,6 @@ int udb_read_data(udb_t *udb, int handle,
 
     session_t *session = udb->session;
     
-    return do_read_request(session);
+    return udb_read_request(session);
 }
 

@@ -1,0 +1,191 @@
+digraph server {
+
+    node [ shape=box ];
+
+
+    subgraph cluster_net {
+        label = "Module net";
+
+        subgraph cluster_libuv {
+            //node [color=lightgray];
+            color = lightgray;
+            style = filled;
+            label = "libuv";
+            edge [color="#2e3436"];
+            rankdir=TB;
+
+            uv_accept;
+            uv_listen;
+
+            uv_tcp_connect;
+            uv_run;
+            uv_write;
+            uv_shutdown;
+            uv_close;
+        }
+
+        //subgraph cluster_message_c {
+            ////node [color=lightgray];
+            //color = lightgray;
+            //style = filled;
+            //label = "message.c";
+            //edge [color="#2e3436"];
+            ////rankdir=TB;
+
+            //alloc_request_message;
+            //request_message_free;
+            //add_message_arg;
+        //}
+
+        subgraph cluster_session_c {
+            //node [color=lightgray];
+            color = lightgray;
+            style = filled;
+            label = "session.c";
+            edge [color="#2e3436"];
+            //rankdir=TB;
+
+            
+            session_accept;
+
+            session_new;
+            session_free;
+            session_shutdown;
+            session_after_shutdown;
+            on_close;
+            session_destroy [label="session->callbacks.session_destroy"];
+
+
+            uv_close -> on_close:n [style=dotted];
+            on_close -> session_free;
+            session_free -> session_destroy;
+
+            session_waiting_message;
+            session_after_read;
+            session_consume_sockbuf;
+            session_rx_coroutine;
+            session_handle_message [label="session->callbacks.handle_message"];
+
+            session_response;
+            session_response_data;
+
+            session_response -> session_response_data;
+
+            session_waiting_message -> session_after_read [style=dotted];
+            session_after_read -> session_consume_sockbuf;
+            session_consume_sockbuf -> session_rx_coroutine [style=dotted];
+            session_rx_coroutine -> session_handle_message;
+
+            session_shutdown -> uv_shutdown;
+            uv_shutdown -> session_after_shutdown [style=dotted];
+            session_after_shutdown -> uv_close;
+        }
+
+    }
+
+    run_server [shape=Mdiamond, color=lightblue];
+    server_new;
+    server_init;
+    server_free;
+    server_listen;
+    server_on_connection;
+
+    run_server -> server_new;
+    run_server -> server_init;
+    run_server -> server_free;
+    run_server -> server_listen;
+
+
+    server_listen -> uv_listen;
+    server_listen -> uv_run;
+
+    uv_listen -> server_on_connection [style=dotted];
+
+    server_on_connection -> session_new;
+    server_on_connection -> session_accept;
+
+    session_accept -> uv_accept;
+    session_accept -> session_waiting_message;
+
+    server_handle_message;
+
+    session_handle_message -> server_handle_message [style=dotted];
+    server_handle_message -> server_handle_write;
+    server_handle_message -> server_handle_delete;
+
+
+    // --- idle_cb ---
+    server_idle_cb;
+
+    server_idle_cb -> session_response;
+    server_idle_cb -> session_shutdown;
+
+    // --- server_handle_write ---
+    server_handle_write;
+
+    parse_write_request;
+    server_write_to_cache;
+    vnode_enqueue_write_queue;
+
+    server_handle_write -> parse_write_request;
+    server_handle_write -> server_write_to_cache;   
+    server_handle_write -> vnode_enqueue_write_queue;
+
+    vnode_write_queue_handle_write;
+    server_write_to_storage;
+    vnode_write_to_storage;
+
+    vnode_enqueue_write_queue -> vnode_write_queue_handle_write [style=dotted];
+    vnode_write_queue_handle_write -> server_write_to_storage;
+    vnode_write_queue_handle_write -> server_idle_cb [style=dotted];
+
+    server_write_to_storage -> vnode_write_to_storage;
+
+    vnode_write_to_kvdb;
+    vnode_write_to_file;
+    object_put_into_kvdb;
+    object_put_into_file;
+
+    vnode_write_to_storage -> vnode_write_to_kvdb -> object_put_into_kvdb;
+    vnode_write_to_storage -> vnode_write_to_file -> object_put_into_file;
+
+    
+    // --- server_handle_read ---
+
+    subgraph cluster_server_handle_read {
+        color = lightgray;
+        label = "server_handle_read";
+
+        server_handle_read;
+        parse_read_request;
+
+        server_handle_message -> server_handle_read;
+        server_handle_read -> parse_read_request;
+        server_handle_read -> vnode_read_from_storage;
+
+        server_handle_read -> response_object_slice;
+        server_handle_read -> response_with_key;
+
+        response_object_slice -> session_response_data;
+        response_with_key -> session_response_data;
+    }
+
+
+    // --- server_handle_delete ---
+    subgraph cluster_server_handle_delete {
+        color = lightgray;
+        label = "server_handle_delete";
+
+        server_handle_delete;
+        parse_delete_request;
+        object_del_from_kvdb;
+
+        server_handle_message -> server_handle_delete;
+        server_handle_delete -> parse_delete_request;
+        server_handle_delete -> object_del_from_kvdb;
+        server_handle_delete -> response_with_key;
+    }
+
+}
+
+

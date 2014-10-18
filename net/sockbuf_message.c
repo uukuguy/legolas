@@ -433,12 +433,12 @@ void session_consume_sockbuf(sockbuf_t *sockbuf)
     /*REACT_ACTION_STOP(session_consume_sockbuf);*/
 }
 
-/* ==================== after_read() ==================== */ 
+/* ==================== session_after_read() ==================== */ 
 /*
  * nread <= DEFAULT_CONN_BUF_SIZE 64 * 1024
  */
 
-void after_read(uv_stream_t *handle, ssize_t nread, const uv_buf_t *buf) 
+void session_after_read(uv_stream_t *handle, ssize_t nread, const uv_buf_t *buf) 
 {
     session_t *session = (session_t*)handle->data;
 
@@ -528,12 +528,6 @@ void session_alloc(uv_handle_t *handle, size_t suggested_size, uv_buf_t *buf)
     buf->base = sockbuf->base;
     buf->len = sockbuf->len;
 
-}
-
-/* ==================== session_waiting_message() ==================== */ 
-int session_waiting_message(session_t *session)
-{
-    return uv_read_start((uv_stream_t*)&session_stream(session), session_alloc, after_read);
 }
 
 

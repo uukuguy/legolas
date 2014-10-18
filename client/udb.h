@@ -24,9 +24,15 @@ typedef struct message_t message_t;
 typedef struct msgidx_t msgidx_t;
 
 typedef int (*on_ready_cb)(udb_t *udb);
+
+typedef int (*after_write_request_done_cb)(udb_t *udb, msgidx_t *msgidx);
+typedef int (*after_read_request_done_cb)(udb_t *udb, msgidx_t *msgidx);
+typedef int (*after_delete_request_done_cb)(udb_t *udb, msgidx_t *msgidx);
+
 typedef int (*after_write_finished_cb)(udb_t *udb, message_t *response);
 typedef int (*after_read_finished_cb)(udb_t *udb, message_t *response);
 typedef int (*after_delete_finished_cb)(udb_t *udb, message_t *response);
+
 typedef int (*after_write_object_slice_cb)(udb_t *udb, msgidx_t *msgidx);
 typedef int (*after_read_object_slice_cb)(udb_t *udb, msgidx_t *msgidx);
 
@@ -63,6 +69,11 @@ typedef struct udb_t {
     //list *writing_objects;
 
     on_ready_cb on_ready;
+
+    after_write_request_done_cb after_write_request_done;
+    after_read_request_done_cb after_read_request_done;
+    after_delete_request_done_cb after_delete_request_done;
+
     after_write_finished_cb after_write_finished;
     after_read_finished_cb after_read_finished;
     after_delete_finished_cb after_delete_finished;
@@ -97,7 +108,8 @@ void udb_exit(udb_t *udb);
 int udb_open_data(udb_t *udb, const char *key);
 int udb_write_data(udb_t *udb, int handle, void *data, uint32_t len, 
         after_write_object_slice_cb after_write_object_slice, 
-        after_write_finished_cb after_write_finished);
+        after_write_finished_cb after_write_finished,
+        after_write_request_done_cb after_write_request_done);
 
 int udb_append_data(udb_t *udb, int handle, void *data, uint32_t len);
 

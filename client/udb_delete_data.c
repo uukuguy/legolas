@@ -50,8 +50,8 @@ int udb_handle_delete_response(session_t *session, message_t *response)
     return ret;
 }
 
-/* ==================== after_delete_request() ==================== */ 
-static void after_delete_request(uv_write_t *read_req, int status) 
+/* ==================== udb_after_delete_request() ==================== */ 
+static void udb_after_delete_request(uv_write_t *read_req, int status) 
 {
     session_t *session = (session_t*)read_req->data;
 
@@ -63,8 +63,8 @@ static void after_delete_request(uv_write_t *read_req, int status)
     session_waiting_message(session);
 }
 
-/* ==================== do_delete_request() ==================== */ 
-int do_delete_request(session_t *session)
+/* ==================== udb_delete_request() ==================== */ 
+int udb_delete_request(session_t *session)
 {
     udb_t *udb = udb(session);
 
@@ -104,7 +104,7 @@ int do_delete_request(session_t *session)
             &session->connection.handle.stream,
             &ubuf,
             1,
-            after_delete_request);
+            udb_after_delete_request);
 
     zfree(read_request);
 
@@ -125,6 +125,6 @@ int udb_delete_data(udb_t *udb, after_delete_finished_cb after_delete_finished)
 
     session_t *session = udb->session;
 
-    return do_delete_request(session);
+    return udb_delete_request(session);
 }
 

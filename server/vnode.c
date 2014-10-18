@@ -28,7 +28,7 @@ void vnode_write_queue_handle_write(work_queue_t *wq)
         object_t *object = entry->object;
         zfree(entry);
         
-        session_write_to_storage(session, object);
+        server_write_to_storage(session, object);
 
         /* FIXME 2014-10-10 18:57:20 */
         __sync_add_and_fetch(&session->finished_works, 1);
@@ -222,6 +222,18 @@ object_t *vnode_read_from_storage(vnode_t *vnode, md5_value_t key_md5)
     return object;
 }
 
+int vnode_delete_from_storage(vnode_t *vnode, md5_value_t key_md5)
+{
+    int rc = 0;
+
+    if ( vnode->storage_type >= STORAGE_KVDB ){
+        rc = object_del_from_kvdb(vnode->kvdb, key_md5);
+    } else if ( vnode->storage_type == STORAGE_LOGFILE ){
+    } 
+
+    return rc;
+}
+
 int vnode_get_slice_from_storage(vnode_t *vnode, md5_value_t key_md5, uint32_t slice_idx, void** ppbuf, uint32_t *pbuf_size)
 {
     int ret = -1;
@@ -232,5 +244,16 @@ int vnode_get_slice_from_storage(vnode_t *vnode, md5_value_t key_md5, uint32_t s
     }
 
     return ret;
+}
+
+void vnode_enqueue_write_queue(vnode_t *vnode, session_t *session, object_t *object)
+{
+
+    vnode_write_queue_entry_t *entry = (vnode_write_queue_entry_t*)zmalloc(sizeof(vnode_write_queue_entry_t));
+    memset(entry, 0, sizeof(vnode_write_queue_entry_t));
+    entry->session = session;
+    entry->object = object;
+
+    enqueue_work(vnode->write_queue, entry);
 }
 

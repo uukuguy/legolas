@@ -40,18 +40,18 @@ void test_session_consume_sockbuf(sockbuf_t *sockbuf)
 
 }
 
-/* ==================== on_connection() ==================== */ 
-static void on_connection(uv_stream_t *stream, int status)
+/* ==================== server_on_connection() ==================== */ 
+static void server_on_connection(uv_stream_t *stream, int status)
 {
     server_t *server= (server_t*)stream->data;
 
     /* -------- create_session -------- */
     static session_callbacks_t callbacks = {
-        .idle_cb = session_idle_cb,
+        .idle_cb = server_idle_cb,
         .timer_cb = session_timer_cb,
         .async_cb = session_async_cb,
-        .is_idle = session_is_idle,
-        .handle_message = session_handle_message,
+        .is_idle = server_is_idle,
+        .handle_message = server_handle_message,
         .session_init = session_init,
         .session_destroy = session_destroy,
         .consume_sockbuf = NULL,
@@ -168,7 +168,7 @@ int server_listen(server_t *server)
     }
 
     /* -------- uv_listen -------- */
-    r = uv_listen((uv_stream_t*)tcp_handle, SOMAXCONN, on_connection);
+    r = uv_listen((uv_stream_t*)tcp_handle, SOMAXCONN, server_on_connection);
     if ( r ) {
         error_log("uv_listen() failed.");
         server_free(server);

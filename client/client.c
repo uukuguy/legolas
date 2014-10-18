@@ -107,12 +107,12 @@ void reset_udb_key_by_client(udb_t *udb, uint32_t total_processed)
     udb->object_size = client->file_size;
 }
 
-static int write_file(udb_t *udb);
-static int read_file(udb_t *udb);
-static int delete_file(udb_t *udb);
+static int client_write_file(udb_t *udb);
+static int client_read_file(udb_t *udb);
+static int client_delete_file(udb_t *udb);
 
-/* ==================== try_write_next_file() ==================== */ 
-void try_write_next_file(udb_t *udb)
+/* ==================== client_write_next_file() ==================== */ 
+void client_write_next_file(udb_t *udb)
 {
     PREPARE_CLIENT;
  
@@ -127,7 +127,7 @@ void try_write_next_file(udb_t *udb)
         }
         client_runtime->total_send++;
 
-        write_file(udb);
+        client_write_file(udb);
 
     } else {
         if ( udb->is_batch  == 0 ){
@@ -138,6 +138,18 @@ void try_write_next_file(udb_t *udb)
     }
 }
 
+/* ==================== client_after_write_request_done() ==================== */ 
+int client_after_write_request_done(udb_t *udb, msgidx_t *msgidx) 
+{
+    PREPARE_CLIENT;
+
+    if ( client->is_batch == 1 ){
+        client_write_next_file(udb);
+    }
+
+    return 0;
+}
+
 /* ==================== client_after_write_finished() ==================== */ 
 int client_after_write_finished(udb_t *udb, message_t *response) 
 {
@@ -146,7 +158,7 @@ int client_after_write_finished(udb_t *udb, message_t *response)
     trace_log("after_write_finished() key: %s object_size: %d", udb->key, udb->object_size);
 
     if ( udb->is_batch == 0 ) {
-        try_write_next_file(udb);
+        client_write_next_file(udb);
     } else {
 
         uint32_t total_finished = __sync_add_and_fetch(&client_runtime->total_finished, 1);
@@ -188,8 +200,8 @@ int client_after_write_object_slice(udb_t *udb, msgidx_t *msgidx)
     return 0;
 }
 
-/* ==================== write_file() ==================== */ 
-static int write_file(udb_t *udb)
+/* ==================== client_write_file() ==================== */ 
+static int client_write_file(udb_t *udb)
 {
     PREPARE_CLIENT;
 
@@ -201,13 +213,13 @@ static int write_file(udb_t *udb)
     int handle = -1;
     char *buf = client->file_data;
     uint32_t block_size = DEFAULT_SOCKBUF_SIZE;
-    UNUSED uint32_t writed = udb_write_data(udb, handle, buf, block_size, client_after_write_object_slice, client_after_write_finished);
+    UNUSED uint32_t writed = udb_write_data(udb, handle, buf, block_size, client_after_write_object_slice, client_after_write_finished, client_after_write_request_done);
 
     return 0;
 }
 
-/* ==================== try_read_next_file() ==================== */ 
-void try_read_next_file(udb_t *udb)
+/* ==================== client_read_next_file() ==================== */ 
+void client_read_next_file(udb_t *udb)
 {
     PREPARE_CLIENT;
 
@@ -222,7 +234,7 @@ void try_read_next_file(udb_t *udb)
         }
 
         client_runtime->total_recv++;
-        read_file(udb);
+        client_read_file(udb);
 
     } else {
 
@@ -237,7 +249,7 @@ int client_after_read_finished(udb_t *udb, message_t *response)
 {
     trace_log("after_read_finished() key: %s object_size: %d", udb->key, udb->object_size);
 
-    try_read_next_file(udb);
+    client_read_next_file(udb);
 
     return 0;
 }
@@ -248,14 +260,14 @@ int client_after_read_object_slice(udb_t *udb, msgidx_t *msgidx)
     trace_log("after_read_object_slice(). key: %s object_size: %d slice: %d/%d data_size:  %d", msgidx->key, msgidx->object_size, msgidx->slice_idx + 1, msgidx->nslices, msgidx->data_size);
 
     if ( msgidx->message->result != RESULT_SUCCESS ){
-        try_read_next_file(udb);
+        client_read_next_file(udb);
     }
 
     return 0;
 }
 
-/* ==================== read_file() ==================== */ 
-static int read_file(udb_t *udb)
+/* ==================== client_read_file() ==================== */ 
+static int client_read_file(udb_t *udb)
 {
     PREPARE_CLIENT;
 
@@ -267,8 +279,8 @@ static int read_file(udb_t *udb)
     return 0;
 }
  
-/* ==================== try_delete_next_file() ==================== */ 
-void try_delete_next_file(udb_t *udb)
+/* ==================== client_delete_next_file() ==================== */ 
+void client_delete_next_file(udb_t *udb)
 {
     PREPARE_CLIENT;
 
@@ -283,7 +295,7 @@ void try_delete_next_file(udb_t *udb)
         }
 
         client_runtime->total_del++;
-        delete_file(udb);
+        client_delete_file(udb);
 
     } else {
 
@@ -298,13 +310,13 @@ int client_after_delete_finished(udb_t *udb, message_t *response)
 {
     trace_log("after_delete_finished() key:%s", udb->key);
 
-    try_delete_next_file(udb);
+    client_delete_next_file(udb);
 
     return 0;
 }
 
-/* ==================== delete_file() ==================== */ 
-static int delete_file(udb_t *udb)
+/* ==================== client_delete_file() ==================== */ 
+static int client_delete_file(udb_t *udb)
 {
     PREPARE_CLIENT;
 
@@ -320,13 +332,13 @@ int client_execute(udb_t *udb)
     PREPARE_CLIENT;
 
     if ( client->op_code == MSG_OP_WRITE ) {
-        write_file(udb);
+        client_write_file(udb);
 
     } else if ( client->op_code == MSG_OP_READ ) {
-        read_file(udb);
+        client_read_file(udb);
 
     } else if ( client->op_code == MSG_OP_DEL ) {
-        delete_file(udb);
+        client_delete_file(udb);
 
     } else {
         warning_log("Uknown op_code: %d", client->op_code);
