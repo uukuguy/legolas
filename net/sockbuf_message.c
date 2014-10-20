@@ -444,21 +444,22 @@ void session_after_read(uv_stream_t *handle, ssize_t nread, const uv_buf_t *buf)
 
 
     if ( nread > 0 ) {
+
         sockbuf_t *sockbuf = container_of(buf->base, sockbuf_t, base);
         assert(session == sockbuf->session);
 
-        /* -------------------------------------------------------------------- */
-        /* Normal handle. */
-
+        __sync_add_and_fetch(&session->total_received_buffers, 1);
         sockbuf->write_head += nread;
         session->connection.total_bytes += nread;
         __sync_add_and_fetch(&sockbuf->remain_bytes, nread);
 
-        /*trace_log("\n........\nfd(%d) block(%d) nread=%zu bytes. write_head:%d, remain_bytes=%d, total_bytes=%d\n", session_fd(session), sockbuf->blockid, nread, sockbuf->write_head, sockbuf->remain_bytes, session->connection.total_bytes);*/
+        /*notice_log("--- blocks: %d nread: %d total_reaceived: %zu", session->total_received_buffers, (int32_t)nread, session->connection.total_bytes);*/
+
+        /* -------------------------------------------------------------------- */
+        /* Normal handle. */
 
 
         /* FIXME 2014-10-10 23:20:15 */
-        __sync_add_and_fetch(&session->total_received_buffers, 1);
 
         /*enqueue_parse_queue(session, sockbuf);*/
 
@@ -489,9 +490,10 @@ void session_after_read(uv_stream_t *handle, ssize_t nread, const uv_buf_t *buf)
 
         /* -------- UV__EOF -------- */
         if ( nread == UV__EOF ) {
-            /*info_log("It's UV__EOF");*/
+            info_log("It's UV__EOF (%d)", (int32_t)nread);
         } else {
-            warning_log("read error. errno=-%d(%zu) total_bytes=%d", ~(uint32_t)(nread - 1), nread, session->connection.total_bytes);
+            /*warning_log("read error. errno=-%d(%zu) total_bytes=%zu", ~(uint32_t)(nread - 1), nread, session->connection.total_bytes);*/
+            warning_log("read error. errno=-%d total_bytes=%zu", (int32_t)nread, session->connection.total_bytes);
         }
 
         /* -------- Shutdown -------- */

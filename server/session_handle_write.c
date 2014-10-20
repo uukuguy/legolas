@@ -169,6 +169,8 @@ int server_handle_write(session_t *session, message_t *request)
 
                 vnode_t *vnode = get_vnode_by_key(SERVER(session), &object->key_md5);
                 vnode_enqueue_write_queue(vnode, session, object);
+                session->total_writed = 0;
+
                 /* FIXME */
                 /*vnode_write_queue_entry_t *entry = (vnode_write_queue_entry_t*)zmalloc(sizeof(vnode_write_queue_entry_t));*/
                 /*memset(entry, 0, sizeof(vnode_write_queue_entry_t));*/

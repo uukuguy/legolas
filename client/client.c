@@ -116,6 +116,8 @@ void client_write_next_file(udb_t *udb)
 {
     PREPARE_CLIENT;
  
+    client_runtime->total_send++;
+
     if ( client_runtime->total_send < client->total_files) {
 
         if ( client_runtime->total_send % 100 == 0 ) {
@@ -125,7 +127,6 @@ void client_write_next_file(udb_t *udb)
                 /*log_sysinfo();*/
             /*}*/
         }
-        client_runtime->total_send++;
 
         client_write_file(udb);
 

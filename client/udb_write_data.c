@@ -83,6 +83,8 @@ static void udb_after_write_request(uv_write_t *write_req, int status)
     zfree(msgidx);
 }
 
+/*static uint32_t g_udb_blocks = 0;*/
+
 /* ==================== udb_write_request() ==================== */ 
 int udb_write_request(session_t *session, char *data, uint32_t data_size)
 {
@@ -191,6 +193,14 @@ int udb_write_request(session_t *session, char *data, uint32_t data_size)
     write_req = zmalloc(sizeof(uv_write_t));
     memset(write_req, 0, sizeof(uv_write_t));
     write_req->data = session;
+
+    /*char udb_block_file[NAME_MAX];*/
+    /*sprintf(udb_block_file, "udb_block__%08d.dat",  g_udb_blocks);*/
+
+    /*int hfile = open(udb_block_file, O_CREAT | O_TRUNC | O_WRONLY, 0640);*/
+    /*write(hfile, (char*)write_request, msg_size);*/
+    /*close(hfile);*/
+    /*__sync_add_and_fetch(&g_udb_blocks, 1);*/
 
     int r = uv_write(write_req,
             &session->connection.handle.stream,

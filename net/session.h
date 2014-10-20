@@ -79,7 +79,7 @@ typedef struct connection_t {
     uv_udp_t udp;
   } handle;
 
-  uint32_t total_bytes; 
+  uint64_t total_bytes; 
 
   //unsigned char rdstate;
   //unsigned char wrstate;
