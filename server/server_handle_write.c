@@ -163,6 +163,8 @@ int server_handle_write(session_t *session, message_t *request)
         object_t *object = server_write_to_cache(session, &msgidx);
         if (  object == NULL ) {
             error_log("session_write_block() failed.");
+            __sync_add_and_fetch(&session->finished_works, 1);
+            session->total_writed = 0;
             ret = -1;
         } else {
 

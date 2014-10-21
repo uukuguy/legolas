@@ -24,7 +24,7 @@ int udb_handle_write_response(session_t *session, message_t *response)
 {
     assert(response->msg_type == MSG_TYPE_RESPONSE);
 
-    trace_log("Enter udb_handle_write_response()");
+    /*trace_log("Enter udb_handle_write_response()");*/
 
     int ret = 0;
 

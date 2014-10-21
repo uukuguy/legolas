@@ -155,7 +155,7 @@ int client_after_write_finished(udb_t *udb, message_t *response)
 {
     PREPARE_CLIENT;
 
-    trace_log("after_write_finished() key: %s object_size: %d", udb->key, udb->object_size);
+    /*trace_log("after_write_finished() key: %s object_size: %d", udb->key, udb->object_size);*/
 
     if ( udb->is_batch == 0 ) {
         client_write_next_file(udb);

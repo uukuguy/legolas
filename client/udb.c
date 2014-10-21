@@ -135,7 +135,7 @@ int udb_handle_message(session_t *session, message_t *message)
     int ret = 0;
     udb_t *udb = udb(session);
  
-    trace_log("udb_handle_message(). Has a message. op_code:%d", udb->op_code);
+    /*trace_log("udb_handle_message(). Has a message. op_code:%d", udb->op_code);*/
     switch ( udb->op_code ){
         case MSG_OP_WRITE:
             {
