@@ -55,13 +55,13 @@ typedef greenlet_t coroutine_t;
 
 /* -------------------- sockbuf_t -------------------- */
 typedef struct sockbuf_t {
-    char base[DEFAULT_SOCKBUF_SIZE];
-    session_t *session;
     uint32_t len;
     uint32_t read_head;
     uint32_t write_head;
     uint32_t remain_bytes;
     uint32_t blockid;
+    session_t *session;
+    char base[DEFAULT_SOCKBUF_SIZE];
 } sockbuf_t;
 
 void sockbuf_init(sockbuf_t *sockbuf);
@@ -113,41 +113,20 @@ void connection_destroy(connection_t *connection);
 	//};
 //} session_id;
 
-typedef int (*is_idle_cb)(session_t*);
-typedef int (*handle_message_cb)(session_t*, message_t *);
-typedef int (*session_init_cb)(session_t*);
-typedef void (*session_destroy_cb)(session_t*);
-typedef void (*consume_sockbuf_cb)(sockbuf_t*);
-typedef void (*on_connect_cb)(uv_connect_t*, int); 
-typedef int (*handle_read_response_cb)(session_t*, msgidx_t*);
-
-/* -------------------- session_callbacks_t -------------------- */
-typedef struct session_callbacks_t {
-    uv_idle_cb idle_cb;
-    uv_timer_cb  timer_cb;
-    uv_async_cb async_cb;
-    is_idle_cb is_idle;
-    handle_message_cb handle_message;
-    session_init_cb session_init;
-    session_destroy_cb session_destroy;
-    consume_sockbuf_cb consume_sockbuf;
-    on_connect_cb on_connect;
-    handle_read_response_cb handle_read_response;
-} session_callbacks_t;
-
 /* -------------------- session_t -------------------- */
 typedef struct session_t{
     //session_id sid;
     connection_t connection;  /* Connection with the SOCKS client. */
     service_t *service;
 
+    sockbuf_t last_sockbuf;
     //void *react_ctx;
     //int react_id_session;
 
     uint32_t id;
     void *user_data;
 
-    session_callbacks_t callbacks;
+    //session_callbacks_t callbacks;
 
     int stop; /* if true, the connection is not ready for read
                * operations because of too many requests */
@@ -218,10 +197,13 @@ typedef struct session_t{
 #define session_udp(session) \
     session->connection.handle.udp
 
-extern session_t* session_new(service_t *service, const session_callbacks_t *callbacks, void *user_data);
+//extern session_t* session_new(service_t *service, const session_callbacks_t *callbacks, void *user_data);
+extern session_t* session_new(service_t *service, void *user_data);
 extern void session_free(session_t *session);
 extern int session_accept(session_t *session, uv_tcp_t *parent_tcp);
 
+int session_listen(service_t *service, int listen_port);
+int session_loop(session_t *session, const char *ip, int port);
 int session_waiting_message(session_t *session);
 
 extern int session_rx_on(session_t *session);
@@ -235,6 +217,8 @@ extern int too_many_requests(session_t *session);
 extern int session_send_data(session_t *session, char *buf, uint32_t buf_size, void *user_data, uv_write_cb after_write);
 extern int session_response_data(session_t *session, char *buf, uint32_t buf_size);
 extern void session_response(session_t *session, enum MSG_RESULT result); 
+
+int session_write_request(session_t *session, void *data, uint32_t data_size, uv_write_cb after_write);
 
 #define WARNING_LOG_SESSION_SOCKBUF(msg) \
     warning_log("\n........\n %s fd(%d) block(%d) read_head=%d write_head=%d, remain_bytes=%d\n", msg, session_fd(session), sockbuf->blockid, sockbuf->read_head, sockbuf->write_head, sockbuf->remain_bytes);
@@ -264,11 +248,11 @@ extern void session_response(session_t *session, enum MSG_RESULT result);
 
 /* Get file descripter in server_t. */
 #define server_fd(server) \
-    server->connection.handle.tcp.io_watcher.fd
+    server->service->connection.handle.tcp.io_watcher.fd
 
 /* Get file descripter in session_t. */
 #define session_fd(session) \
-    session->connection.handle.stream.io_watcher.fd
+    session->service->connection.handle.stream.io_watcher.fd
 
 /* Get file descripter in session_t. */
 #define client_fd(client) \

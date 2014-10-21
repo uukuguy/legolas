@@ -9,7 +9,7 @@
  */
 
 #include "session.h"
-#include "session.h"
+#include "service.h"
 #include "message.h"
 #include "uv.h"
 #include "md5.h"
@@ -142,16 +142,16 @@ void session_after_shutdown(uv_shutdown_t *shutdown_req, int status)
 
     TRACE_session("Do shutdown!");
 
-    /*if ( session->callbacks.async_cb != NULL ) {*/
+    /*if ( session->service->callbacks.async_cb != NULL ) {*/
         /*uv_close((uv_handle_t *)&session->async_handle, NULL);*/
     /*}*/
 
-    if ( session->callbacks.timer_cb != NULL ){
+    if ( session->service->callbacks.timer_cb != NULL ){
         uv_timer_stop(&session->timer_handle);
     }
 
 
-    if ( session->callbacks.idle_cb != NULL ){
+    if ( session->service->callbacks.idle_cb != NULL ){
         uv_idle_stop(&session->idle_handle);
     }
 
@@ -169,11 +169,11 @@ void session_shutdown(session_t *session)
 
         if ( session->waiting_for_close == 1 ) {
             int is_idle = 1;
-            if ( session->callbacks.is_idle != NULL &&
-                    session->callbacks.is_idle(session) != 1 ) 
+            if ( session->service->callbacks.is_idle != NULL &&
+                    session->service->callbacks.is_idle(session) != 1 ) 
                 is_idle = 0;
             if ( is_idle == 1 ) {
-            /*if ( session->callbacks.is_idle(session)) {*/
+            /*if ( session->service->callbacks.is_idle(session)) {*/
                 session->stop = 1;
 
                 info_log("Start to close session in session_shutdown()");
@@ -196,8 +196,9 @@ int destroy_session_coroutine(session_t *session);
 
 static uint32_t session_id = 0;
 /* ==================== session_new() ==================== */ 
-session_t* session_new(service_t *service, const session_callbacks_t *callbacks, void *user_data)
+session_t* session_new(service_t *service, void *user_data)
 {
+    assert(service != NULL);
 
     /* -------- session -------- */
     session_t *session = (session_t*)zmalloc(sizeof(session_t));
@@ -215,8 +216,6 @@ session_t* session_new(service_t *service, const session_callbacks_t *callbacks,
     session->id = session_id;
     __sync_add_and_fetch(&session_id, 1);
 
-    if ( callbacks != NULL )
-        session->callbacks = *callbacks;
 	pthread_mutex_init(&session->recv_pending_lock, NULL);
 	pthread_cond_init(&session->recv_pending_cond, NULL);
 	pthread_mutex_init(&session->send_pending_lock, NULL);
@@ -246,6 +245,7 @@ session_t* session_new(service_t *service, const session_callbacks_t *callbacks,
     session->responseQueue = listCreate();
     listSetFreeMethod(session->responseQueue, byte_block_free);
 
+    const session_callbacks_t *callbacks = &service->callbacks;
     if ( callbacks->session_init != NULL ) {
         if ( callbacks->session_init(session) != 0 ) {
             session_free(session);
@@ -269,7 +269,7 @@ int session_accept(session_t *session, uv_tcp_t *parent_tcp)
 
     uv_loop_t *loop = parent_tcp->loop;
 
-    session_callbacks_t *callbacks = &session->callbacks;
+    session_callbacks_t *callbacks = &session->service->callbacks;
 
     if ( callbacks->async_cb != NULL ) {
         uv_async_init(loop, &session->async_handle, callbacks->async_cb);
@@ -320,6 +320,148 @@ int session_accept(session_t *session, uv_tcp_t *parent_tcp)
     return ret;
 }
 
+/* ==================== session_on_connect_to_server() ==================== */ 
+static void session_on_connect_to_server(uv_connect_t *req, int status) 
+{
+    /*service_t *service = (service_t*)req->handle->data;*/
+    /*session_callbacks_t *callbacks = &service->callbacks;*/
+    session_t *session = (session_t*)req->handle->data;
+    session_callbacks_t *callbacks = &session->service->callbacks;
+    if ( callbacks->session_on_connect_to_server != NULL ){
+        /*callbacks->session_on_connect_to_server(service, status);*/
+        callbacks->session_on_connect_to_server(session, status);
+    }
+    
+}
+
+/* ==================== session_on_connect_from_client() ==================== */ 
+static void session_on_connect_from_client(uv_stream_t *stream, int status) 
+{
+    service_t *service = (service_t*)stream->data;
+    session_callbacks_t *callbacks = &service->callbacks;
+    if ( callbacks->session_on_connect_from_client != NULL ){
+        callbacks->session_on_connect_from_client(service, status);
+    }
+    
+}
+
+/* ==================== session_listen() ==================== */ 
+int session_listen(service_t *service, int listen_port) 
+{
+    int r;
+
+    /* -------- server_addr -------- */
+    struct sockaddr_in server_addr;
+    r = uv_ip4_addr("0.0.0.0", listen_port, &server_addr);
+    if ( r ) {
+        error_log("uv_ip4_addr() failed.");
+        return -1;
+    }
+
+    /* -------- loop -------- */
+    uv_loop_t *loop = &service->connection.loop;
+
+    /* -------- tcp_handle -------- */
+    uv_tcp_t *tcp_handle = &service->connection.handle.tcp;
+
+    /* -------- uv_tcp_init -------- */
+    r = uv_tcp_init(loop, tcp_handle);
+    if ( r ) {
+        error_log("uv_tcp_init() failed.");
+        return -1;
+    }
+    tcp_handle->data = service;
+
+    /* -------- uv_tcp_bind -------- */
+    r = uv_tcp_bind(tcp_handle, (const struct sockaddr*)&server_addr, 0);
+    if ( r ) {
+        error_log("uv_tcp_bind() failed.");
+        return -1;
+    }
+
+    /* -------- uv_listen -------- */
+    r = uv_listen((uv_stream_t*)tcp_handle, SOMAXCONN, session_on_connect_from_client);
+    if ( r ) {
+        error_log("uv_listen() failed.");
+        return -1;
+    }
+
+    info_log("Listen on port %d.", listen_port);
+
+    /* -------- uv_run -------- */
+    r = uv_run(loop, UV_RUN_DEFAULT);
+    if ( r ) {
+        error_log("uv_run() failed.");
+        return -1;
+    }
+
+    /* FIXME */
+    /*MAKE_VALGRIND_HAPPY(loop);*/
+
+    /*close_loop(loop);      */
+    /*uv_loop_delete(loop);  */
+
+    return r;
+}
+
+/* ==================== session_loop() ==================== */ 
+int session_loop(session_t *session, const char *ip, int port)
+{
+    int r;
+
+
+    /* -------- server_addr -------- */
+    struct sockaddr_in server_addr;
+    r = uv_ip4_addr(ip, port, &server_addr);
+    if ( r ) {
+        error_log("uv_ip4_addr() failed.");
+        return -1;
+    }
+
+    /* -------- loop -------- */
+    uv_loop_t *loop = SESSION_LOOP(session);
+
+    /* -------- tcp_handle -------- */
+    uv_tcp_t *tcp_handle = SESSION_TCP(session);
+
+    /* -------- uv_tcp_init -------- */
+    r = uv_tcp_init(loop, tcp_handle);
+    if ( r ) {
+        error_log("uv_tcp_init() failed.");
+        return -1;
+    }
+
+    tcp_handle->data = (void*)session; 
+    /*tcp_handle->data = (void*)session->service; */
+
+    /* -------- uv_tcp_connect -------- */
+    uv_connect_t connect_req;
+    r = uv_tcp_connect(&connect_req,
+            tcp_handle,
+            (const struct sockaddr*) &server_addr,
+            session_on_connect_to_server);
+    if ( r ) {
+        error_log("uv_tcp_connect() failed.");
+        return -1;
+    }
+
+    /* -------- uv_run -------- */
+    r = uv_run(loop, UV_RUN_DEFAULT);
+    if ( r ) {
+        error_log("uv_run() failed.");
+        return -1;
+    }
+
+    /* FIXME */
+    /*MAKE_VALGRIND_HAPPY(loop);*/
+
+    /*close_loop(loop);      */
+    /*uv_loop_delete(loop);  */
+
+
+    return 0;
+}
+
 /* ==================== session_waiting_message() ==================== */ 
 int session_waiting_message(session_t *session)
 {
@@ -358,8 +500,8 @@ void session_free(session_t *session)
 
     /*REACT_CLEANUP(session->react_ctx);*/
 
-    if ( session->callbacks.session_destroy != NULL ) {
-        session->callbacks.session_destroy(session);
+    if ( session->service->callbacks.session_destroy != NULL ) {
+        session->service->callbacks.session_destroy(session);
     } else {
         zfree(session);
     }
@@ -431,5 +573,35 @@ int session_rx_on(session_t *session)
 void session_rx_off(session_t *session)
 {
     uv_read_stop((uv_stream_t*)&session_stream(session));
+}
+
+
+static void session_after_write_request(uv_write_t *write_req, int status) 
+{
+    UNUSED session_t *session = (session_t*)write_req->data;
+}
+
+int session_write_request(session_t *session, void *data, uint32_t data_size, uv_write_cb after_write)
+{
+    uv_buf_t ubuf = uv_buf_init(data, data_size);
+
+    /* -------- write_req -------- */
+    uv_write_t *write_req;
+    write_req = zmalloc(sizeof(uv_write_t));
+    memset(write_req, 0, sizeof(uv_write_t));
+    write_req->data = session;
+
+    int r = uv_write(write_req,
+            &session->connection.handle.stream,
+            &ubuf,
+            1,
+            after_write);
+
+    if ( r != 0 ) {
+        error_log("uv_write() failed");
+        return -1;
+    }
+
+    return r;
 }
 

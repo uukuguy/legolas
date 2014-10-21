@@ -67,10 +67,10 @@ COMMON_CFLAGS += ${KVDB_CFLAGS}
 
 SERVER_OBJS = server/main.o \
 			  server/server.o \
-			  server/session_handle.o \
-			  server/session_handle_write.o \
-			  server/session_handle_read.o \
-			  server/session_handle_delete.o \
+			  server/server_handle.o \
+			  server/server_handle_write.o \
+			  server/server_handle_read.o \
+			  server/server_handle_delete.o \
 			  server/session_send.o \
 			  server/operation.o \
 			  server/storage.o \

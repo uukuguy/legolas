@@ -7,7 +7,6 @@
 #include "service.h"
 #include "session.h"
 #include "vnode.h"
-#include <uv.h>
 
 #define RECV_INTERVAL 1 /* ms */
 #define SEND_INTERVAL 1 /* ms */
@@ -34,7 +33,6 @@ typedef struct server_options_t {
 typedef struct server_t {
     service_t *service;
 
-    connection_t connection;
 
     unsigned int idle_timeout;  /* Connection idle timeout in ms. */
 

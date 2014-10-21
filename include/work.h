@@ -1,6 +1,7 @@
 #ifndef __WORK_H__
 #define __WORK_H__
 
+#include <stdint.h>
 #include "list.h"
 
 #ifdef __cplusplus

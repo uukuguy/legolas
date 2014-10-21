@@ -1,5 +1,5 @@
 /**
- * @file   session_handle.h
+ * @file   server_handle.h
  * @author Jiangwen Su <uukuguy@gmail.com>
  * @date   2014-07-07 00:45:04
  * 
@@ -8,8 +8,8 @@
  * 
  */
 
-#ifndef __SESSION_HANDLE_H__
-#define __SESSION_HANDLE_H__
+#ifndef __SERVER_HANDLE_H__
+#define __SERVER_HANDLE_H__
 
 #include "md5.h"
 #include <uv.h>
@@ -29,5 +29,5 @@ void session_destroy(session_t *session);
 
 void response_with_key(session_t *session, msgidx_t *msgidx, int result);
 
-#endif /* __SESSION_HANDLE_H__ */
+#endif /* __SERVER_HANDLE_H__ */
 

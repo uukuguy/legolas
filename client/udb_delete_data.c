@@ -92,28 +92,11 @@ int udb_delete_request(session_t *session)
     assert(msg_size == head_size);
 
     session->connection.total_bytes += msg_size;
-    uv_buf_t ubuf = uv_buf_init((char *)read_request, msg_size);
 
-    /* -------- read_req -------- */
-    uv_write_t *read_req;
-    read_req = zmalloc(sizeof(uv_write_t));
-    memset(read_req, 0, sizeof(uv_write_t));
-    read_req->data = session;
-
-    int r = uv_write(read_req,
-            &session->connection.handle.stream,
-            &ubuf,
-            1,
-            udb_after_delete_request);
-
+    int r = session_write_request(session, (char*)read_request, msg_size, udb_after_delete_request);
     zfree(read_request);
 
-    if ( r != 0 ) {
-        error_log("uv_write() failed");
-        return r;
-    }
-
-    return 0;
+    return r;
 }
 
 /* ==================== udb_delete_data() ==================== */ 

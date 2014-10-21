@@ -12,16 +12,22 @@
 #include "zmalloc.h"
 #include "sysinfo.h"
 #include "logger.h"
+#include "session.h"
 
 /* ==================== service_new() ==================== */ 
-service_t *service_new(void *parent)
+service_t *service_new(void *parent, const session_callbacks_t *callbacks)
 {
     service_t *service = (service_t*)zmalloc(sizeof(service_t));
     memset(service, 0, sizeof(service_t));
 
     service->parent = parent;
+    if ( callbacks != NULL ){
+        service->callbacks = *callbacks;
+    }
 
+    connection_init(&service->connection);
     service_init(service);
+
 
     return service;
 }
@@ -30,6 +36,7 @@ service_t *service_new(void *parent)
 void service_free(service_t *service)
 {
     service_destroy(service);
+    connection_destroy(&service->connection);
     zfree(service);
 }
 
@@ -95,8 +102,8 @@ void *work_queue_rx_coroutine(void *opaque)
         if ( ret == 0 ) {
             assert(message != NULL);
 
-            if ( session->callbacks.handle_message != NULL ){
-                ret = session->callbacks.handle_message(session, message);
+            if ( session->service->callbacks.handle_message != NULL ){
+                ret = session->service->callbacks.handle_message(session, message);
             }
             zfree(message);
             message = NULL;

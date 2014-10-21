@@ -12,7 +12,7 @@
 #include "service.h"
 #include "session.h"
 #include "vnode.h"
-#include "session_handle.h"
+#include "server_handle.h"
 #include "list.h"
 #include "work.h"
 #include "filesystem.h"
@@ -41,31 +41,18 @@ void test_session_consume_sockbuf(sockbuf_t *sockbuf)
 }
 
 /* ==================== server_on_connection() ==================== */ 
-static void server_on_connection(uv_stream_t *stream, int status)
+static void server_on_connection(service_t *service, int status)
 {
-    server_t *server= (server_t*)stream->data;
+    server_t *server = (server_t*)service->parent;
 
     /* -------- create_session -------- */
-    static session_callbacks_t callbacks = {
-        .idle_cb = server_idle_cb,
-        .timer_cb = session_timer_cb,
-        .async_cb = session_async_cb,
-        .is_idle = server_is_idle,
-        .handle_message = server_handle_message,
-        .session_init = session_init,
-        .session_destroy = session_destroy,
-        .consume_sockbuf = NULL,
-        /*.consume_sockbuf = test_session_consume_sockbuf*/
-        .on_connect = NULL,
-        .handle_read_response = NULL,
-    };
-    session_t *session = session_new(server->service, &callbacks, NULL);
+    session_t *session = session_new(server->service, NULL);
     if ( session == NULL ){
         error_log("session_new() failed. session == NULL.");
         return;
     }
 
-    int ret = session_accept(session, &server->connection.handle.tcp);
+    int ret = session_accept(session, &service->connection.handle.tcp);
     if ( ret != 0 ) {
         error_log("session_accept() failed. ret=%d", ret);
         return;
@@ -89,9 +76,22 @@ server_t *server_new(const server_options_t *server_options)
     flush_sysinfo(&sysinfo);
     server->num_processors = sysinfo.num_processors;
 
-    server->service = service_new(server);
+    static session_callbacks_t callbacks = {
+        .idle_cb = server_idle_cb,
+        .timer_cb = session_timer_cb,
+        .async_cb = session_async_cb,
+        .is_idle = server_is_idle,
+        .handle_message = server_handle_message,
+        .session_init = session_init,
+        .session_destroy = session_destroy,
+        .consume_sockbuf = NULL,
+        /*.consume_sockbuf = test_session_consume_sockbuf*/
+        .on_connect = NULL,
+        .handle_read_response = NULL,
 
-    connection_init(&server->connection);
+        .session_on_connect_from_client = server_on_connection,
+    };
+    server->service = service_new(server, &callbacks);
 
 
     return server;
@@ -121,7 +121,6 @@ void server_free(server_t *server)
         }
     }
 
-    connection_destroy(&server->connection);
     service_destroy(server->service);
 
     pthread_mutex_destroy(&server->send_pending_lock);
@@ -136,62 +135,9 @@ int server_listen(server_t *server)
     int r;
     int listen_port = server->options.listen_port;
 
-    /* -------- server_addr -------- */
-    struct sockaddr_in server_addr;
-    r = uv_ip4_addr("0.0.0.0", listen_port, &server_addr);
-    if ( r ) {
-        error_log("uv_ip4_addr() failed.");
-        return -1;
-    }
+    r = session_listen(server->service, listen_port);
 
-    /* -------- loop -------- */
-    uv_loop_t *loop = &server->connection.loop;
-
-    /* -------- tcp_handle -------- */
-    uv_tcp_t *tcp_handle = &server->connection.handle.tcp;
-
-    /* -------- uv_tcp_init -------- */
-    r = uv_tcp_init(loop, tcp_handle);
-    if ( r ) {
-        error_log("uv_tcp_init() failed.");
-        server_free(server);
-        return -1;
-    }
-    tcp_handle->data = server;
-
-    /* -------- uv_tcp_bind -------- */
-    r = uv_tcp_bind(tcp_handle, (const struct sockaddr*)&server_addr, 0);
-    if ( r ) {
-        error_log("uv_tcp_bind() failed.");
-        server_free(server);
-        return -1;
-    }
-
-    /* -------- uv_listen -------- */
-    r = uv_listen((uv_stream_t*)tcp_handle, SOMAXCONN, server_on_connection);
-    if ( r ) {
-        error_log("uv_listen() failed.");
-        server_free(server);
-        return -1;
-    }
-
-    info_log("Listen on port %d.", listen_port);
-
-    /* -------- uv_run -------- */
-    r = uv_run(loop, UV_RUN_DEFAULT);
-    if ( r ) {
-        error_log("uv_run() failed.");
-        server_free(server);
-        return -1;
-    }
-
-    /* FIXME */
-    /*MAKE_VALGRIND_HAPPY(loop);*/
-
-    /*close_loop(loop);      */
-    /*uv_loop_delete(loop);  */
-
-    return 0;
+    return r;
 }
 
 /* ************************************************************

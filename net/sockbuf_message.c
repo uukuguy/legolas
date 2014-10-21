@@ -176,6 +176,14 @@ void do_read_data(sockbuf_t *sockbuf, void *buf, size_t count)
 
 }
 
+void dump_sockbuf(sockbuf_t *sockbuf, const char *dumpfile_name)
+{
+    int file = open(dumpfile_name, O_CREAT | O_TRUNC | O_WRONLY | O_SYNC, 0640);
+    write(file, sockbuf, sizeof(sockbuf_t));
+    close(file);
+
+}
+
 /* ==================== session_do_read() ==================== */ 
 int session_do_read(sockbuf_t *sockbuf, message_t **p_message)
 {
@@ -198,12 +206,17 @@ int session_do_read(sockbuf_t *sockbuf, message_t **p_message)
     /* -------- check message message_header -------- */
     if ( check_message((message_t*)&message_header) != 0) {
         WARNING_LOG_SESSION_SOCKBUF("Check magic_code in message message_header failed!");
-        /*assert(1==0);*/
+        /*dump_sockbuf(sockbuf, "error_sockbuf.dat");*/
+        /*dump_sockbuf(&session->last_sockbuf, "last_sockbuf.dat");*/
+        /*abort();*/
         return -1;
     } else {
         /*TRACE_LOG_SESSION_sockbuf("Check magic_code in message message_header OK!");*/
         /*trace_log("message_header.data_length=%d", message_header.data_length);*/
     }
+
+    /* FIXME 2014-10-21 16:43:50 */
+    memcpy(&session->last_sockbuf, sockbuf, sizeof(sockbuf_t));
 
     /* -------- do_read_data:data -------- */
     /*TRACE_LOG_SESSION_SOCKBUF("Call do_read_data() for data.");*/
@@ -290,8 +303,8 @@ void *session_rx_coroutine(void *opaque)
         if ( ret == 0 ) {
             assert(message != NULL);
 
-            if ( session->callbacks.handle_message != NULL ){
-                ret = session->callbacks.handle_message(session, message);
+            if ( session->service->callbacks.handle_message != NULL ){
+                ret = session->service->callbacks.handle_message(session, message);
             }
             zfree(message);
             message = NULL;
@@ -448,10 +461,11 @@ void session_after_read(uv_stream_t *handle, ssize_t nread, const uv_buf_t *buf)
         sockbuf_t *sockbuf = container_of(buf->base, sockbuf_t, base);
         assert(session == sockbuf->session);
 
+        sockbuf->write_head = nread;
+        sockbuf->remain_bytes = nread;
+
         __sync_add_and_fetch(&session->total_received_buffers, 1);
-        sockbuf->write_head += nread;
-        session->connection.total_bytes += nread;
-        __sync_add_and_fetch(&sockbuf->remain_bytes, nread);
+        __sync_add_and_fetch(&session->connection.total_bytes, nread);
 
         /*notice_log("--- blocks: %d nread: %d total_reaceived: %zu", session->total_received_buffers, (int32_t)nread, session->connection.total_bytes);*/
 
@@ -463,8 +477,8 @@ void session_after_read(uv_stream_t *handle, ssize_t nread, const uv_buf_t *buf)
 
         /*enqueue_parse_queue(session, sockbuf);*/
 
-        if ( session->callbacks.consume_sockbuf != NULL ){
-            session->callbacks.consume_sockbuf(sockbuf);
+        if ( session->service->callbacks.consume_sockbuf != NULL ){
+            session->service->callbacks.consume_sockbuf(sockbuf);
         } else {
             session_consume_sockbuf(sockbuf);
         }

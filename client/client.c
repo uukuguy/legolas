@@ -8,7 +8,6 @@
  * 
  */
 
-#include "uv.h"
 #include "common.h"
 #include "work.h"
 #include "logger.h"

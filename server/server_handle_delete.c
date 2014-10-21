@@ -1,5 +1,5 @@
 /**
- * @file   session_handle_delete.c
+ * @file   server_handle_delete.c
  * @author Jiangwen Su <uukuguy@gmail.com>
  * @date   2014-07-07 15:43:01
  * 
@@ -11,7 +11,7 @@
 #include "server.h"
 #include "session.h"
 #include "message.h"
-#include "session_handle.h"
+#include "server_handle.h"
 #include "object.h"
 #include "logger.h"
 #include "kvdb.h"

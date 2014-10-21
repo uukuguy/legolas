@@ -1,5 +1,5 @@
 /**
- * @file   session_handle.c
+ * @file   server_handle.c
  * @author Jiangwen Su <uukuguy@gmail.com>
  * @date   2014-07-07 16:15:19
  * 
@@ -8,7 +8,7 @@
  * 
  */
 
-#include "session_handle.h"
+#include "server_handle.h"
 #include "session.h"
 #include "logger.h"
 
@@ -105,12 +105,6 @@ int server_handle_message(session_t *session, message_t *message)
         };
     } else if ( message->msg_type == MSG_TYPE_RESPONSE ) {
     }
-
-    /*if ( total_requests >= 30000 ) {*/
-        /*notice_log("Stop! server->total_requests(%d) >= 10000", total_requests);*/
-        /*uv_loop_t *loop = &(server->connection.loop);*/
-        /*uv_stop(loop);*/
-    /*}*/
 
     return ret;
 }

@@ -14,7 +14,7 @@
 #include "zmalloc.h"
 #include "list.h"
 #include "adlist.h"
-#include "uv.h"
+//#include "uv.h"
 #include "work.h"
 #include "logger.h"
 #include "message.h"

@@ -12,7 +12,6 @@
 #define __CLIENT_H__ 
 
 #include "zmalloc.h"
-#include "uv.h"
 #include "work.h"
 #include "logger.h"
 #include "message.h"
@@ -32,8 +31,6 @@ typedef struct client_args_t {
     int total_send;
     int total_recv;
     char key[NAME_MAX];
-
-    uv_connect_t connect_req;
 
     uint32_t file_opened;
     uint32_t file_closed;

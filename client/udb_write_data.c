@@ -48,7 +48,7 @@ void client_write_next_file(udb_t *udb); /* in client.c */
 /* ==================== udb_after_write_request() ==================== */ 
 static void udb_after_write_request(uv_write_t *write_req, int status) 
 {
-    debug_log("Enter udb_after_write_request");
+    /*debug_log("Enter udb_after_write_request");*/
 
     session_t *session = (session_t*)write_req->data;
 
@@ -124,7 +124,7 @@ int udb_write_request(session_t *session, char *data, uint32_t data_size)
 
     const char *key = udb->key;
     uint32_t keylen = udb->keylen;
-    debug_log("udb->key=%s, keylen=%d", key, keylen);
+    /*debug_log("udb->key=%s, keylen=%d", key, keylen);*/
 
     /* -------- key -------- */
     write_request = add_message_arg(write_request, key, keylen > 128 ? 128 : keylen);
@@ -186,34 +186,12 @@ int udb_write_request(session_t *session, char *data, uint32_t data_size)
     assert(msg_size == head_size + sizeof(uint32_t) + writed);
 
     session->connection.total_bytes += msg_size;
-    uv_buf_t ubuf = uv_buf_init((char *)write_request, msg_size);
 
-    /* -------- write_req -------- */
-    uv_write_t *write_req;
-    write_req = zmalloc(sizeof(uv_write_t));
-    memset(write_req, 0, sizeof(uv_write_t));
-    write_req->data = session;
 
-    /*char udb_block_file[NAME_MAX];*/
-    /*sprintf(udb_block_file, "udb_block__%08d.dat",  g_udb_blocks);*/
-
-    /*int hfile = open(udb_block_file, O_CREAT | O_TRUNC | O_WRONLY, 0640);*/
-    /*write(hfile, (char*)write_request, msg_size);*/
-    /*close(hfile);*/
-    /*__sync_add_and_fetch(&g_udb_blocks, 1);*/
-
-    int r = uv_write(write_req,
-            &session->connection.handle.stream,
-            &ubuf,
-            1,
-            udb_after_write_request);
+    session_write_request(session, (char*)write_request, msg_size, udb_after_write_request);
 
     zfree(write_request);
 
-    if ( r != 0 ) {
-        error_log("uv_write() failed");
-        return -1;
-    }
 
     return writed;
 }

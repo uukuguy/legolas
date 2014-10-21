@@ -14,7 +14,6 @@
 #include "zmalloc.h"
 #include "adlist.h"
 #include "adlist.h"
-#include "uv.h"
 #include "logger.h"
 
 /*#include "react_utils.h"*/
@@ -77,51 +76,41 @@ void udb_done(udb_t *udb)
     session_shutdown(session);
 }
 
-/* ==================== udb_new() ==================== */ 
-udb_t *udb_new(const char *ip, int port, void *user_data)
+/* ==================== udb_session_is_idle() ==================== */ 
+int udb_session_is_idle(session_t *session)
 {
-
-    udb_t *udb = (udb_t*)zmalloc(sizeof(udb_t));
-    memset(udb, 0, sizeof(udb_t));
-
-    udb->service = service_new(udb);
-
-    udb->id = udb_id;
-    __sync_add_and_fetch(&udb_id, 1);
-
-    udb->ip = ip;
-    udb->port = port;
-
-    udb->user_data = user_data;
-    /*udb->writing_objects = listCreate();*/
-
-	pthread_mutex_init(&udb->on_ready_lock, NULL);
-	pthread_cond_init(&udb->on_ready_cond, NULL);
-
-    return udb;
+    return 1;
 }
 
+/* ==================== udb_session_idle_cb() ==================== */ 
+/*void udb_session_idle_cb(uv_idle_t *idle_handle, int status) */
+/*{*/
+/*}*/
 
-void udb_free(udb_t *udb)
+/* ==================== udb_session_timer_cb() ==================== */ 
+/*void udb_session_timer_cb(uv_timer_t *timer_handle, int status) */
+/*{*/
+/*}*/
+
+/* ==================== udb_session_async_cb() ==================== */ 
+/*void udb_session_async_cb(uv_async_t *async_handle, int status) */
+/*{*/
+/*}*/
+
+/* ==================== udb_session_init() ==================== */ 
+int udb_session_init(session_t *session)
 {
-    if ( udb != NULL ) {
+    return 0;
+}
 
-        /*if ( udb->writing_objects != NULL ){*/
-            /*listRelease(udb->writing_objects);*/
-            /*udb->writing_objects = NULL;*/
-        /*}*/
-
-        if ( udb->user_data != NULL ){
-            zfree(udb->user_data);
-            udb->user_data = NULL;
-        }
-
-        service_destroy(udb->service);
-
-        pthread_mutex_destroy(&udb->on_ready_lock);
-        pthread_cond_destroy(&udb->on_ready_cond);
-
-        zfree(udb);
+/* ==================== udb_session_destroy() ==================== */ 
+void udb_session_destroy(session_t *session) 
+{
+    /* FIXME */
+    if ( session != NULL ){
+        udb_t *udb = udb(session);
+        zfree(session);
+        pthread_cond_signal(&udb->main_pending_cond);
     }
 }
 
@@ -176,10 +165,11 @@ int udb_handle_message(session_t *session, message_t *message)
 }
 
 /* ==================== udb_on_connect() ==================== */ 
-static void udb_on_connect(uv_connect_t *req, int status) 
+static void udb_on_connect(session_t *session, int status) 
+/*static void udb_on_connect(service_t *service, int status) */
 {
-    session_t *session = (session_t*)req->handle->data;
     UNUSED udb_t *udb= udb(session);
+    /*udb_t *udb = (udb_t*)service->parent;*/
 
     if ( udb->on_ready != NULL ){
         udb->on_ready(udb);
@@ -188,122 +178,23 @@ static void udb_on_connect(uv_connect_t *req, int status)
     pthread_cond_signal(&udb->on_ready_cond);
 }
 
-/* ==================== udb_session_is_idle() ==================== */ 
-int udb_session_is_idle(session_t *session)
-{
-    return 1;
-}
-
-/* ==================== udb_session_idle_cb() ==================== */ 
-void udb_session_idle_cb(uv_idle_t *idle_handle, int status) 
-{
-}
-
-/* ==================== udb_session_timer_cb() ==================== */ 
-void udb_session_timer_cb(uv_timer_t *timer_handle, int status) 
-{
-}
-
-/* ==================== udb_session_async_cb() ==================== */ 
-void udb_session_async_cb(uv_async_t *async_handle, int status) 
-{
-}
-
-/* ==================== udb_session_init() ==================== */ 
-int udb_session_init(session_t *session)
-{
-    return 0;
-}
-
-/* ==================== udb_session_destroy() ==================== */ 
-void udb_session_destroy(session_t *session) 
-{
-    /* FIXME */
-    if ( session != NULL ){
-        udb_t *udb = udb(session);
-        zfree(session);
-        pthread_cond_signal(&udb->main_pending_cond);
-    }
-}
-
 /* ==================== udb_loop() ==================== */ 
 static int udb_loop(udb_t *udb)
 {
-    int r;
-
-
-    /* -------- server_addr -------- */
-    struct sockaddr_in server_addr;
-    r = uv_ip4_addr(udb->ip, udb->port, &server_addr);
-    if ( r ) {
-        error_log("uv_ip4_addr() failed.");
-        return -1;
-    }
+    int r = 0;
 
     /* ---------- New session ---------- */
-    static session_callbacks_t udb_callbacks = {
-        .idle_cb = udb_session_idle_cb,
-        .timer_cb = udb_session_timer_cb,
-        .async_cb = udb_session_async_cb,
-        .is_idle = udb_session_is_idle,
-        .handle_message = udb_handle_message,
-        .session_init = udb_session_init,
-        .session_destroy = udb_session_destroy,
-
-        .on_connect = NULL,
-
-        .consume_sockbuf = NULL,
-        .handle_read_response = NULL,
-    };
-
-    const session_callbacks_t *callbacks = &udb_callbacks;
-
-    session_t *session = session_new(udb->service, callbacks, NULL);
+    session_t *session = session_new(udb->service, NULL);
     udb->session = session;
 
-    /* -------- loop -------- */
-    uv_loop_t *loop = SESSION_LOOP(session);
-
-    /* -------- tcp_handle -------- */
-    uv_tcp_t *tcp_handle = SESSION_TCP(session);
-
-    /* -------- uv_tcp_init -------- */
-    r = uv_tcp_init(loop, tcp_handle);
-    if ( r ) {
-        error_log("uv_tcp_init() failed.");
-        udb_free(udb);
-        return -1;
-    }
-    tcp_handle->data = (void*)session; 
-
-    /* -------- uv_tcp_connect -------- */
-    uv_connect_t connect_req;
-    r = uv_tcp_connect(&connect_req,
-            tcp_handle,
-            (const struct sockaddr*) &server_addr,
-            callbacks != NULL && callbacks->on_connect != NULL ? callbacks->on_connect : udb_on_connect);
-    if ( r ) {
-        error_log("uv_tcp_connect() failed.");
-        udb_free(udb);
-        return -1;
+    r = session_loop(session, udb->ip, udb->port);
+    if ( r != 0 ){
+        error_log("Call session_loop() failed.");
     }
 
-    /* -------- uv_run -------- */
-    r = uv_run(loop, UV_RUN_DEFAULT);
-    if ( r ) {
-        error_log("uv_run() failed.");
-        udb_free(udb);
-        return -1;
-    }
+    udb_free(udb);
 
-    /* FIXME */
-    /*MAKE_VALGRIND_HAPPY(loop);*/
-
-    /*close_loop(loop);      */
-    /*uv_loop_delete(loop);  */
-
-
-    return 0;
+    return r;
 }
 
 /* ==================== udb_thread_main() ==================== */ 
@@ -349,5 +240,72 @@ int udb_run(udb_t *udb)
 void udb_exit(udb_t *udb)
 {
     pthread_cancel(udb->tid);
+}
+
+
+/* ==================== udb_new() ==================== */ 
+udb_t *udb_new(const char *ip, int port, void *user_data)
+{
+
+    udb_t *udb = (udb_t*)zmalloc(sizeof(udb_t));
+    memset(udb, 0, sizeof(udb_t));
+
+    static session_callbacks_t udb_callbacks = {
+        /*.idle_cb = udb_session_idle_cb,*/
+        /*.timer_cb = udb_session_timer_cb,*/
+        /*.async_cb = udb_session_async_cb,*/
+        .is_idle = udb_session_is_idle,
+        .handle_message = udb_handle_message,
+        .session_init = udb_session_init,
+        .session_destroy = udb_session_destroy,
+
+        .on_connect = NULL,
+
+        .consume_sockbuf = NULL,
+        .handle_read_response = NULL,
+        .session_on_connect_to_server = udb_on_connect,
+    };
+
+    const session_callbacks_t *callbacks = &udb_callbacks;
+
+    udb->service = service_new(udb, callbacks);
+
+    udb->id = udb_id;
+    __sync_add_and_fetch(&udb_id, 1);
+
+    udb->ip = ip;
+    udb->port = port;
+
+    udb->user_data = user_data;
+    /*udb->writing_objects = listCreate();*/
+
+	pthread_mutex_init(&udb->on_ready_lock, NULL);
+	pthread_cond_init(&udb->on_ready_cond, NULL);
+
+    return udb;
+}
+
+
+void udb_free(udb_t *udb)
+{
+    if ( udb != NULL ) {
+
+        /*if ( udb->writing_objects != NULL ){*/
+            /*listRelease(udb->writing_objects);*/
+            /*udb->writing_objects = NULL;*/
+        /*}*/
+
+        if ( udb->user_data != NULL ){
+            zfree(udb->user_data);
+            udb->user_data = NULL;
+        }
+
+        service_destroy(udb->service);
+
+        pthread_mutex_destroy(&udb->on_ready_lock);
+        pthread_cond_destroy(&udb->on_ready_cond);
+
+        zfree(udb);
+    }
 }
 

@@ -1,5 +1,5 @@
 /**
- * @file   session_handle_write.c
+ * @file   server_handle_write.c
  * @author Jiangwen Su <uukuguy@gmail.com>
  * @date   2014-07-07 15:41:53
  * 
@@ -10,7 +10,7 @@
 
 #include "server.h"
 #include "session.h"
-#include "session_handle.h"
+#include "server_handle.h"
 #include "message.h"
 #include "object.h"
 #include "logger.h"
@@ -22,6 +22,11 @@
 /* ==================== parse_write_request() ==================== */ 
 int parse_write_request(session_t *session, message_t *request, msgidx_t *msgidx)
 {
+    if ( request->data_length <= 0 ) {
+        warning_log("request->data_length <= 0!");
+        return -1;
+    }
+
     msgidx->message = request;
 
     /* -------- message args -------- */
@@ -125,7 +130,6 @@ int server_write_to_storage(session_t *session, object_t *object)
         ret = vnode_write_to_storage(vnode, object);
 
         object_queue_remove(vnode->caching_objects, object);
-        session->total_writed = 0;
     } else {
         ret = -1;
     }
@@ -138,6 +142,7 @@ int server_handle_write(session_t *session, message_t *request)
 {
     int ret = 0;
     msgidx_t msgidx;
+    msgidx_init(&msgidx);
 
     /** ----------------------------------------
      *    Parse request
