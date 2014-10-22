@@ -146,16 +146,6 @@ void session_after_shutdown(uv_shutdown_t *shutdown_req, int status)
         /*uv_close((uv_handle_t *)&session->async_handle, NULL);*/
     /*}*/
 
-    if ( session->service->callbacks.timer_cb != NULL ){
-        uv_timer_stop(&session->timer_handle);
-    }
-
-
-    if ( session->service->callbacks.idle_cb != NULL ){
-        uv_idle_stop(&session->idle_handle);
-    }
-
-
     /* FIXME */
     uv_close((uv_handle_t*)shutdown_req->handle, on_close);
     /*uv_close((uv_handle_t*)shutdown_req->handle, NULL);*/
@@ -177,8 +167,14 @@ void session_shutdown(session_t *session)
                 session->stop = 1;
 
                 info_log("Start to close session in session_shutdown()");
-                uv_timer_stop(&session->timer_handle);
 
+                if ( session->service->callbacks.timer_cb != NULL ){
+                    uv_timer_stop(&session->timer_handle);
+                }
+
+                if ( session->service->callbacks.idle_cb != NULL ){
+                    uv_idle_stop(&session->idle_handle);
+                }
 
                 uv_shutdown_t* shutdown_req = (uv_shutdown_t*)zmalloc(sizeof(uv_shutdown_t));
                 memset(shutdown_req, 0, sizeof(uv_shutdown_t));
@@ -203,6 +199,10 @@ session_t* session_new(service_t *service, void *user_data)
     /* -------- session -------- */
     session_t *session = (session_t*)zmalloc(sizeof(session_t));
     memset(session, 0, sizeof(session_t));
+
+    session->msgctx.current_state = ConsumeState_WAITING_HEAD;
+    session->msgctx.except_size = sizeof(message_t);
+    session->msgctx.consumed_size = 0;
 
     /*char react_filename[NAME_MAX];*/
     /*sprintf(react_filename, "./session_%d.json", session_id);*/
@@ -579,9 +579,14 @@ void session_rx_off(session_t *session)
 static void session_after_write_request(uv_write_t *write_req, int status) 
 {
     UNUSED session_t *session = (session_t*)write_req->data;
+    if ( session->after_write_request != NULL ){
+        session->after_write_request(session, status);
+    }
+    zfree(write_req);
 }
 
-int session_write_request(session_t *session, void *data, uint32_t data_size, uv_write_cb after_write)
+/*int session_write_request(session_t *session, void *data, uint32_t data_size, uv_write_cb after_write)*/
+int session_write_request(session_t *session, void *data, uint32_t data_size, session_after_write_request_cb after_write_request)
 {
     uv_buf_t ubuf = uv_buf_init(data, data_size);
 
@@ -591,11 +596,12 @@ int session_write_request(session_t *session, void *data, uint32_t data_size, uv
     memset(write_req, 0, sizeof(uv_write_t));
     write_req->data = session;
 
+    session->after_write_request = after_write_request;
     int r = uv_write(write_req,
             &session->connection.handle.stream,
             &ubuf,
             1,
-            after_write);
+            session_after_write_request);
 
     if ( r != 0 ) {
         error_log("uv_write() failed");

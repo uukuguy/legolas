@@ -35,6 +35,7 @@ int parse_write_request(session_t *session, message_t *request, msgidx_t *msgidx
 
     /* -------- argKey -------- */
     message_arg_t *argKey = arg;
+    assert(argKey->size > 0);
     if ( argKey->size > 0 ) {
         uint32_t keylen = argKey->size < NAME_MAX - 1 ? argKey->size : NAME_MAX - 1;
         msgidx->key = argKey->data;
@@ -69,6 +70,8 @@ int parse_write_request(session_t *session, message_t *request, msgidx_t *msgidx
     msgidx->data = argData->data;
     msgidx->data_size = argData->size;
 
+    /*assert(msgidx->data_size > 0);*/
+
 
     return 0;
 }
@@ -97,6 +100,7 @@ object_t *server_write_to_cache(session_t *session, msgidx_t *msgidx)
 
         if ( check_md5(&object->key_md5, msgidx->key_md5) != 0 ){
             error_log("Check md5 error. session(%d), block_id:%d, key:%s object->key:%s", session->id, blockid, msgidx->key, object->key);
+            /*assert(1==0);*/
             object_free(object);
             return NULL;
         }

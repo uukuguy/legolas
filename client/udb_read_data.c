@@ -8,7 +8,7 @@
  * 
  */
 
-#include "uv.h"
+/*#include "uv.h"*/
 #include "common.h"
 #include "work.h"
 #include "filesystem.h"
@@ -122,14 +122,15 @@ int udb_handle_read_response(session_t *session, message_t *response)
 }
 
 /* ==================== udb_after_read_request() ==================== */ 
-static void udb_after_read_request(uv_write_t *read_req, int status) 
+/*static void udb_after_read_request(uv_write_t *read_req, int status) */
+static void udb_after_read_request(session_t *session, int status) 
 {
-    session_t *session = (session_t*)read_req->data;
+    /*session_t *session = (session_t*)read_req->data;*/
 
     udb_t *udb = udb(session);
     assert(udb != NULL);
 
-    zfree(read_req);
+    /*zfree(read_req);*/
 
     session_waiting_message(session);
 

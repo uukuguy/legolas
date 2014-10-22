@@ -33,7 +33,6 @@ typedef struct session_t session_t;
 typedef struct storage_file_t storage_file_t;
 typedef struct object_t object_t;
 
-//#define USE_WU_COROUTINE
 #define USE_CGREENLET
 //#define USE_LIBCORO
 //#define USE_COROUTINE
@@ -43,10 +42,6 @@ typedef struct object_t object_t;
 #ifdef USE_CGREENLET
 #include "greenlet.h"
 typedef greenlet_t coroutine_t;
-#endif
-
-#ifdef USE_WU_COROUTINE
-#include "wu_coroutine.h"
 #endif
 
 #ifdef USE_COROUTINE
@@ -113,6 +108,26 @@ void connection_destroy(connection_t *connection);
 	//};
 //} session_id;
 
+typedef enum ConsumeState{
+    ConsumeState_WAITING_HEAD = 0,
+    ConsumeState_WAITING_BODY
+} ConsumeState;
+
+typedef struct message_context_t {
+    message_t msgheader;
+    message_t *message;
+    int current_state;
+    uint32_t consumed_size;
+
+    uint32_t except_size;
+
+    uint32_t writed_body_size;
+
+} message_context_t;
+
+
+typedef void (*session_after_write_request_cb)(session_t*, int);
+
 /* -------------------- session_t -------------------- */
 typedef struct session_t{
     //session_id sid;
@@ -123,8 +138,12 @@ typedef struct session_t{
     //void *react_ctx;
     //int react_id_session;
 
+    message_context_t msgctx;
+
     uint32_t id;
     void *user_data;
+
+    session_after_write_request_cb after_write_request;
 
     //session_callbacks_t callbacks;
 
@@ -137,7 +156,7 @@ typedef struct session_t{
     uint32_t total_blocks; /* for build blockid */
 
 
-    sockbuf_t *sockbuf;
+    //sockbuf_t *sockbuf;
 
 
     uv_idle_t idle_handle;
@@ -157,11 +176,6 @@ typedef struct session_t{
     coro_context rx_coctx;
     //struct coro_stack rx_stack;
     char rx_stack[64*1024];
-#endif
-
-#ifdef USE_WU_COROUTINE
-    struct schedule *co_schedule;
-    int rx_coctx;
 #endif
 
 #ifdef USE_COROUTINE
@@ -218,7 +232,11 @@ extern int session_send_data(session_t *session, char *buf, uint32_t buf_size, v
 extern int session_response_data(session_t *session, char *buf, uint32_t buf_size);
 extern void session_response(session_t *session, enum MSG_RESULT result); 
 
-int session_write_request(session_t *session, void *data, uint32_t data_size, uv_write_cb after_write);
+sockbuf_t *get_current_sockbuf(void);
+void set_current_sockbuf(sockbuf_t *sockbuf);
+
+//int session_write_request(session_t *session, void *data, uint32_t data_size, uv_write_cb after_write);
+int session_write_request(session_t *session, void *data, uint32_t data_size, session_after_write_request_cb after_write_request);
 
 #define WARNING_LOG_SESSION_SOCKBUF(msg) \
     warning_log("\n........\n %s fd(%d) block(%d) read_head=%d write_head=%d, remain_bytes=%d\n", msg, session_fd(session), sockbuf->blockid, sockbuf->read_head, sockbuf->write_head, sockbuf->remain_bytes);

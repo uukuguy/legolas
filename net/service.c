@@ -50,7 +50,8 @@ void service_consume_sockbuf(coroutine_t *rx_coroutine, sockbuf_t *sockbuf)
 
     if ( likely( sockbuf->remain_bytes > 0 ) ) {
         /* FIXME coroutine */
-        session->sockbuf = sockbuf;
+        /*session->sockbuf = sockbuf;*/
+        set_current_sockbuf(sockbuf);
 
         /*coroutine_enter(session, session);*/
         greenlet_switch_to(rx_coroutine, session);
@@ -87,13 +88,15 @@ void *work_queue_rx_coroutine(void *opaque)
 
         /* FIXME coroutine */
         /*session = coroutine_self_data();*/
-        sockbuf_t *sockbuf = session->sockbuf;
+        /*sockbuf_t *sockbuf = session->sockbuf;*/
+        sockbuf_t *sockbuf = get_current_sockbuf();
         message_t *message = NULL;
         ret = session_do_read(sockbuf, &message);
 
         /* FIXME coroutine */
         /*session = coroutine_self_data();*/
-        sockbuf = session->sockbuf;
+        /*sockbuf = session->sockbuf;*/
+        sockbuf = get_current_sockbuf();
 
         /* FIXME coroutine */
         /*sockbuf = coroutine_self_data();*/
@@ -112,7 +115,6 @@ void *work_queue_rx_coroutine(void *opaque)
             greenlet_t *current = greenlet_current();
             greenlet_t *parent = greenlet_parent(current);
             greenlet_switch_to(parent, NULL);
-            sockbuf = session->sockbuf; 
             continue;
         }
     }

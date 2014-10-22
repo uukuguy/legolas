@@ -8,7 +8,7 @@
  * 
  */
 
-#include "uv.h"
+/*#include "uv.h"*/
 #include "common.h"
 #include "work.h"
 #include "filesystem.h"
@@ -46,16 +46,17 @@ int udb_handle_write_response(session_t *session, message_t *response)
 
 void client_write_next_file(udb_t *udb); /* in client.c */
 /* ==================== udb_after_write_request() ==================== */ 
-static void udb_after_write_request(uv_write_t *write_req, int status) 
+/*static void udb_after_write_request(uv_write_t *write_req, int status) */
+static void udb_after_write_request(session_t *session, int status) 
 {
     /*debug_log("Enter udb_after_write_request");*/
 
-    session_t *session = (session_t*)write_req->data;
+    /*session_t *session = (session_t*)write_req->data;*/
 
     udb_t *udb = udb(session);
     assert(udb!= NULL);
 
-    zfree(write_req);
+    /*zfree(write_req);*/
 
     msgidx_t *msgidx = zmalloc(sizeof(msgidx_t));
     memset(msgidx, 0, sizeof(msgidx_t));
@@ -74,8 +75,9 @@ static void udb_after_write_request(uv_write_t *write_req, int status)
 
     }
 
-    if ( udb->after_write_request_done != NULL ){
-        if ( udb->total_writed >= udb->object_size ){
+    assert(udb->total_writed <= udb->object_size);
+    if ( udb->total_writed == udb->object_size ){
+        if ( udb->after_write_request_done != NULL ){
             udb->after_write_request_done(udb, msgidx);
         }
     }

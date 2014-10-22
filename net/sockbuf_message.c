@@ -21,6 +21,34 @@
 
 /*#include "coroutine.h"*/
 
+static pthread_once_t _tls_init_once = PTHREAD_ONCE_INIT;
+static int _sockbuf_init_complete = 0;
+static pthread_key_t _current_sockbuf;
+
+static void _sockbuf_tls_init(void)
+{
+    if ( pthread_key_create(&_current_sockbuf, NULL) != 0){
+        return;
+    }
+    _sockbuf_init_complete = 1;
+}
+
+sockbuf_t *get_current_sockbuf(void)
+{
+    pthread_once(&_tls_init_once, _sockbuf_tls_init);
+    if (!_sockbuf_init_complete)
+        return NULL;
+    return pthread_getspecific(_current_sockbuf);
+}   
+
+void set_current_sockbuf(sockbuf_t *sockbuf)
+{
+    pthread_once(&_tls_init_once, _sockbuf_tls_init);
+    if (!_sockbuf_init_complete)
+        return;
+    pthread_setspecific(_current_sockbuf, sockbuf);
+}
+
 /* -------- libcoro -------- */
 #ifdef USE_LIBCORO
 void coroutine_enter(session_t *session, void *opaque)
@@ -74,26 +102,6 @@ void coroutine_yield(session_t *session)
 
 #endif
 
-/* -------- wu_coroutine -------- */
-#ifdef USE_WU_COROUTINE
-
-void coroutine_enter(session_t *session, void *opaque)
-{
-    coroutine_resume(session->co_schedule, session->rx_coctx);
-}
-
-void coroutine_yield(session_t *session)
-{
-    _coroutine_yield(session->co_schedule);
-}
-
-#define YIELD_AND_CONTINUE \
-    coroutine_yield(session); \
-    sockbuf = session->sockbuf; \
-    continue;
-
-#endif
-
 /* -------- coroutine -------- */
 #ifdef USE_COROUTINE
 
@@ -121,11 +129,11 @@ void coroutine_yield(session_t *session)
  */
 void do_read_data(sockbuf_t *sockbuf, void *buf, size_t count)
 {
-
-    session_t *session = sockbuf->session;
-
     assert(sockbuf != NULL);
     assert(buf != NULL);
+
+    session_t *session = sockbuf->session;
+    assert(session != NULL);
 
     /**
      * Keep read data from sockbuf, until buf is fullfill count bytes.
@@ -134,7 +142,11 @@ void do_read_data(sockbuf_t *sockbuf, void *buf, size_t count)
     while ( count > 0 ) {
         /* FIXME coroutine */
         /*session = coroutine_self_data();*/
-        sockbuf = session->sockbuf;
+        /*sockbuf = session->sockbuf;*/
+        sockbuf = get_current_sockbuf();
+
+        assert(sockbuf != NULL);
+        assert(sockbuf->write_head >= sockbuf->read_head);
 
         uint32_t len = sockbuf->write_head - sockbuf->read_head;
         /*trace_log("Next to ...: blockid(%d), len(%d), count(%zu)", sockbuf->blockid, len, count);*/
@@ -197,7 +209,8 @@ int session_do_read(sockbuf_t *sockbuf, message_t **p_message)
     do_read_data(sockbuf, &message_header, sizeof(message_header));
     /* FIXME coroutine */
     /*session = coroutine_self_data();*/
-    sockbuf = session->sockbuf;
+    /*sockbuf = session->sockbuf;*/
+    sockbuf = get_current_sockbuf();
 
     /* FIXME coroutine */
     /*sockbuf = coroutine_self_data();*/
@@ -216,13 +229,13 @@ int session_do_read(sockbuf_t *sockbuf, message_t **p_message)
     }
 
     /* FIXME 2014-10-21 16:43:50 */
-    memcpy(&session->last_sockbuf, sockbuf, sizeof(sockbuf_t));
+    /*memcpy(&session->last_sockbuf, sockbuf, sizeof(sockbuf_t));*/
 
     /* -------- do_read_data:data -------- */
     /*TRACE_LOG_SESSION_SOCKBUF("Call do_read_data() for data.");*/
 
     message_t *message = (message_t*)zmalloc(sizeof(message_header) + message_header.data_length);
-    memset(message, 0, sizeof(message_t));
+    memset(message, 0, sizeof(message_header) + message_header.data_length);
     memcpy(message, &message_header, sizeof(message_header));
 
     do_read_data(sockbuf, message->data, message->data_length);
@@ -268,9 +281,6 @@ void *session_rx_coroutine(void *opaque)
 #ifdef USE_LIBCORO
 void session_rx_coroutine(void *opaque)
 #endif
-#ifdef USE_WU_COROUTINE
-void session_rx_coroutine(struct schedule *s, void *opaque)
-#endif
 #ifdef USE_COROUTINE
 void *session_rx_coroutine(void *opaque)
 #endif
@@ -288,17 +298,11 @@ void *session_rx_coroutine(void *opaque)
 
         /* FIXME coroutine */
         /*session = coroutine_self_data();*/
-        sockbuf_t *sockbuf = session->sockbuf;
+        /*sockbuf_t *sockbuf = session->sockbuf;*/
+        sockbuf_t *sockbuf = get_current_sockbuf();
+
         message_t *message = NULL;
         ret = session_do_read(sockbuf, &message);
-
-        /* FIXME coroutine */
-        /*session = coroutine_self_data();*/
-        /*sockbuf = session->sockbuf;*/
-
-        /* FIXME coroutine */
-        /*sockbuf = coroutine_self_data();*/
-        /*session = sockbuf->session;*/
 
         if ( ret == 0 ) {
             assert(message != NULL);
@@ -308,6 +312,15 @@ void *session_rx_coroutine(void *opaque)
             }
             zfree(message);
             message = NULL;
+
+            /*sockbuf = session->sockbuf;*/
+            sockbuf = get_current_sockbuf();
+
+            assert(sockbuf->write_head >= sockbuf->read_head);
+            if ( sockbuf->write_head == sockbuf->read_head ){
+                coroutine_yield(session); 
+            }
+
         } else {
             coroutine_yield(session); 
             continue;
@@ -354,11 +367,6 @@ int create_session_coroutine(session_t *session)
     coro_create(&session->rx_coctx, session_rx_coroutine, session, session->rx_stack, 64 * 1024);
 #endif
 
-#ifdef USE_WU_COROUTINE
-    session->co_schedule = coroutine_open();
-    session->rx_coctx = coroutine_new(session->co_schedule, session_rx_coroutine, session);
-#endif
-
 #ifdef USE_COROUTINE
     session->rx_coctx = coroutine_create(session_rx_coroutine);
 #endif
@@ -397,10 +405,6 @@ int destroy_session_coroutine(session_t *session)
     /*coro_destroy(&session->main_coctx);*/
 #endif
 
-#ifdef USE_WU_COROUTINE
-    coroutine_close(session->co_schedule);
-#endif
-
 #ifdef USE_COROUTINE
     if ( session->rx_coctx != NULL ){
         coroutine_delete(session->rx_coctx);
@@ -426,7 +430,9 @@ void session_consume_sockbuf(sockbuf_t *sockbuf)
 
     if ( likely( sockbuf->remain_bytes > 0 ) ) {
         /* FIXME coroutine */
-        session->sockbuf = sockbuf;
+        /*session->sockbuf = sockbuf;*/
+        set_current_sockbuf(sockbuf);
+        /*sockbuf_t *s1 = get_current_sockbuf();*/
 
         coroutine_enter(session, session);
 
@@ -450,6 +456,96 @@ void session_consume_sockbuf(sockbuf_t *sockbuf)
 /*
  * nread <= DEFAULT_CONN_BUF_SIZE 64 * 1024
  */
+int consume_a_message(message_context_t *msgctx, char *data, uint32_t data_size)
+{
+    int current_state = msgctx->current_state;
+
+    if ( current_state == ConsumeState_WAITING_HEAD ){
+        if ( data_size >= msgctx->except_size ){
+            char *msgbuf = (char*)&msgctx->msgheader;
+            memcpy(&msgbuf[sizeof(message_t) - msgctx->except_size], data, msgctx->except_size);
+            msgctx->consumed_size += msgctx->except_size;
+
+            if ( msgctx->msgheader.data_length == 0 ){ 
+                msgctx->message = (message_t*)zmalloc(sizeof(message_t));
+                memset(msgctx->message, 0, sizeof(message_t));
+                memcpy(msgctx->message, &msgctx->msgheader, sizeof(message_t));
+
+                msgctx->except_size = sizeof(message_t);
+                msgctx->current_state = ConsumeState_WAITING_HEAD;
+                return 0;
+            } else {
+                msgctx->message = (message_t*)zmalloc(sizeof(message_t) + msgctx->msgheader.data_length);
+                memset(msgctx->message, 0, sizeof(message_t) + msgctx->msgheader.data_length);
+                memcpy(msgctx->message, &msgctx->msgheader, sizeof(message_t));
+                msgctx->writed_body_size = 0;
+
+                msgctx->except_size = msgctx->msgheader.data_length;
+                msgctx->current_state = ConsumeState_WAITING_BODY;
+                return -1;
+            }
+        } else {
+            char *msgbuf = (char*)&msgctx->msgheader;
+            memcpy(&msgbuf[sizeof(message_t) - msgctx->except_size], data, data_size);
+            msgctx->consumed_size += data_size;
+            
+            msgctx->except_size -= data_size;
+            /*msgctx->current_state = ConsumeState_WAITING_HEAD;*/
+            return -1;
+        }
+    } else if ( current_state == ConsumeState_WAITING_BODY ){
+        if ( data_size >= msgctx->except_size ){
+            msgctx->consumed_size += msgctx->except_size;
+
+            char *msgdata = (char*)msgctx->message->data;
+            memcpy(&msgdata[msgctx->writed_body_size], data, msgctx->except_size);
+            msgctx->writed_body_size += msgctx->except_size;
+
+            msgctx->except_size = sizeof(message_t);
+            msgctx->current_state = ConsumeState_WAITING_HEAD;
+            return 0;
+        } else {
+            char *msgdata = (char*)msgctx->message->data;
+            memcpy(&msgdata[msgctx->writed_body_size], data, data_size);
+            msgctx->writed_body_size += data_size;
+
+            msgctx->consumed_size += data_size;
+            msgctx->except_size -= data_size;
+            /*msgctx->current_state = ConsumeState_WAITING_BODY;*/
+            return -1;
+        }
+    }
+    error_log("Unknown state.!");
+    abort();
+    return -1;
+}
+
+void test_consume_sockbuf(session_t *session, sockbuf_t *sockbuf)
+{
+    message_context_t *msgctx = &session->msgctx;
+    char *data = sockbuf->base;
+    uint32_t data_size = sockbuf->write_head;
+   
+    while ( 1 ){
+        if ( consume_a_message(msgctx, data, data_size) == 0 ){
+            // recevie a message OK.
+            message_t *message = msgctx->message;
+            if ( session->service->callbacks.handle_message != NULL ){
+                session->service->callbacks.handle_message(session, message);
+            }
+            zfree(msgctx->message);
+            msgctx->message = NULL;
+        }
+        assert(msgctx->consumed_size <= sockbuf->write_head);
+        if ( msgctx->consumed_size == sockbuf->write_head ){
+            msgctx->consumed_size = 0;
+            sockbuf_free(sockbuf);
+            break;
+        }
+        data = &sockbuf->base[msgctx->consumed_size];
+        data_size = sockbuf->write_head - msgctx->consumed_size;
+    }
+}
 
 void session_after_read(uv_stream_t *handle, ssize_t nread, const uv_buf_t *buf) 
 {
@@ -477,11 +573,13 @@ void session_after_read(uv_stream_t *handle, ssize_t nread, const uv_buf_t *buf)
 
         /*enqueue_parse_queue(session, sockbuf);*/
 
-        if ( session->service->callbacks.consume_sockbuf != NULL ){
-            session->service->callbacks.consume_sockbuf(sockbuf);
-        } else {
-            session_consume_sockbuf(sockbuf);
-        }
+        test_consume_sockbuf(session, sockbuf);
+
+        /*if ( session->service->callbacks.consume_sockbuf != NULL ){*/
+            /*session->service->callbacks.consume_sockbuf(sockbuf);*/
+        /*} else {*/
+            /*session_consume_sockbuf(sockbuf);*/
+        /*}*/
 
 
         /* FIXME */
