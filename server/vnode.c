@@ -32,6 +32,7 @@ void vnode_write_queue_handle_write(work_queue_t *wq)
 
         /* FIXME 2014-10-10 18:57:20 */
         __sync_add_and_fetch(&session->finished_works, 1);
+        /*session_response(session, RESULT_SUCCESS);*/
 
         /*uint32_t total_committed = __sync_add_and_fetch(&vnode->total_committed, 1);*/
         /*if ( total_committed > 800 ) {*/

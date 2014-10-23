@@ -50,6 +50,8 @@ void connection_destroy(connection_t *connection)
 static void after_session_send_data(uv_write_t *write_rsp, int status) 
 {
     zfree(write_rsp);
+    /*session_t *session = (session_t*)write_rsp->data;*/
+    /*pthread_mutex_unlock(&session->send_pending_lock);*/
 }
 
 int session_send_data(session_t *session, char *buf, uint32_t buf_size, void *user_data, uv_write_cb after_write)
@@ -93,24 +95,29 @@ int session_response_data(session_t *session, char *buf, uint32_t buf_size)
     return ret;
 }
 
+void session_response_message(session_t *session, message_t *message)
+{
+    uint32_t msg_size = sizeof(message_t) + message->data_length;
+    session_response_data(session, (char *)message, msg_size);
+}
+
 /* ==================== session_response() ==================== */ 
 void session_response(session_t *session, enum MSG_RESULT result)
 {
     message_t *response = alloc_response_message(result);
 
-    uint32_t msg_size = sizeof(message_t) + response->data_length;
-    session_response_data(session, (char *)response, msg_size);
+    session_response_message(session, response);
 
     zfree(response);
 }
 
-/* =================== on_close() ==================== */ 
+/* =================== session_on_close() ==================== */ 
 /**
  * Try to destroy session after uv_close().
  * Called by session_after_shutdown().
  */
     /* FIXME */
-UNUSED static void on_close(uv_handle_t *tcp_handle) 
+UNUSED static void session_on_close(uv_handle_t *tcp_handle) 
 {
     session_t *session = (session_t *)tcp_handle->data; 
 
@@ -147,7 +154,7 @@ void session_after_shutdown(uv_shutdown_t *shutdown_req, int status)
     /*}*/
 
     /* FIXME */
-    uv_close((uv_handle_t*)shutdown_req->handle, on_close);
+    uv_close((uv_handle_t*)shutdown_req->handle, session_on_close);
     /*uv_close((uv_handle_t*)shutdown_req->handle, NULL);*/
 
     zfree(shutdown_req);

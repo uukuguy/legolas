@@ -166,7 +166,7 @@ int server_handle_write(session_t *session, message_t *request)
 
         object_t *object = server_write_to_cache(session, &msgidx);
         if (  object == NULL ) {
-            error_log("session_write_block() failed.");
+            error_log("session_write_to_cache() failed.");
             __sync_add_and_fetch(&session->finished_works, 1);
             session->total_writed = 0;
             ret = -1;
@@ -178,8 +178,14 @@ int server_handle_write(session_t *session, message_t *request)
 
             if ( session->total_writed >= msgidx.object_size ){
 
-                vnode_t *vnode = get_vnode_by_key(SERVER(session), &object->key_md5);
-                vnode_enqueue_write_queue(vnode, session, object);
+                /* FIXME 2014-10-23 15:49:37 */
+                /*vnode_t *vnode = get_vnode_by_key(SERVER(session), &object->key_md5);*/
+                /*vnode_enqueue_write_queue(vnode, session, object);*/
+
+                /*__sync_add_and_fetch(&session->finished_works, 1);*/
+                server_write_to_storage(session, object);
+                session_response(session, RESULT_SUCCESS);
+
                 session->total_writed = 0;
 
                 /* FIXME */

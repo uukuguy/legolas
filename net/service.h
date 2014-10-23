@@ -77,5 +77,7 @@ void service_destroy(service_t *service);
 void enqueue_parse_queue(session_t *session, sockbuf_t *sockbuf);
 sockbuf_t *dequeue_parse_queue(session_t *session);
 
+void service_stop(service_t *service);
+
 #endif /* __SERVICE_H__ */
 

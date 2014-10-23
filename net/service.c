@@ -267,3 +267,9 @@ sockbuf_t *dequeue_parse_queue(session_t *session)
     return NULL;
 }
 
+void service_stop(service_t *service)
+{
+    uv_loop_t *loop = &service->connection.loop;
+    uv_stop(loop);
+}
+

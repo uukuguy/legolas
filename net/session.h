@@ -123,6 +123,8 @@ typedef struct message_context_t {
 
     uint32_t writed_body_size;
 
+    uint32_t total_message_new;
+    uint32_t total_message_free;
 } message_context_t;
 
 
@@ -230,6 +232,7 @@ extern int too_many_requests(session_t *session);
 
 extern int session_send_data(session_t *session, char *buf, uint32_t buf_size, void *user_data, uv_write_cb after_write);
 extern int session_response_data(session_t *session, char *buf, uint32_t buf_size);
+extern void session_response_message(session_t *session, message_t *message);
 extern void session_response(session_t *session, enum MSG_RESULT result); 
 
 sockbuf_t *get_current_sockbuf(void);

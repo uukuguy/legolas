@@ -17,6 +17,7 @@
 #include "session.h"
 #include "work.h"
 #include "logger.h"
+#include "uv.h"
 /*#include "react_utils.h"*/
 
 /*#include "coroutine.h"*/
@@ -467,7 +468,9 @@ int consume_a_message(message_context_t *msgctx, char *data, uint32_t data_size)
             msgctx->consumed_size += msgctx->except_size;
 
             if ( msgctx->msgheader.data_length == 0 ){ 
+                assert(msgctx->total_message_new == msgctx->total_message_free);
                 msgctx->message = (message_t*)zmalloc(sizeof(message_t));
+                msgctx->total_message_new++;
                 memset(msgctx->message, 0, sizeof(message_t));
                 memcpy(msgctx->message, &msgctx->msgheader, sizeof(message_t));
 
@@ -475,7 +478,9 @@ int consume_a_message(message_context_t *msgctx, char *data, uint32_t data_size)
                 msgctx->current_state = ConsumeState_WAITING_HEAD;
                 return 0;
             } else {
+                assert(msgctx->total_message_new == msgctx->total_message_free);
                 msgctx->message = (message_t*)zmalloc(sizeof(message_t) + msgctx->msgheader.data_length);
+                msgctx->total_message_new++;
                 memset(msgctx->message, 0, sizeof(message_t) + msgctx->msgheader.data_length);
                 memcpy(msgctx->message, &msgctx->msgheader, sizeof(message_t));
                 msgctx->writed_body_size = 0;
@@ -530,10 +535,23 @@ void test_consume_sockbuf(session_t *session, sockbuf_t *sockbuf)
         if ( consume_a_message(msgctx, data, data_size) == 0 ){
             // recevie a message OK.
             message_t *message = msgctx->message;
+
+            if ( check_message(message) != 0) {
+                warning_log("Check magic_code in message failed!");
+                msgctx->consumed_size = 0;
+                sockbuf_free(sockbuf);
+                /*__sync_add_and_fetch(&session->finished_works, 1);*/
+                session_response(session, RESULT_ERR_UNKNOWN);
+                break;
+            }
+
             if ( session->service->callbacks.handle_message != NULL ){
                 session->service->callbacks.handle_message(session, message);
             }
+
+
             zfree(msgctx->message);
+            msgctx->total_message_free++;
             msgctx->message = NULL;
         }
         assert(msgctx->consumed_size <= sockbuf->write_head);
@@ -573,13 +591,13 @@ void session_after_read(uv_stream_t *handle, ssize_t nread, const uv_buf_t *buf)
 
         /*enqueue_parse_queue(session, sockbuf);*/
 
-        test_consume_sockbuf(session, sockbuf);
+        /*test_consume_sockbuf(session, sockbuf);*/
 
-        /*if ( session->service->callbacks.consume_sockbuf != NULL ){*/
-            /*session->service->callbacks.consume_sockbuf(sockbuf);*/
-        /*} else {*/
-            /*session_consume_sockbuf(sockbuf);*/
-        /*}*/
+        if ( session->service->callbacks.consume_sockbuf != NULL ){
+            session->service->callbacks.consume_sockbuf(sockbuf);
+        } else {
+            session_consume_sockbuf(sockbuf);
+        }
 
 
         /* FIXME */
@@ -605,7 +623,7 @@ void session_after_read(uv_stream_t *handle, ssize_t nread, const uv_buf_t *buf)
             info_log("It's UV__EOF (%d)", (int32_t)nread);
         } else {
             /*warning_log("read error. errno=-%d(%zu) total_bytes=%zu", ~(uint32_t)(nread - 1), nread, session->connection.total_bytes);*/
-            warning_log("read error. errno=-%d total_bytes=%zu", (int32_t)nread, session->connection.total_bytes);
+            warning_log("read error. errno=-%d err:%s", (int32_t)nread, uv_strerror((int32_t)nread));
         }
 
         /* -------- Shutdown -------- */

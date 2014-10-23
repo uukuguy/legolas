@@ -106,6 +106,12 @@ int server_handle_message(session_t *session, message_t *message)
     } else if ( message->msg_type == MSG_TYPE_RESPONSE ) {
     }
 
+    /* FIXME 2014-10-23 13:11:02 */
+    /*if ( total_requests >= 10000 ){*/
+        /*service_t *service = server->service;*/
+        /*service_stop(service);*/
+    /*}*/
+
     return ret;
 }
 
@@ -132,16 +138,16 @@ void server_idle_cb(uv_idle_t *idle_handle, int status)
     session_t *session = (session_t*)idle_handle->data;
 
     /* FIXME Response success to client. for write.*/
-    uint32_t finished_works = session->finished_works;
-    if ( finished_works > 0 ) {
-        __sync_sub_and_fetch(&session->finished_works, finished_works);
-        __sync_add_and_fetch(&session->total_finished_works, 1);
-        while ( finished_works-- > 0 ) {
-            __sync_sub_and_fetch(&session->running_tasks, 1);
-            if ( session->waiting_for_close == 0 )
-                session_response(session, RESULT_SUCCESS);
-        }
-    }
+    /*uint32_t finished_works = session->finished_works;*/
+    /*if ( finished_works > 0 ) {*/
+        /*__sync_sub_and_fetch(&session->finished_works, finished_works);*/
+        /*__sync_add_and_fetch(&session->total_finished_works, 1);*/
+        /*while ( finished_works-- > 0 ) {*/
+            /*__sync_sub_and_fetch(&session->running_tasks, 1);*/
+            /*if ( session->waiting_for_close == 0 )*/
+                /*session_response(session, RESULT_SUCCESS);*/
+        /*}*/
+    /*}*/
 
     /* Check is time to shutdown now? */
     session_shutdown(session);
