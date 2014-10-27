@@ -48,6 +48,23 @@ typedef greenlet_t coroutine_t;
 #include "coroutine.h"
 #endif
 
+typedef enum SockmsgState{
+    SOCKMSG_WAITING_HEAD = 0,
+    SOCKMSG_WAITING_BODY
+} SockmsgState;
+
+typedef struct sockmsg_t{
+    enum SockmsgState state;
+    uint32_t except_bytes;
+
+    message_t message_header;
+    message_t *message;
+
+} sockmsg_t;
+
+sockmsg_t *sockmsg_new(void);
+void sockmsg_free(sockmsg_t *sockmsg);
+
 /* -------------------- sockbuf_t -------------------- */
 typedef struct sockbuf_t {
     uint32_t len;
@@ -141,6 +158,8 @@ typedef struct session_t{
     //int react_id_session;
 
     message_context_t msgctx;
+
+    sockmsg_t *sockmsg;
 
     uint32_t id;
     void *user_data;

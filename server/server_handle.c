@@ -11,7 +11,7 @@
 #include "server_handle.h"
 #include "session.h"
 #include "logger.h"
-
+#include "crc32.h"
 #include "server.h"
 #include "kvdb.h"
 #include "vnode.h"
@@ -123,7 +123,7 @@ int server_is_idle(session_t *session)
     int ret = 0;
 
     if ( session->total_received_buffers == 
-            session->total_saved_buffers && session->running_tasks == 0 && session->finished_works == 0){
+            session->total_saved_buffers && session->running_tasks == 0 ){
         ret = 1;
     } else {
         ret = 0;
@@ -193,6 +193,11 @@ void response_with_key(session_t *session, msgidx_t *msgidx, int result)
     response = add_message_arg(response, msgidx->key, msgidx->keylen);
     uint32_t msg_size = sizeof(message_t) + response->data_length;
 
+    if ( response->data_length > 0 ){
+        response->crc32_data = crc32(0, (const char *)response->data, response->data_length);
+    } else {
+        response->crc32_data = 0;
+    }
     session_response_data(session, (char *)response, msg_size);
 
     zfree(response);

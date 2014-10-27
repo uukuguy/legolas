@@ -56,7 +56,8 @@ int udb_do(udb_t *udb, on_ready_cb on_ready)
     pthread_mutex_destroy(&udb->main_pending_lock);
     pthread_cond_destroy(&udb->main_pending_cond);
 
-    notice_log("--- udb_do() udb(%d) done! ---", udb->id);
+
+    /*notice_log("--- udb_do() udb(%d) finished works(%d) done! ---", udb->id, udb->finished_works);*/
 
     return ret;
 }
@@ -72,20 +73,28 @@ void udb_done(udb_t *udb)
     /* FIXME 2014-10-15 10:38:05 */
     /*session_rx_off(session);*/
 
+    /*notice_log("--- udb_done()!!! udb(%d) finished works(%d) ---", udb->id, udb->finished_works);*/
+
     session->waiting_for_close = 1;
-    session_shutdown(session);
+    /*session_shutdown(session);*/
 }
 
 /* ==================== udb_session_is_idle() ==================== */ 
 int udb_session_is_idle(session_t *session)
 {
+    /*udb_t *udb = udb(session);*/
+    /*if ( udb->finished_works < udb->total_works )*/
+        /*return 0;*/
+
     return 1;
 }
 
 /* ==================== udb_session_idle_cb() ==================== */ 
-/*void udb_session_idle_cb(uv_idle_t *idle_handle, int status) */
-/*{*/
-/*}*/
+void udb_session_idle_cb(uv_idle_t *idle_handle, int status) 
+{
+    session_t *session = (session_t*)idle_handle->data;
+    session_shutdown(session);
+}
 
 /* ==================== udb_session_timer_cb() ==================== */ 
 /*void udb_session_timer_cb(uv_timer_t *timer_handle, int status) */
@@ -108,9 +117,9 @@ void udb_session_destroy(session_t *session)
 {
     /* FIXME */
     if ( session != NULL ){
-        udb_t *udb = udb(session);
-        zfree(session);
-        pthread_cond_signal(&udb->main_pending_cond);
+        /*udb_t *udb = udb(session);*/
+        /*zfree(session);*/
+        /*pthread_cond_signal(&udb->main_pending_cond);*/
     }
 }
 
@@ -178,6 +187,16 @@ static void udb_on_connect(session_t *session, int status)
     pthread_cond_signal(&udb->on_ready_cond);
 }
 
+
+static void udb_on_close(session_t *session) 
+/*static void udb_on_connect(service_t *service, int status) */
+{
+    UNUSED udb_t *udb= udb(session);
+    /*udb_t *udb = (udb_t*)service->parent;*/
+
+    pthread_cond_signal(&udb->main_pending_cond);
+}
+
 /* ==================== udb_loop() ==================== */ 
 static int udb_loop(udb_t *udb)
 {
@@ -191,8 +210,6 @@ static int udb_loop(udb_t *udb)
     if ( r != 0 ){
         error_log("Call session_loop() failed.");
     }
-
-    udb_free(udb);
 
     return r;
 }
@@ -251,7 +268,7 @@ udb_t *udb_new(const char *ip, int port, void *user_data)
     memset(udb, 0, sizeof(udb_t));
 
     static session_callbacks_t udb_callbacks = {
-        /*.idle_cb = udb_session_idle_cb,*/
+        .idle_cb = udb_session_idle_cb,
         /*.timer_cb = udb_session_timer_cb,*/
         /*.async_cb = udb_session_async_cb,*/
         .is_idle = udb_session_is_idle,
@@ -260,6 +277,7 @@ udb_t *udb_new(const char *ip, int port, void *user_data)
         .session_destroy = udb_session_destroy,
 
         .on_connect = NULL,
+        .session_on_close = udb_on_close,
 
         .consume_sockbuf = NULL,
         .handle_read_response = NULL,
@@ -301,6 +319,8 @@ void udb_free(udb_t *udb)
         }
 
         service_destroy(udb->service);
+
+        session_free(udb->session);
 
         pthread_mutex_destroy(&udb->on_ready_lock);
         pthread_cond_destroy(&udb->on_ready_cond);

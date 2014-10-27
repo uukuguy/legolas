@@ -182,9 +182,14 @@ int server_handle_write(session_t *session, message_t *request)
                 /*vnode_t *vnode = get_vnode_by_key(SERVER(session), &object->key_md5);*/
                 /*vnode_enqueue_write_queue(vnode, session, object);*/
 
-                /*__sync_add_and_fetch(&session->finished_works, 1);*/
                 server_write_to_storage(session, object);
                 session_response(session, RESULT_SUCCESS);
+
+                __sync_add_and_fetch(&session->finished_works, 1);
+                __sync_sub_and_fetch(&session->running_tasks, 1);
+
+                /*message_t *response = alloc_response_message(RESULT_SUCCESS);*/
+                /*listAddNodeTail(session->responseQueue, response);*/
 
                 session->total_writed = 0;
 

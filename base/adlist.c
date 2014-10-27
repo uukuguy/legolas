@@ -41,6 +41,8 @@
  * On error, NULL is returned. Otherwise the pointer to the new list. */
 list *listCreate(void)
 {
+
+
     struct list *list;
 
     if ((list = zmalloc(sizeof(*list))) == NULL)
@@ -51,6 +53,7 @@ list *listCreate(void)
     list->dup = NULL;
     list->free = NULL;
     list->match = NULL;
+	pthread_mutex_init(&list->pending_lock, NULL);
     return list;
 }
 
@@ -70,6 +73,7 @@ void listRelease(list *list)
         zfree(current);
         current = next;
     }
+	pthread_mutex_destroy(&list->pending_lock);
     zfree(list);
 }
 
@@ -86,6 +90,8 @@ list *listAddNodeHead(list *list, void *value)
     if ((node = zmalloc(sizeof(*node))) == NULL)
         return NULL;
     memset(node, 0, sizeof(listNode));
+
+    list_lock(list);
     node->value = value;
     if (list->len == 0) {
         list->head = list->tail = node;
@@ -97,6 +103,7 @@ list *listAddNodeHead(list *list, void *value)
         list->head = node;
     }
     list->len++;
+    list_unlock(list);
     return list;
 }
 
@@ -114,6 +121,8 @@ list *listAddNodeTail(list *list, void *value)
         return NULL;
     memset(node, 0, sizeof(listNode));
     node->value = value;
+
+    list_lock(list);
     if (list->len == 0) {
         list->head = list->tail = node;
         node->prev = node->next = NULL;
@@ -124,7 +133,29 @@ list *listAddNodeTail(list *list, void *value)
         list->tail = node;
     }
     list->len++;
+    list_unlock(list);
     return list;
+}
+
+listNode *list_pop_front(list *list)
+{
+    listNode *node = NULL;
+
+    list_lock(list);
+    if (list->len > 0) {
+        node = list->head;
+        if ( list->len == 1 ){
+            list->head = NULL;
+            list->tail = NULL;
+        } else {
+            list->head = node->next;
+            node->next->prev = NULL;
+        }
+        list->len--;
+    }
+    list_unlock(list);
+
+    return node;
 }
 
 list *listInsertNode(list *list, listNode *old_node, void *value, int after) {
@@ -134,6 +165,8 @@ list *listInsertNode(list *list, listNode *old_node, void *value, int after) {
         return NULL;
     memset(node, 0, sizeof(listNode));
     node->value = value;
+
+    list_lock(list);
     if (after) {
         node->prev = old_node;
         node->next = old_node->next;
@@ -154,6 +187,7 @@ list *listInsertNode(list *list, listNode *old_node, void *value, int after) {
         node->next->prev = node;
     }
     list->len++;
+    list_unlock(list);
     return list;
 }
 
@@ -163,6 +197,7 @@ list *listInsertNode(list *list, listNode *old_node, void *value, int after) {
  * This function can't fail. */
 void listDelNode(list *list, listNode *node)
 {
+    list_lock(list);
     if (node->prev)
         node->prev->next = node->next;
     else
@@ -174,10 +209,13 @@ void listDelNode(list *list, listNode *node)
     if (list->free) list->free(node->value);
     zfree(node);
     list->len--;
+    list_unlock(list);
 }
 
 /* Returns a list iterator 'iter'. After the initialization every
  * call to listNext() will return the next element of the list.
+ *
+ * NOTICE: Must call list_lock() first.
  *
  * This function can't fail. */
 listIter *listGetIterator(list *list, int direction)
@@ -185,6 +223,7 @@ listIter *listGetIterator(list *list, int direction)
     listIter *iter;
     
     if ((iter = zmalloc(sizeof(*iter))) == NULL) return NULL;
+
     memset(iter, 0, sizeof(listIter));
     if (direction == AL_START_HEAD)
         iter->next = list->head;
@@ -195,6 +234,8 @@ listIter *listGetIterator(list *list, int direction)
 }
 
 /* Release the iterator memory */
+/* NOTICE: Must call list_unlock() after. */
+
 void listReleaseIterator(listIter *iter) {
     zfree(iter);
 }
@@ -319,6 +360,7 @@ listNode *listSearchKey(list *list, void *key)
 listNode *listIndex(list *list, long index) {
     listNode *n;
 
+    list_lock(list);
     if (index < 0) {
         index = (-index)-1;
         n = list->tail;
@@ -327,11 +369,14 @@ listNode *listIndex(list *list, long index) {
         n = list->head;
         while(index-- && n) n = n->next;
     }
+    list_unlock(list);
     return n;
 }
 
 /* Rotate the list removing the tail node and inserting it to the head. */
 void listRotate(list *list) {
+
+    list_lock(list);
     listNode *tail = list->tail;
 
     if (listLength(list) <= 1) return;
@@ -344,4 +389,18 @@ void listRotate(list *list) {
     tail->prev = NULL;
     tail->next = list->head;
     list->head = tail;
+
+    list_unlock(list);
 }
+
+
+void list_lock(list *list)
+{
+    pthread_mutex_lock(&list->pending_lock);
+}
+
+void list_unlock(list *list)
+{
+    pthread_mutex_unlock(&list->pending_lock);
+}
+

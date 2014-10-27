@@ -120,7 +120,7 @@ void client_write_next_file(udb_t *udb)
     if ( client_runtime->total_send < client->total_files) {
 
         if ( client_runtime->total_send % 100 == 0 ) {
-            trace_log("\n-------- Session(%d) udb(%d) start to write %d/%d files", udb->session->id, udb->id, client_runtime->total_send, client->total_files);
+            info_log("\n-------- Session(%d) udb(%d) start to write %d/%d files", udb->session->id, udb->id, client_runtime->total_send, client->total_files);
 
             /*if ( client_runtime->total_send % 1000 == 0 ) {*/
                 /*log_sysinfo();*/
@@ -133,6 +133,7 @@ void client_write_next_file(udb_t *udb)
         if ( udb->is_batch  == 0 ){
             notice_log("\n===== Session(%d) udb(%d) Write %d files done. =====\n", udb->session->id, udb->id, client->total_files);
 
+            /*pthread_cond_signal(&udb->main_pending_cond);*/
             udb_done(udb);
         }
     }
@@ -356,6 +357,7 @@ int client_run_task(client_t *client, int id)
 
     udb_t *udb = udb_new(client->ip, client->port, (void*)client_runtime);
     udb->is_batch = client->is_batch;
+    udb->total_works = client->total_files;
 
     ret = udb_do(udb, client_execute);
 

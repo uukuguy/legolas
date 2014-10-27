@@ -57,6 +57,8 @@ typedef struct udb_t {
     uint32_t total_readed;
     uint32_t total_writed;
 
+    uint32_t finished_works;
+    uint32_t total_works;
 
     uint32_t slice_idx;
     uint32_t nslices;

@@ -97,6 +97,12 @@ int session_response_data(session_t *session, char *buf, uint32_t buf_size)
 
 void session_response_message(session_t *session, message_t *message)
 {
+    if ( message->data_length > 0 ){
+        message->crc32_data = crc32(0, (const char *)message->data, message->data_length);
+    } else {
+        message->crc32_data = 0;
+    }
+
     uint32_t msg_size = sizeof(message_t) + message->data_length;
     session_response_data(session, (char *)message, msg_size);
 }
@@ -122,9 +128,12 @@ UNUSED static void session_on_close(uv_handle_t *tcp_handle)
     session_t *session = (session_t *)tcp_handle->data; 
 
     total_sessions++;
-    info_log("on_close(). session(%d) total_sessions: %d total_finished_works: %d", session->id, total_sessions, session->total_finished_works);
+    info_log("on_close(). session(%d) total_sessions: %d finished works: %d", session->id, total_sessions, session->finished_works);
     
-    session_free(session);
+    if ( session->service->callbacks.session_on_close != NULL ) {
+        session->service->callbacks.session_on_close(session);
+    }
+    /*session_free(session);*/
 }
 
 /* ==================== session_after_shutdown() ==================== */ 
@@ -135,6 +144,7 @@ UNUSED static void session_on_close(uv_handle_t *tcp_handle)
 void session_after_shutdown(uv_shutdown_t *shutdown_req, int status) 
 {
     session_t *session = (session_t *)shutdown_req->data; 
+
 
     /*pthread_mutex_lock(&session->recv_pending_lock);{*/
 
@@ -162,6 +172,7 @@ void session_after_shutdown(uv_shutdown_t *shutdown_req, int status)
 
 void session_shutdown(session_t *session)
 {
+
     if ( !session->stop ){
 
         if ( session->waiting_for_close == 1 ) {
@@ -173,7 +184,7 @@ void session_shutdown(session_t *session)
             /*if ( session->service->callbacks.is_idle(session)) {*/
                 session->stop = 1;
 
-                info_log("Start to close session in session_shutdown()");
+                /*info_log("Start to close session in session_shutdown()");*/
 
                 if ( session->service->callbacks.timer_cb != NULL ){
                     uv_timer_stop(&session->timer_handle);
@@ -187,6 +198,7 @@ void session_shutdown(session_t *session)
                 memset(shutdown_req, 0, sizeof(uv_shutdown_t));
                 shutdown_req->data = session;
                 uv_shutdown(shutdown_req, &session->connection.handle.stream, session_after_shutdown);
+
                 return;
             }
         }
@@ -244,13 +256,15 @@ session_t* session_new(service_t *service, void *user_data)
     session->total_finished_works = 0;
     session->user_data = user_data;
 
+    session->sockmsg = sockmsg_new();
+
     if ( create_session_coroutine(session) != 0 ) {
         error_log("create_session_coroutine() failed.");
         session_free(session);
         return NULL; 
     }
     session->responseQueue = listCreate();
-    listSetFreeMethod(session->responseQueue, byte_block_free);
+    listSetFreeMethod(session->responseQueue, zfree);
 
     const session_callbacks_t *callbacks = &service->callbacks;
     if ( callbacks->session_init != NULL ) {
@@ -334,6 +348,17 @@ static void session_on_connect_to_server(uv_connect_t *req, int status)
     /*session_callbacks_t *callbacks = &service->callbacks;*/
     session_t *session = (session_t*)req->handle->data;
     session_callbacks_t *callbacks = &session->service->callbacks;
+
+
+    if ( callbacks->idle_cb != NULL ) {
+        uv_idle_t *idle_handle = &session->idle_handle;
+        idle_handle->data = session;
+
+        uv_loop_t *loop = SESSION_LOOP(session);
+        uv_idle_init(loop, idle_handle);
+        uv_idle_start(idle_handle, callbacks->idle_cb);
+    }
+
     if ( callbacks->session_on_connect_to_server != NULL ){
         /*callbacks->session_on_connect_to_server(service, status);*/
         callbacks->session_on_connect_to_server(session, status);
@@ -484,9 +509,10 @@ int session_waiting_message(session_t *session)
 /* ==================== session_free() ==================== */ 
 void session_free(session_t *session)
 {
-    notice_log("session_free() session.id: %d", session->id);
+    /*notice_log("session_free() session.id: %d", session->id);*/
     assert(session != NULL);
 
+    notice_log("session_free(). session(%d) finished works(%d)", session->id, session->finished_works);
     destroy_session_coroutine(session);
     listRelease(session->responseQueue);
 
@@ -506,6 +532,8 @@ void session_free(session_t *session)
     /*react_stop_action(session->react_id_session);*/
 
     /*REACT_CLEANUP(session->react_ctx);*/
+
+    sockmsg_free(session->sockmsg);
 
     if ( session->service->callbacks.session_destroy != NULL ) {
         session->service->callbacks.session_destroy(session);

@@ -17,6 +17,7 @@
 #include "session.h"
 #include "work.h"
 #include "logger.h"
+#include "crc32.h"
 #include "uv.h"
 /*#include "react_utils.h"*/
 
@@ -25,6 +26,21 @@
 static pthread_once_t _tls_init_once = PTHREAD_ONCE_INIT;
 static int _sockbuf_init_complete = 0;
 static pthread_key_t _current_sockbuf;
+
+sockmsg_t *sockmsg_new(void)
+{
+    sockmsg_t *sockmsg = (sockmsg_t*)zmalloc(sizeof(sockmsg_t));
+    memset(sockmsg, 0, sizeof(sockmsg_t));
+    sockmsg->state = SOCKMSG_WAITING_HEAD;
+    sockmsg->except_bytes = sizeof(message_t);
+    return sockmsg;
+}
+
+void sockmsg_free(sockmsg_t *sockmsg)
+{
+    assert(sockmsg != NULL);
+    zfree(sockmsg);
+}
 
 static void _sockbuf_tls_init(void)
 {
@@ -240,6 +256,13 @@ int session_do_read(sockbuf_t *sockbuf, message_t **p_message)
     memcpy(message, &message_header, sizeof(message_header));
 
     do_read_data(sockbuf, message->data, message->data_length);
+
+    if ( message->data_length > 0 ){
+        uint32_t crc = crc32(0, (const char *)message->data, message->data_length);
+        if ( crc != message->crc32_data ){
+            warning_log("Check session(%d) message(%d) data crc32 failed.", session->id, message->id);
+        }
+    }
 
     /* FIXME coroutine */
     /*sockbuf = coroutine_self_data();*/
@@ -457,6 +480,7 @@ void session_consume_sockbuf(sockbuf_t *sockbuf)
 /*
  * nread <= DEFAULT_CONN_BUF_SIZE 64 * 1024
  */
+
 int consume_a_message(message_context_t *msgctx, char *data, uint32_t data_size)
 {
     int current_state = msgctx->current_state;
@@ -467,26 +491,42 @@ int consume_a_message(message_context_t *msgctx, char *data, uint32_t data_size)
             memcpy(&msgbuf[sizeof(message_t) - msgctx->except_size], data, msgctx->except_size);
             msgctx->consumed_size += msgctx->except_size;
 
-            if ( msgctx->msgheader.data_length == 0 ){ 
-                assert(msgctx->total_message_new == msgctx->total_message_free);
-                msgctx->message = (message_t*)zmalloc(sizeof(message_t));
-                msgctx->total_message_new++;
-                memset(msgctx->message, 0, sizeof(message_t));
-                memcpy(msgctx->message, &msgctx->msgheader, sizeof(message_t));
 
+            message_t *message = &msgctx->msgheader;
+            if ( message->magic_code[0] == 'l' &&
+                    message->magic_code[1] == 'e' &&
+                    message->magic_code[2] == 'g' &&
+                    message->magic_code[3] == 'o' &&
+                    message->magic_code[4] == 'l' &&
+                    message->magic_code[5] == 'a' &&
+                    message->magic_code[6] == 's' ) { 
+
+                if ( msgctx->msgheader.data_length == 0 ){ 
+                    /*assert(msgctx->total_message_new == msgctx->total_message_free);*/
+                    msgctx->message = (message_t*)zmalloc(sizeof(message_t));
+                    msgctx->total_message_new++;
+                    memset(msgctx->message, 0, sizeof(message_t));
+                    memcpy(msgctx->message, &msgctx->msgheader, sizeof(message_t));
+
+                    msgctx->except_size = sizeof(message_t);
+                    msgctx->current_state = ConsumeState_WAITING_HEAD;
+                    return 0;
+                } else {
+                    /*assert(msgctx->total_message_new == msgctx->total_message_free);*/
+                    msgctx->message = (message_t*)zmalloc(sizeof(message_t) + msgctx->msgheader.data_length);
+                    msgctx->total_message_new++;
+                    memset(msgctx->message, 0, sizeof(message_t) + msgctx->msgheader.data_length);
+                    memcpy(msgctx->message, &msgctx->msgheader, sizeof(message_t));
+                    msgctx->writed_body_size = 0;
+
+                    msgctx->except_size = msgctx->msgheader.data_length;
+                    msgctx->current_state = ConsumeState_WAITING_BODY;
+                    return -1;
+                }
+            } else {
+                warning_log("Check magic_code in message(%d) failed!", message->id);
                 msgctx->except_size = sizeof(message_t);
                 msgctx->current_state = ConsumeState_WAITING_HEAD;
-                return 0;
-            } else {
-                assert(msgctx->total_message_new == msgctx->total_message_free);
-                msgctx->message = (message_t*)zmalloc(sizeof(message_t) + msgctx->msgheader.data_length);
-                msgctx->total_message_new++;
-                memset(msgctx->message, 0, sizeof(message_t) + msgctx->msgheader.data_length);
-                memcpy(msgctx->message, &msgctx->msgheader, sizeof(message_t));
-                msgctx->writed_body_size = 0;
-
-                msgctx->except_size = msgctx->msgheader.data_length;
-                msgctx->current_state = ConsumeState_WAITING_BODY;
                 return -1;
             }
         } else {
@@ -525,6 +565,24 @@ int consume_a_message(message_context_t *msgctx, char *data, uint32_t data_size)
     return -1;
 }
 
+void message_context_clear_message(message_context_t *msgctx)
+{
+    if ( msgctx->message != NULL ){
+        zfree(msgctx->message);
+        msgctx->message = NULL;
+
+        msgctx->total_message_free++;
+    }
+}
+
+void dump_message_data(message_t *message, const char *dumpfile_name)
+{
+    int file = open(dumpfile_name, O_CREAT | O_TRUNC | O_WRONLY | O_SYNC, 0640);
+    write(file, message->data, message->data_length);
+    close(file);
+
+}
+
 void test_consume_sockbuf(session_t *session, sockbuf_t *sockbuf)
 {
     message_context_t *msgctx = &session->msgctx;
@@ -536,23 +594,28 @@ void test_consume_sockbuf(session_t *session, sockbuf_t *sockbuf)
             // recevie a message OK.
             message_t *message = msgctx->message;
 
-            if ( check_message(message) != 0) {
-                warning_log("Check magic_code in message failed!");
-                msgctx->consumed_size = 0;
-                sockbuf_free(sockbuf);
-                /*__sync_add_and_fetch(&session->finished_works, 1);*/
-                session_response(session, RESULT_ERR_UNKNOWN);
-                break;
+            /*if ( check_message(message) != 0) {*/
+                /*warning_log("Check magic_code in message(%d) failed!", message->id);*/
+            uint32_t crc = crc32(0, (const char *)message->data, message->data_length);
+            if ( crc != message->crc32_data ){
+                warning_log("Check data crc32 in session(%d) message(%d) data_length(%d) failed!", session->id, message->id, message->data_length);
+                /*dump_message_data(message, "message_data.dat");*/
+                
             }
+
+                /*msgctx->consumed_size = 0;*/
+                /*sockbuf_free(sockbuf);*/
+                /*message_context_clear_message(msgctx);*/
+                /*[>__sync_add_and_fetch(&session->finished_works, 1);<]*/
+                /*session_response(session, RESULT_ERR_UNKNOWN);*/
+                /*break;*/
+            /*}*/
 
             if ( session->service->callbacks.handle_message != NULL ){
                 session->service->callbacks.handle_message(session, message);
             }
 
-
-            zfree(msgctx->message);
-            msgctx->total_message_free++;
-            msgctx->message = NULL;
+            message_context_clear_message(msgctx);
         }
         assert(msgctx->consumed_size <= sockbuf->write_head);
         if ( msgctx->consumed_size == sockbuf->write_head ){
@@ -572,6 +635,38 @@ void session_after_read(uv_stream_t *handle, ssize_t nread, const uv_buf_t *buf)
 
     if ( nread > 0 ) {
 
+        /* -------- sockmsg -------- */
+        /*sockmsg_t *sockmsg = session->sockmsg;*/
+
+        /*if ( nread != sockmsg->except_bytes ){*/
+            /*warning_log("nread:%zu != sockmsg->except_bytes:%d", nread, sockmsg->except_bytes);*/
+        /*} else {*/
+            /*info_log("nread:%zu == sockmsg->except_bytes:%d", nread, sockmsg->except_bytes);*/
+        /*}*/
+
+        /*if ( sockmsg->state == SOCKMSG_WAITING_HEAD ){*/
+            /*if ( nread != sizeof(message_t) ){*/
+                /*warning_log("SKIP sockmsg! sockmsg received %zu bytes. It's not except %zu bytes.", nread, sizeof(message_t));*/
+            /*} else {*/
+                /*sockmsg->state = SOCKMSG_WAITING_BODY;*/
+            /*}*/
+        /*} else if ( sockmsg->state == SOCKMSG_WAITING_BODY ){*/
+            /*if ( nread != sockmsg->message->data_length ){*/
+                /*warning_log("SKIP sockmsg! sockmsg received %zu bytes. It's not except %d bytes.", nread, sockmsg->message->data_length);*/
+            /*} else {*/
+                /*if ( session->service->callbacks.handle_message != NULL ){*/
+                    /*session->service->callbacks.handle_message(session, session->sockmsg->message);*/
+                /*}*/
+                /*zfree(session->sockmsg->message);*/
+                /*session->sockmsg->message = NULL;*/
+            /*}*/
+            /*sockmsg->state = SOCKMSG_WAITING_HEAD;*/
+        /*} else {*/
+            /*error_log("Unexcept else in session_after_read()!");*/
+            /*abort();*/
+        /*}*/
+
+        /* -------- sockbuf -------- */
         sockbuf_t *sockbuf = container_of(buf->base, sockbuf_t, base);
         assert(session == sockbuf->session);
 
@@ -580,6 +675,7 @@ void session_after_read(uv_stream_t *handle, ssize_t nread, const uv_buf_t *buf)
 
         __sync_add_and_fetch(&session->total_received_buffers, 1);
         __sync_add_and_fetch(&session->connection.total_bytes, nread);
+
 
         /*notice_log("--- blocks: %d nread: %d total_reaceived: %zu", session->total_received_buffers, (int32_t)nread, session->connection.total_bytes);*/
 
@@ -620,10 +716,12 @@ void session_after_read(uv_stream_t *handle, ssize_t nread, const uv_buf_t *buf)
 
         /* -------- UV__EOF -------- */
         if ( nread == UV__EOF ) {
-            info_log("It's UV__EOF (%d)", (int32_t)nread);
+            info_log("It's UV__EOF (%d) %s. session(%d) finished works(%d)", (int32_t)nread, uv_strerror((int32_t)nread), session->id, session->finished_works);
+        } else if ( nread == UV__ECONNRESET ){
+            info_log("It's UV__ECONNRESET (%d) %s. session(%d) finished works(%d)", (int32_t)nread, uv_strerror((int32_t)nread), session->id, session->finished_works);
         } else {
             /*warning_log("read error. errno=-%d(%zu) total_bytes=%zu", ~(uint32_t)(nread - 1), nread, session->connection.total_bytes);*/
-            warning_log("read error. errno=-%d err:%s", (int32_t)nread, uv_strerror((int32_t)nread));
+            warning_log("read error. errno=-%d err:%s. session(%d) finished works(%d)", (int32_t)nread, uv_strerror((int32_t)nread), session->id, session->finished_works);
         }
 
         /* -------- Shutdown -------- */
@@ -662,4 +760,34 @@ void session_alloc(uv_handle_t *handle, size_t suggested_size, uv_buf_t *buf)
 
 }
 
+
+UNUSED void session_alloc_sockmsg(uv_handle_t *handle, size_t suggested_size, uv_buf_t *buf) 
+{
+    session_t *session = (session_t*)handle->data;
+
+    sockmsg_t *sockmsg = session->sockmsg;
+
+    if ( sockmsg->state == SOCKMSG_WAITING_HEAD ){
+        sockmsg->except_bytes = sizeof(message_t);
+
+        buf->base = (char*)&sockmsg->message_header;
+        buf->len = sockmsg->except_bytes;
+    } else if ( sockmsg->state == SOCKMSG_WAITING_BODY ){
+        sockmsg->except_bytes = sockmsg->message_header.data_length;
+
+        uint32_t msg_size = sizeof(sockmsg->message_header) + sockmsg->message_header.data_length;
+        message_t *message = (message_t*)zmalloc(msg_size);
+        memset(message, 0, sizeof(msg_size));
+        memcpy(message, &sockmsg->message_header, sizeof(sockmsg->message_header));
+        sockmsg->message = message;
+
+        buf->base = (char *)sockmsg->message->data;
+        buf->len = sockmsg->except_bytes;
+    } else {
+        error_log("Unexcept else in session_alloc()!");
+        abort();
+    }
+
+    /*notice_log("session_alloc() except_bytes:%d", sockmsg->except_bytes);*/
+}
 

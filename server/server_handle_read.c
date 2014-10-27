@@ -14,6 +14,7 @@
 #include "message.h"
 #include "object.h"
 #include "logger.h"
+#include "crc32.h"
 #include "vnode.h"
 
 /* ==================== parse_read_request() ==================== */ 
@@ -59,6 +60,9 @@ int response_object_slice(session_t *session, vnode_t *vnode, object_t *object, 
             response = add_message_arg(response, &object->object_size, sizeof(object->object_size));
             /* ---------- data ---------- */
             response = add_message_arg(response, buf, buf_size);
+
+            response->crc32_data = crc32(0, (const char *)response->data, response->data_length);
+            response->id = session->finished_works++;
 
             uint32_t msg_size = sizeof(message_t) + response->data_length;
             session_response_data(session, (char *)response, msg_size);

@@ -181,23 +181,16 @@ int service_init(service_t *service)
     /*service->rx_coroutines = (coroutine_t**)zmalloc(sizeof(coroutine_t*) * parse_threads);*/
 
     /* FIXME 2014-10-10 01:36:27 */
-    int i;
-    for ( i = 0; i < parse_threads; i++ ) {
+    /*int i;*/
+    /*for ( i = 0; i < parse_threads; i++ ) {*/
 
-        service->parse_queue[i] = init_work_queue(parse_queue_handle_request, PARSE_INTERVAL);
-        if ( service->parse_queue[i] == NULL ){
-            return -1;
-        }
-
-        work_queue_set_id(service->parse_queue[i], i);
-
-        /*service->rx_coroutines[i] = greenlet_new(session_rx_coroutine, greenlet_current(), 64 * 1024);*/
-        /*service->rx_coroutines[i] = coroutine_create(session_rx_coroutine);*/
-        /*if ( service->rx_coroutines[i] == NULL ) {*/
-            /*error_log("Cann't create coroutine session->rx_coroutine");*/
+        /*service->parse_queue[i] = init_work_queue(parse_queue_handle_request, PARSE_INTERVAL);*/
+        /*if ( service->parse_queue[i] == NULL ){*/
             /*return -1;*/
         /*}*/
-    }
+
+        /*work_queue_set_id(service->parse_queue[i], i);*/
+    /*}*/
 
     return 0;
 }
@@ -207,23 +200,16 @@ void service_destroy(service_t *service)
 {
     /* -------- parse_queue -------- */
     /* FIXME 2014-10-10 01:36:47 */
-    uint32_t parse_threads = service->parse_threads;
-    int i;
-    for ( i = 0; i < parse_threads; i++ ) {
-        work_queue_t *wq = service->parse_queue[i];
-        if ( wq != NULL ) {
-            exit_work_queue(wq);
-            zfree(wq);
-            service->parse_queue[i] = NULL;
-        }
-
-        /* FIXME 2014-10-10 11:35:10 */
-        /*if ( service->rx_coroutines[i] != NULL ){*/
-            /*greenlet_destroy(service->rx_coroutines[i]);*/
-            /*coroutine_delete(service->rx_coroutines[i]);*/
-            /*service->rx_coroutines[i] = NULL;*/
+    /*uint32_t parse_threads = service->parse_threads;*/
+    /*int i;*/
+    /*for ( i = 0; i < parse_threads; i++ ) {*/
+        /*work_queue_t *wq = service->parse_queue[i];*/
+        /*if ( wq != NULL ) {*/
+            /*exit_work_queue(wq);*/
+            /*zfree(wq);*/
+            /*service->parse_queue[i] = NULL;*/
         /*}*/
-    }
+    /*}*/
     zfree(service->parse_queue);
     service->parse_queue = NULL;
 

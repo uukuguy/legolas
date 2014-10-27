@@ -52,7 +52,7 @@ enum MSG_RESULT {
 	uint8_t         msg_version; \
     uint8_t         op_code; \
     uint8_t         result; \
-    uint16_t        reserved; \
+    uint32_t        crc32_data; \
     /* entire data length without header */ \
 	uint32_t        data_length 
 

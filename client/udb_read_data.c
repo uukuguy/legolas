@@ -14,10 +14,10 @@
 #include "filesystem.h"
 #include "logger.h"
 #include "message.h"
-#include "crc32.h"
 #include "md5.h"
 #include "session.h"
 #include "udb.h"
+#include "crc32.h"
 
 
 /*  ==================== handle_read_response() ==================== */ 
@@ -118,6 +118,8 @@ int udb_handle_read_response(session_t *session, message_t *response)
         ret = -1;
     }
 
+    udb->finished_works++;
+
     return ret;
 }
 
@@ -143,7 +145,7 @@ int udb_read_request(session_t *session)
 
     uint32_t head_size = 0;
 
-    message_t *read_request = alloc_request_message(MSG_OP_READ); 
+    message_t *message = alloc_request_message(MSG_OP_READ); 
     head_size += sizeof(message_t);
 
     const char *key = udb->key;
@@ -151,23 +153,24 @@ int udb_read_request(session_t *session)
     debug_log("udb->key=%s, keylen=%d", key, keylen);
 
     /* -------- key -------- */
-    read_request = add_message_arg(read_request, key, keylen > 128 ? 128 : keylen);
+    message = add_message_arg(message, key, keylen > 128 ? 128 : keylen);
     head_size += sizeof(uint32_t) + keylen;
 
     /* -------- key_md5 -------- */
     md5_value_t md5Value;
     md5(&md5Value, (const uint8_t*)key, keylen);
-    read_request = add_message_arg(read_request, &md5Value, sizeof(md5_value_t));
+    message = add_message_arg(message, &md5Value, sizeof(md5_value_t));
     head_size += sizeof(uint32_t) + sizeof(md5_value_t);
 
     /* -------- ubuf -------- */
-    uint32_t msg_size = sizeof(message_t) + read_request->data_length;
+    uint32_t msg_size = sizeof(message_t) + message->data_length;
     assert(msg_size == head_size);
 
     session->connection.total_bytes += msg_size;
 
-    int r = session_write_request(session, (char*)read_request, msg_size, udb_after_read_request);
-    zfree(read_request);
+    message->crc32_data = crc32(0, (const char *)message->data, message->data_length);
+    int r = session_write_request(session, (char*)message, msg_size, udb_after_read_request);
+    zfree(message);
 
     return r;
 }

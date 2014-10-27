@@ -40,6 +40,8 @@ int udb_handle_write_response(session_t *session, message_t *response)
     if ( udb->after_write_finished != NULL ){
         udb->after_write_finished(udb, response);
     }
+    udb->finished_works++;
+    session->finished_works = udb->finished_works;
 
     return ret;
 }
@@ -121,7 +123,7 @@ int udb_write_request(session_t *session, char *data, uint32_t data_size)
 
     uint32_t head_size = 0;
 
-    message_t *write_request = alloc_request_message(MSG_OP_WRITE); 
+    message_t *message = alloc_request_message(MSG_OP_WRITE); 
     head_size += sizeof(message_t);
 
     const char *key = udb->key;
@@ -129,19 +131,19 @@ int udb_write_request(session_t *session, char *data, uint32_t data_size)
     /*debug_log("udb->key=%s, keylen=%d", key, keylen);*/
 
     /* -------- key -------- */
-    write_request = add_message_arg(write_request, key, keylen > 128 ? 128 : keylen);
+    message = add_message_arg(message, key, keylen > 128 ? 128 : keylen);
     head_size += sizeof(uint32_t) + keylen;
 
     /* -------- key_md5 -------- */
     md5_value_t md5Value;
     md5(&md5Value, (const uint8_t*)key, keylen);
 
-    write_request = add_message_arg(write_request, &md5Value, sizeof(md5_value_t));
+    message = add_message_arg(message, &md5Value, sizeof(md5_value_t));
     head_size += sizeof(uint32_t) + sizeof(md5_value_t);
 
     /* -------- object_size -------- */
     uint32_t object_size = udb->object_size;
-    write_request = add_message_arg(write_request, &object_size, sizeof(object_size));
+    message = add_message_arg(message, &object_size, sizeof(object_size));
     head_size += sizeof(uint32_t) + sizeof(object_size);
 
 
@@ -176,23 +178,25 @@ int udb_write_request(session_t *session, char *data, uint32_t data_size)
     /* FIXME */
     uint32_t crc = 0;
     /*uint32_t crc = crc32(0, buf, writed);*/
-    write_request = add_message_arg(write_request, &crc, sizeof(crc));
+    message = add_message_arg(message, &crc, sizeof(crc));
 
     /* -------- data -------- */
-    write_request = add_message_arg(write_request, buf, writed);
+    message = add_message_arg(message, buf, writed);
 
 
     /* -------- ubuf -------- */
-    uint32_t msg_size = sizeof(message_t) + write_request->data_length;
+    uint32_t msg_size = sizeof(message_t) + message->data_length;
     /*trace_log("msg_size:%d head_size:%d writed:%d body_size:%zu", msg_size, head_size, writed,  head_size + sizeof(uint32_t) + writed); */
     assert(msg_size == head_size + sizeof(uint32_t) + writed);
 
+    message->id = udb->finished_works;
+
     session->connection.total_bytes += msg_size;
 
+    message->crc32_data = crc32(0, (const char *)message->data, message->data_length);
+    session_write_request(session, (char*)message, msg_size, udb_after_write_request);
 
-    session_write_request(session, (char*)write_request, msg_size, udb_after_write_request);
-
-    zfree(write_request);
+    zfree(message);
 
 
     return writed;

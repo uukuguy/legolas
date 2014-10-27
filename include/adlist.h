@@ -31,6 +31,8 @@
 #ifndef __ADLIST_H__
 #define __ADLIST_H__
 
+#include <pthread.h>
+
 /* Node, List, and Iterator are the only data structures used currently. */
 
 typedef struct listNode {
@@ -51,6 +53,7 @@ typedef struct list {
     void (*free)(void *ptr);
     int (*match)(void *ptr, void *key);
     unsigned long len;
+	pthread_mutex_t pending_lock;
 } list;
 
 /* Functions implemented as macros */
@@ -85,6 +88,10 @@ listNode *listIndex(list *list, long index);
 void listRewind(list *list, listIter *li);
 void listRewindTail(list *list, listIter *li);
 void listRotate(list *list);
+
+void list_lock(list *list);
+void list_unlock(list *list);
+listNode *list_pop_front(list *list);
 
 /* Directions for iterators */
 #define AL_START_HEAD 0

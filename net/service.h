@@ -28,6 +28,7 @@ typedef void (*session_destroy_cb)(session_t*);
 typedef void (*consume_sockbuf_cb)(sockbuf_t*);
 typedef void (*on_connect_cb)(uv_connect_t*, int); 
 typedef int (*handle_read_response_cb)(session_t*, msgidx_t*);
+typedef void (*session_on_close_cb)(session_t*);
 
 //typedef void (*session_on_connect_cb)(service_t*, int);
 typedef void (*session_on_connect_to_server_cb)(session_t*, int);
@@ -47,6 +48,8 @@ typedef struct session_callbacks_t {
 
     session_on_connect_to_server_cb session_on_connect_to_server;
     session_on_connect_from_client_cb session_on_connect_from_client;
+
+    session_on_close_cb session_on_close;
 
 } session_callbacks_t;
 

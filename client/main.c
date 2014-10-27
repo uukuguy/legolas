@@ -80,7 +80,7 @@ int start_client_threads(client_t *client)
         if ( ret != 0 ){
             error_log("pthread_create() thread:%d failed. errno:%d", i, errno);
         } else {
-            trace_log("phread_create() thread:%d OK.", i);
+            info_log("phread_create() thread:%d OK.", i);
         }
     }
 
@@ -91,7 +91,7 @@ int start_client_threads(client_t *client)
         if ( ret != 0 ){
             error_log("pthread_join() failed. i:%d", i);
         } else {
-            trace_log("pthread_join() OK. i:%d", i);
+            info_log("pthread_join() OK. i:%d", i);
         }
     }
 
@@ -165,6 +165,8 @@ int runclient(program_options_t *program_options)
         fseek(file, 0, SEEK_SET);
 
         char *buf = zmalloc(file_size);
+        /*memset(buf, 'Z', sizeof(file_size));*/
+
         memset(buf, 0, sizeof(file_size));
         uint32_t readed = fread(buf, 1, file_size, file); 
         if ( readed != file_size ){
@@ -249,7 +251,7 @@ static struct option const long_options[] = {
 	{"read", no_argument, NULL, 'r'},
 	{"delete", no_argument, NULL, 'x'},
 	{"key", required_argument, NULL, 'k'},
-	{"start", required_argument, NULL, 'b'},
+	{"start", required_argument, NULL, 's'},
 	{"count", required_argument, NULL, 'n'},
 	{"threads", required_argument, NULL, 'u'},
 	{"daemon", no_argument, NULL, 'd'},

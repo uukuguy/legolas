@@ -11,7 +11,7 @@
 #include "logger.h"
 #include "crc32.h"
 
-static uint32_t message_id = 0;
+/*static uint32_t message_id = 0;*/
 
 message_t *alloc_request_message(enum MSG_OPERATION op_code)
 {
@@ -20,7 +20,8 @@ message_t *alloc_request_message(enum MSG_OPERATION op_code)
     memcpy(message->magic_code, magic_code, sizeof(magic_code));
     message->msg_version = PROTOCAL_VERSION;
     message->msg_type = MSG_TYPE_REQUEST;
-    message->id = __sync_add_and_fetch(&message_id, 1);
+    /*message->id = __sync_add_and_fetch(&message_id, 1);*/
+    message->id = 0;
     message->op_code = op_code;
     return message;
 }
@@ -32,7 +33,8 @@ message_t *alloc_response_message(enum MSG_RESULT result)
     memcpy(message->magic_code, magic_code, sizeof(magic_code));
     message->msg_version = PROTOCAL_VERSION;
     message->msg_type = MSG_TYPE_RESPONSE;
-    message->id = __sync_add_and_fetch(&message_id, 1);
+    /*message->id = __sync_add_and_fetch(&message_id, 1);*/
+    message->id = 0;
     message->result = result;
     return message;
 }
@@ -65,9 +67,13 @@ int check_message(message_t *message)
          message->magic_code[4] == 'l' &&
          message->magic_code[5] == 'a' &&
          message->magic_code[6] == 's' ) { 
-        return 0;
-    } else
-        return -1;
+
+        /*uint32_t crc = crc32(0, (const char *)message->data, message->data_length);*/
+        /*if ( crc == message->crc32_data )*/
+            return 0;
+    } 
+
+    return -1;
 }
 
 /* ==================== check_data_crc32() ==================== */ 
