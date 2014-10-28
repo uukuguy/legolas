@@ -1,0 +1,12 @@
+diff -rupN hyperleveldb-1.2.1/Makefile.am hyperleveldb-1.2.1-new/Makefile.am
+--- hyperleveldb-1.2.1/Makefile.am	2014-08-21 04:45:48.000000000 +0800
++++ hyperleveldb-1.2.1-new/Makefile.am	2014-10-28 11:34:07.636757172 +0800
+@@ -200,7 +200,7 @@ benchmark_LDADD = libhyperleveldb.la -lp
+ benchmark_LDFLAGS = -no-install
+ 
+ db_bench_SOURCES = db/db_bench.cc $(TESTUTIL)
+-db_bench_LDADD = libhyperleveldb.la -lpthread
++db_bench_LDADD = libhyperleveldb.la -lpthread -lsnappy
+ 
+ db_bench_sqlite3_SOURCES = doc/bench/db_bench_sqlite3.cc $(TESTUTIL)
+ db_bench_sqlite3_LDADD = -lsqlite3

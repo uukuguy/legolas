@@ -1,7 +1,6 @@
 bin/*
 lib/*
 data/*
-deps/*/*
 *.beam
 .eunit
 apps/legolas/ebin

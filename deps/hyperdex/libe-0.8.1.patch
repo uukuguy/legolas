@@ -1,0 +1,12 @@
+diff -rupN libe-0.8.1/configure.ac libe-0.8.1-new/configure.ac
+--- libe-0.8.1/configure.ac	2014-08-16 03:01:37.000000000 +0800
++++ libe-0.8.1-new/configure.ac	2014-10-28 11:01:34.432847386 +0800
+@@ -25,7 +25,7 @@ if test x"${needs_lrt}" = xyes; then
+ else
+     AC_SUBST([LRT_LDFLAGS], [""])
+ fi
+-PKG_CHECK_MODULES([PO6], [libpo6 >= 0.5])
++#PKG_CHECK_MODULES([PO6], [libpo6 >= 0.5])
+ 
+ # Checks for header files.
+ AC_CHECK_HEADERS([arpa/inet.h stdint.h stdlib.h string.h])

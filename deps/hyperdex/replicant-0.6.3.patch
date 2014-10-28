@@ -1,0 +1,24 @@
+diff -rupN replicant-0.6.3/configure.ac replicant-0.6.3-new/configure.ac
+--- replicant-0.6.3/configure.ac	2014-08-21 04:51:56.000000000 +0800
++++ replicant-0.6.3-new/configure.ac	2014-10-28 11:37:04.904748984 +0800
+@@ -76,13 +76,13 @@ else
+     AC_SUBST([LRT_LIBS], [""])
+ fi
+ 
+-PKG_CHECK_MODULES([PO6], [libpo6 >= 0.5])
+-PKG_CHECK_MODULES([E], [libe >= 0.7])
+-PKG_CHECK_MODULES([BUSYBEE], [busybee >= 0.5])
+-if test x"${enable_all_components}" = xyes -o \
+-        x"${enable_daemon}" = xyes; then
+-    PKG_CHECK_MODULES([HYPERLEVELDB], [libhyperleveldb >= 1.0])
+-fi
++#PKG_CHECK_MODULES([PO6], [libpo6 >= 0.5])
++#PKG_CHECK_MODULES([E], [libe >= 0.7])
++#PKG_CHECK_MODULES([BUSYBEE], [busybee >= 0.5])
++#if test x"${enable_all_components}" = xyes -o \
++        #x"${enable_daemon}" = xyes; then
++    #PKG_CHECK_MODULES([HYPERLEVELDB], [libhyperleveldb >= 1.0])
++#fi
+ 
+ # Checks for header files.
+ if test x"${enable_all_components}" = xyes -o \
