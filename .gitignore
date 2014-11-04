@@ -14,3 +14,4 @@ doc/*
 rel/legolas
 deps-*.tar.gz
 *.nccout
+deps/*/*

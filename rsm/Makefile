@@ -3,6 +3,11 @@ TARGET = bin/rsm_test
 RSM_LIB= lib/librsm.a
 
 MAIN_OBJS = src/main.oo
+
+CLIENT_OBJS = Client/Client.oo \
+			  Client/ClientImpl.oo \
+			  Client/ClientImplBase.oo
+
 RSM_OBJS = src/Consensus.oo \
 		   src/RaftConsensus.oo \
 		   src/StateMachine.oo \
@@ -42,7 +47,7 @@ PROTOBUF_OBJS = ./Protocol/Raft.pb.oo \
 				./Protocol/Client.pb.oo \
 				./Protocol/Sessions.pb.oo
 
-LIB_OBJS = ${RSM_OBJS} ${STORAGE_OBJS} ${CORE_OBJS}  ${PROTOBUF_OBJS}
+LIB_OBJS = ${CLIENT_OBJS} ${RSM_OBJS} ${STORAGE_OBJS} ${CORE_OBJS}  ${PROTOBUF_OBJS}
 
 all: bin lib ${PROTOBUF_SRC} ${RSM_LIB} ${TARGET}
 

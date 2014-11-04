@@ -116,6 +116,7 @@ CRUSH=crush-20140809
 LTHREAD=lthread-20140730
 PTH=pth-2.0.7
 LIBCORO=libcoro-1.67
+LOGCABIN=logcabin-20140821
 
 PCL=pcl-1.12
 LIBLFDS=liblfds-6.1.1
@@ -147,7 +148,7 @@ client: ${CLIENT}
 # ---------------- deps ----------------
 .PHONY: jemalloc libuv leveldb lmdb zeromq czmq zyre liblfds pcl react eblob
 
-deps: jemalloc libuv leveldb lmdb lsm-sqlite4 zeromq czmq zyre msgpack cgreenlet crush lthread  pth libcoro rocksdb react eblob
+deps: jemalloc libuv leveldb lmdb lsm-sqlite4 zeromq czmq zyre msgpack cgreenlet crush lthread  pth libcoro rocksdb react eblob logcabin
 #pcl 
 
 # ................ jemalloc ................
@@ -505,6 +506,21 @@ deps/eblob:
 	make && \
 	cp -f library/libeblob.a library/react/libeblob_react.a bindings/cpp/libeblob_cpp.a bindings/python/libeblob_python.a ../../../lib/
 
+# ................ logcabin ................
+
+CFLAGS_LOGCABIN=-I./deps/logcabin
+LDFLAGS_LOGCABIN=-llogcabin
+
+logcabin: deps/logcabin
+
+deps/logcabin:
+	cd deps && \
+	tar zxvf ${LOGCABIN}.tar.gz && \
+	ln -sf ${LOGCABIN} logcabin && \
+	cd ${LOGCABIN} && \
+	scons && \
+	cp build/liblogcabin.a ../../lib/
+
 # ---------------- all ----------------
 	
 #CFLAGS_UCONTEXT=-D_XOPEN_SOURCE # ucontext.h error: The deprecated ucontext routines require _XOPEN_SOURCE to be defined.
@@ -523,7 +539,9 @@ COMMON_CFLAGS += ${CFLAGS_LIBUV} \
 				 ${CFLAGS_PTH} \
 				 ${CFLAGS_LIBCORO} \
 				 ${CFLAGS_REACT} \
-				 ${CFLAGS_EBLOB}
+				 ${CFLAGS_EBLOB} \
+				 ${CFLAGS_LOGCABIN}
+
 FINAL_CFLAGS = -std=c11 -Wstrict-prototypes \
 			   ${COMMON_CFLAGS} \
 			   ${CFLAGS}
@@ -555,6 +573,7 @@ FINAL_LDFLAGS += ${LDFLAGS_LIBUV} \
 				${LDFLAGS_LIBCORO} \
 				${LDFLAGS_EBLOB} \
 				${LDFLAGS_REACT} \
+				${LDFLAGS_LOGCABIN} \
 				${LDFLAGS} -lsnappy -lpthread -lssl -lcrypto -lstdc++ -lm -lz
 
 #${LDFLAGS_LIBLFDS} 
@@ -633,7 +652,12 @@ clean-deps:
 		deps/${CRUSH} deps/crush \
 		deps/${LTHREAD} deps/lthread \
 		deps/${PTH} deps/pth \
-		deps/${LIBCORO} deps/libcoro
+		deps/${LIBCORO} deps/libcoro \
+		deps/${LOGCABIN} deps/logcabin \
+		deps/${REACT} deps/react \
+		deps/${EBLOB} deps/eblob \
+		deps/${PCL} deps/pcl \
+		deps/${LIBLFDS} deps/liblfds
 
 cleanall: clean clean-deps
 	rm -f lib/*
