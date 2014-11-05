@@ -10,7 +10,7 @@
 
 #include <gtest/gtest.h>
 
-#include "function.h"
+#include "../instrument/function.h"
 
 class FunctionTest : public testing::Test{
     protected:
@@ -88,9 +88,9 @@ TEST_F(FunctionTest, to_function_test)
     EXPECT_TRUE(function_add_to_function_if_not_exist(func_A, func_A3) == -1);
     EXPECT_EQ(func_A->to_functions_count, 3);
 
-    EXPECT_TRUE(function_find_to_function(func_A, func_A1) == 2); 
+    EXPECT_TRUE(function_find_to_function(func_A, func_A1) == 0); 
     EXPECT_TRUE(function_find_to_function(func_A, func_A2) == 1); 
-    EXPECT_TRUE(function_find_to_function(func_A, func_A3) == 0); 
+    EXPECT_TRUE(function_find_to_function(func_A, func_A3) == 2); 
 
     EXPECT_TRUE(function_find_to_function(func_A, func_S) == -1); 
 

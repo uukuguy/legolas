@@ -13,6 +13,7 @@
 
 #include <stdint.h>
 #include <time.h>
+#include <sys/time.h>
 #include "binary_tree.h"
 //#include "slist.h"
 #include "dlist.h"

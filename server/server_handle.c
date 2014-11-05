@@ -15,6 +15,7 @@
 #include "server.h"
 #include "kvdb.h"
 #include "vnode.h"
+#include "pth.h"
 
 int server_handle_write(session_t *session, message_t *message);
 int server_handle_read(session_t *session, message_t *message);

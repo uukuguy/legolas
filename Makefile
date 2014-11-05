@@ -32,13 +32,13 @@ AR = ar
 #AR = nccar
 
 ifeq (${INSTRUMENT}, yes)
-INSTRUMENT_OBJS = base/instrument.o base/function.o base/calltree.o
-INSTRUMENT_FLAGS = -finstrument-functions
+INSTRUMENT_CFLAGS = -finstrument-functions
+INSTRUMENT_LDFLAGS = -linstrument
 endif
 
 #GPROF_FLAGS = -pg
 #CFLAGS_UCONTEXT=-D_XOPEN_SOURCE # ucontext.h error: The deprecated ucontext routines require _XOPEN_SOURCE to be defined.
-COMMON_CFLAGS = ${GPROF_FLAGS} -g ${INSTRUMENT_FLAGS} -fPIC -m64 -Wall -D_GNU_SOURCE -I./include -I./net ${CFLAGS_UCONTEXT} 
+COMMON_CFLAGS = ${GPROF_FLAGS} -g ${INSTRUMENT_CFLAGS} -fPIC -m64 -Wall -D_GNU_SOURCE -I./include -I./net ${CFLAGS_UCONTEXT} 
 
 KVDB_OBJS = base/kvdb.o 
 
@@ -79,9 +79,6 @@ SERVER_OBJS = server/main.o \
 			  server/logfile.o \
 			  server/object.o
 
-ifeq (${INSTRUMENT}, yes)
-#SERVER_OBJS += ${INSTRUMENT_OBJS}
-endif
 
 CLIENT_OBJS = client/main.o \
 			  client/client.o \
@@ -95,10 +92,6 @@ CLIENT_OBJS = client/main.o \
 			  #client/client_delete.o \
 			  #client/client_session_handle.o \
 			  #client/client_execute.o
-
-ifeq (${INSTRUMENT}, yes)
-CLIENT_OBJS += ${INSTRUMENT_OBJS}
-endif
 
 
 LIBUV=libuv-v0.11.22
@@ -542,7 +535,7 @@ COMMON_CFLAGS += ${CFLAGS_LIBUV} \
 				 ${CFLAGS_EBLOB} \
 				 ${CFLAGS_LOGCABIN}
 
-FINAL_CFLAGS = -std=c11 -Wstrict-prototypes \
+FINAL_CFLAGS = -std=gnu11 -Wstrict-prototypes \
 			   ${COMMON_CFLAGS} \
 			   ${CFLAGS}
 
@@ -574,6 +567,7 @@ FINAL_LDFLAGS += ${LDFLAGS_LIBUV} \
 				${LDFLAGS_EBLOB} \
 				${LDFLAGS_REACT} \
 				${LDFLAGS_LOGCABIN} \
+				${INSTRUMENT_LDFLAGS} \
 				${LDFLAGS} -lsnappy -lpthread -lssl -lcrypto -lstdc++ -lm -lz
 
 #${LDFLAGS_LIBLFDS} 

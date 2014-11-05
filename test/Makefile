@@ -3,7 +3,7 @@ TARGET=../bin/test_legolas
 OBJS = test_main.cpp.o
 
 FINAL_CXXFLAGS = -I../base -I../include -I../net
-FINAL_LDFLAGS = -L../lib ../base/function.o ../base/dlist.o
+FINAL_LDFLAGS = -L../lib ../instrument/function.o ../base/dlist.o
 
 .PHONY: ${TARGET}
 

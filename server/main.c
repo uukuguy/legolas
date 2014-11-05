@@ -17,6 +17,7 @@
 #include <signal.h>
 #include <getopt.h>
 #include <string.h>
+#include "pth.h"
 
 static char program_name[] = "legolasd";
 

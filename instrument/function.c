@@ -8,6 +8,9 @@
  * 
  */
 
+#include <unistd.h>
+#include <stdio.h>
+#include <stdlib.h>
 #include <malloc.h>
 #include <memory.h>
 #include "function.h"
