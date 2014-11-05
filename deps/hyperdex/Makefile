@@ -34,7 +34,7 @@ libe: libpo6
 	cd ${LIBE} && \
 	../../../autogen.sh && \
 	CXXFLAGS="${CFLAGS_LIBPO6}" \
-	./configure --prefix=${HYPERDEX_ROOT} 
+	./configure --prefix=${HYPERDEX_ROOT} \
 	--enable-shared=yes \
 	&& \
 	make && \
