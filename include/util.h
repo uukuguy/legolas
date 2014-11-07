@@ -7,7 +7,7 @@
 #include <string.h>
 
 //#define ARRAY_SIZE(x) (sizeof(x) / sizeof((x)[0]))
-#define roundup(x, y) ((((x) + ((y) - 1)) / (y)) * (y))
+//#define roundup(x, y) ((((x) + ((y) - 1)) / (y)) * (y))
 
 #if __BYTE_ORDER == __LITTLE_ENDIAN
 #define __cpu_to_be16(x) bswap_16(x)

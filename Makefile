@@ -12,17 +12,17 @@
 SERVER = bin/legolasd
 CLIENT = bin/legolas
 
-BASE_OBJS = base/logger.o base/daemon.o 
-#base/coroutine.o  base/react_utils.oo
+BASE_OBJS = base/logger.c.o base/daemon.c.o base/zmalloc.c.o 
+#base/coroutine.c.o  base/react_utils.cc.o
 
-BASE_OBJS += base/zmalloc.o base/work.o base/md5.o base/byteblock.o base/filesystem.o base/sysinfo.o
-BASE_OBJS += base/skiplist.o base/adlist.o base/threadpool.o base/crc32.o base/http_parser.o
+BASE_OBJS += base/work.c.o base/md5.c.o base/byteblock.c.o base/filesystem.c.o base/sysinfo.c.o
+BASE_OBJS += base/skiplist.c.o base/adlist.c.o base/threadpool.c.o base/crc32.c.o base/http_parser.c.o
 
-GENCCONT_OBJS = base/binary_tree.o base/chaining_hash_table.o base/dlist.o base/hash_shared.o base/linear_probing_hash_table.o base/range_binary_tree.o base/slist.o base/slist_queue.o
+GENCCONT_OBJS = base/binary_tree.c.o base/chaining_hash_table.c.o base/dlist.c.o base/hash_shared.c.o base/linear_probing_hash_table.c.o base/range_binary_tree.c.o base/slist.c.o base/slist_queue.c.o
 
 BASE_OBJS += ${GENCCONT_OBJS}
 
-NET_OBJS = net/net.o net/message.o net/service.o net/session.o net/sockbuf_message.o
+NET_OBJS = net/net.c.o net/message.c.o net/service.c.o net/session.c.o net/sockbuf_message.c.o
 
 CC = gcc
 LD = ld
@@ -40,59 +40,52 @@ endif
 #CFLAGS_UCONTEXT=-D_XOPEN_SOURCE # ucontext.h error: The deprecated ucontext routines require _XOPEN_SOURCE to be defined.
 COMMON_CFLAGS = ${GPROF_FLAGS} -g ${INSTRUMENT_CFLAGS} -fPIC -m64 -Wall -D_GNU_SOURCE -I./include -I./net ${CFLAGS_UCONTEXT} 
 
-KVDB_OBJS = base/kvdb.o 
+KVDB_OBJS = base/kvdb.c.o 
 
 KVDB_CFLAGS=-DHAS_LSM -I./deps/lsm
-LSM_OBJS = base/kvdb_lsm.o
+LSM_OBJS = base/kvdb_lsm.c.o
 
 KVDB_OBJS += ${LSM_OBJS}
 
 KVDB_CFLAGS += -DHAS_ROCKSDB
-ROCKSDB_OBJS = base/kvdb_rocksdb.o 
+ROCKSDB_OBJS = base/kvdb_rocksdb.c.o 
 KVDB_OBJS += ${ROCKSDB_OBJS}
 
 KVDB_CFLAGS += -DHAS_LEVELDB
-LEVELDB_OBJS = base/kvdb_leveldb.o 
+LEVELDB_OBJS = base/kvdb_leveldb.c.o 
 KVDB_OBJS += ${LEVELDB_OBJS}
 
 KVDB_CFLAGS += -DHAS_LMDB 
-LMDB_OBJS = base/kvdb_lmdb.o 
+LMDB_OBJS = base/kvdb_lmdb.c.o 
 KVDB_OBJS += ${LMDB_OBJS}
 
 KVDB_CFLAGS += -DHAS_EBLOB
-EBLOB_OBJS = base/kvdb_eblob.o
+EBLOB_OBJS = base/kvdb_eblob.c.o
 KVDB_OBJS += ${EBLOB_OBJS}
 
 COMMON_CFLAGS += ${KVDB_CFLAGS}
 
-SERVER_OBJS = server/main.o \
-			  server/server.o \
-			  server/server_handle.o \
-			  server/server_handle_write.o \
-			  server/server_handle_read.o \
-			  server/server_handle_delete.o \
-			  server/session_send.o \
-			  server/operation.o \
-			  server/storage.o \
-			  server/vnode.o \
-			  server/datazone.o \
-			  server/logfile.o \
-			  server/object.o
+SERVER_OBJS = server/main.c.o \
+			  server/server.c.o \
+			  server/server_handle.c.o \
+			  server/server_handle_write.c.o \
+			  server/server_handle_read.c.o \
+			  server/server_handle_delete.c.o \
+			  server/session_send.c.o \
+			  server/operation.c.o \
+			  server/storage.c.o \
+			  server/vnode.c.o \
+			  server/datazone.c.o \
+			  server/logfile.c.o \
+			  server/object.c.o
 
 
-CLIENT_OBJS = client/main.o \
-			  client/client.o \
-			  client/udb.o \
-			  client/udb_write_data.o \
-			  client/udb_read_data.o \
-			  client/udb_delete_data.o 
-
-			  #client/client_write.o \
-			  #client/client_read.o \
-			  #client/client_delete.o \
-			  #client/client_session_handle.o \
-			  #client/client_execute.o
-
+CLIENT_OBJS = client/main.c.o \
+			  client/client.c.o \
+			  client/udb.c.o \
+			  client/udb_write_data.c.o \
+			  client/udb_read_data.c.o \
+			  client/udb_delete_data.c.o 
 
 LIBUV=libuv-v0.11.22
 JEMALLOC=jemalloc-3.6.0
@@ -100,8 +93,8 @@ LEVELDB=leveldb-1.15.0
 LMDB=lmdb-0.9.14
 ROCKSDB=rocksdb-3.2
 LSM_SQLITE4=lsm-sqlite4
-ZEROMQ=zeromq-4.0.4
-CZMQ=czmq-2.2.0
+ZEROMQ=zeromq-4.1.0
+CZMQ=czmq-3.0.0
 ZYRE=zyre-1.0.0
 MSGPACK=msgpack-c-cpp-0.5.9
 CGREENLET=cgreenlet-20140730
@@ -110,6 +103,7 @@ LTHREAD=lthread-20140730
 PTH=pth-2.0.7
 LIBCORO=libcoro-1.67
 LOGCABIN=logcabin-20140821
+LIBSODIUM=libsodium-1.0.0
 
 PCL=pcl-1.12
 LIBLFDS=liblfds-6.1.1
@@ -127,21 +121,21 @@ ifeq (${UNAME}, Darwin)
 	SO=dylib
 endif
 
-.PHONY: udbroker server client deps data test
+.PHONY: edproxy server client deps data test
 
-all: bin lib deps udbroker server client
+all: bin lib deps edproxy server client
 
-udbroker:
-	make -C udbroker
+edproxy:
+	make -C edproxy
 
 server: ${SERVER}
 
 client: ${CLIENT}
 
 # ---------------- deps ----------------
-.PHONY: jemalloc libuv leveldb lmdb zeromq czmq zyre liblfds pcl react eblob
+.PHONY: jemalloc libuv leveldb lmdb libsodium zeromq czmq zyre liblfds pcl react eblob
 
-deps: jemalloc libuv leveldb lmdb lsm-sqlite4 zeromq czmq zyre msgpack cgreenlet crush lthread  pth libcoro rocksdb react eblob logcabin
+deps: jemalloc libuv leveldb lmdb lsm-sqlite4 libsodium zeromq czmq zyre msgpack cgreenlet crush lthread  pth libcoro rocksdb react eblob logcabin
 #pcl 
 
 # ................ jemalloc ................
@@ -268,24 +262,39 @@ deps/lsm:
 
 	#cp -f *.${SO}* *.a ../../lib/
 
+# ................ libsodium ................
+
+CFLAGS_LIBSODIUM=-I./deps/libsodium/src/libsodium
+LDFLAGS_LIBSODIUM=-lsodium  
+
+libsodium: deps/libsodium
+
+deps/libsodium:
+	cd deps && \
+	tar zxvf ${LIBSODIUM}.tar.gz && \
+	ln -sf ${LIBSODIUM} libsodium && \
+	cd ${LIBSODIUM} && \
+	./autogen.sh && \
+	./configure && \
+	make && \
+	cp -f src/libsodium/.libs/libsodium.a src/libsodium/.libs/libsodium.so ../../lib/
+
 # ................ zeromq ................
 
-CFLAGS_ZEROMQ=-I./deps/zeromq/include
-#LDFLAGS_ZEROMQ=./deps/zeromq/src/.libs/libzmq.a  
-#LDFLAGS_ZEROMQ=-L./deps/zeromq/src/.libs -lzmq  
+CFLAGS_ZEROMQ=-I`pwd`/./deps/zeromq/include
 LDFLAGS_ZEROMQ=-lzmq  
 
-zeromq: deps/zeromq
+zeromq: libsodium deps/zeromq
 
 deps/zeromq:
 	cd deps && \
 	tar zxvf ${ZEROMQ}.tar.gz && \
 	ln -sf ${ZEROMQ} zeromq && \
 	cd ${ZEROMQ} && \
-	./configure && \
+	./autogen.sh && \
+	./configure --with-libsodium-include-dir=`pwd`/../libsodium/src/libsodium/src --with-libsodium-lib-dir=`pwd`/../libsodium/src/libsodium/.libs && \
 	make && \
-	ln -s src/.libs lib && \
-	cp -f lib/*.${SO} lib/*.a ../../lib/
+	cp -f src/.libs/*.${SO} src/.libs/*.a ../../lib/
 
 # ................ czmq ................
 
@@ -294,17 +303,19 @@ CFLAGS_CZMQ=-I./deps/czmq/include
 #LDFLAGS_CZMQ=-L./deps/czmq/src/.libs -lczmq  
 LDFLAGS_CZMQ=-lczmq  
 
-czmq: deps/czmq
+czmq: zeromq deps/czmq
 
 deps/czmq:
 	cd deps && \
 	tar zxvf ${CZMQ}.tar.gz && \
 	ln -sf ${CZMQ} czmq && \
 	cd ${CZMQ} && \
-	ZeroMQ_CFLAGS=-I`pwd`/../zeromq/include ZeroMQ_LIBS=-L`pwd`/../zeromq/src/.libs ./configure && \
+	./autogen.sh && \
+	CFLAGS=${CFLAGS_ZEROMQ} LDFLAGS="-L../../lib ${LDFLAGS_ZEROMQ}" ./configure --with-libzmq=`pwd`/../zeromq && \
 	make && \
-	ln -s src/.libs lib && \
-	cp -f lib/*.${SO} lib/*.a ../../lib/
+	cp -f .libs/*.${SO} .libs/*.a ../../lib/
+
+	#ZeroMQ_CFLAGS=-I`pwd`/../zeromq/include ZeroMQ_LIBS=-L`pwd`/../zeromq/src/.libs ./configure && \
 
 # ................ zyre ................
 
@@ -608,11 +619,11 @@ bin:
 lib:
 	mkdir -p lib
 
-%.oo: %.cpp
-	${CC} ${FINAL_CXXFLAGS} -o $*.oo -c  $*.cpp
+%.c.o: %.c
+	${CC} ${FINAL_CFLAGS} -o $*.c.o -c  $*.c 
 
-%.o: %.c
-	${CC} ${FINAL_CFLAGS} -o $*.o -c  $*.c 
+%.cc.o: %.cc
+	${CC} ${FINAL_CXXFLAGS} -o $*.cc.o -c  $*.cc
 
 # ---------------- clean ----------------
 

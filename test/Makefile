@@ -1,19 +1,19 @@
 TARGET=../bin/test_legolas
 
-OBJS = test_main.cpp.o
+OBJS = test_main.cc.o
 
 FINAL_CXXFLAGS = -I../base -I../include -I../net
-FINAL_LDFLAGS = -L../lib ../instrument/function.o ../base/dlist.o
+FINAL_LDFLAGS = -L../lib ../instrument/function.c.o ../base/dlist.c.o
 
 .PHONY: ${TARGET}
 
 all: ${TARGET}
 
-%.cpp.o: %.cpp
-	${CC} ${FINAL_CXXFLAGS} -o $*.cpp.o -c  $*.cpp
+%.cc.o: %.cc
+	${CC} ${FINAL_CXXFLAGS} -o $*.cc.o -c  $*.cc
 
-%.o: %.c
-	${CC} ${FINAL_CFLAGS} -o $*.o -c  $*.c 
+%.c.o: %.c
+	${CC} ${FINAL_CFLAGS} -o $*.c.o -c  $*.c 
 
 
 ${TARGET}: ${OBJS}

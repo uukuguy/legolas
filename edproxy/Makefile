@@ -46,7 +46,7 @@ all: _configure_nginx src/nginx/objs/nginx
 
 src/nginx/objs/nginx: ${MODULES_UDBROKER_SRC}
 	${MAKE} -C src/nginx && \
-		cp src/nginx/objs/nginx ../bin/udbroker
+		cp src/nginx/objs/nginx ../bin/edproxy
 
 _configure_nginx: src/nginx/Makefile
 
