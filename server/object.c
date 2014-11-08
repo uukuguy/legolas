@@ -283,7 +283,7 @@ int object_put_into_kvdb(kvdb_t *kvdb, object_t *object)
         error_log("Storage save key_md5 by kvdb_put() failed. meta_key=%s, key=%s, object_size=%d, slices=%d", meta_key, object->key, object->object_size, nSlices);
         return -1;
     } else {
-        trace_log("Storage save key_md5 by kvdb_put() failed. meta_key=%s, key=%s, object_size=%d, slices=%d", meta_key, object->key, object->object_size, nSlices);
+        trace_log("Storage save key_md5 by kvdb_put() OK. meta_key=%s, key=%s, object_size=%d, slices=%d", meta_key, object->key, object->object_size, nSlices);
     }
 
     uint32_t slice_idx = 0;

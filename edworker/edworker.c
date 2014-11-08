@@ -152,18 +152,37 @@ int handle_read_on_worker_pipe(zloop_t *loop, zsock_t *pipe, void *user_data)
     return 0;
 }
 
-int run_worker(const char *endpoint, int total_threads)
+const char *get_storage_type_name(int storage_type){
+    if ( storage_type == STORAGE_NONE )
+        return "NONE";
+    if ( storage_type == STORAGE_LOGFILE )
+        return "LOGFILE";
+    if ( storage_type == STORAGE_KVDB_LMDB )
+        return "LMDB";
+    if ( storage_type == STORAGE_KVDB_EBLOB )
+        return "EBLOB";
+    if ( storage_type == STORAGE_KVDB_LEVELDB )
+        return "LEVELDB";
+    if ( storage_type == STORAGE_KVDB_ROCKSDB )
+        return "ROCKSDB";
+    if ( storage_type == STORAGE_KVDB_LSM )
+        return "LSM-SQLITE4";
+
+    return "Unknown";
+}
+
+int run_worker(const char *endpoint, int total_threads, int storage_type, int verbose)
 {
-    info_log("run_worker() with %d threads connect to %s", total_threads, endpoint);
+    info_log("run_worker() with %d threads connect to %s. Storage Type(%d):%s", total_threads, endpoint, storage_type, get_storage_type_name(storage_type));
 
     total_actors = total_threads;
 
     zloop_t *loop = zloop_new();
-    zloop_set_verbose(loop, 0);
+    zloop_set_verbose(loop, verbose);
 
     worker_t **workers = (worker_t**)malloc(sizeof(worker_t*) * total_actors);
     for ( int i = 0 ; i < total_actors ; i++ ){
-        worker_t *worker = worker_new(i, STORAGE_NONE, endpoint);
+        worker_t *worker = worker_new(i, storage_type, endpoint);
         worker->loop = loop;
 
         workers[i] = worker;

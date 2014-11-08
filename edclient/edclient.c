@@ -19,7 +19,7 @@ typedef struct client_t {
     const char *endpoint;
     int id;
     const char *file_data;
-    uint32_t file_len;
+    uint32_t file_size;
     uint32_t total_threads;
     uint32_t total_files;
     int op_code;
@@ -35,7 +35,7 @@ void client_thread_main(zsock_t *pipe, void *user_data)
     client_t *client = (client_t*)user_data;
     int id = client->id;
     const char *file_data = client->file_data;
-    uint32_t file_len = client->file_len;
+    uint32_t file_size = client->file_size;
 
     trace_log("Client %d Ready.", id);
 
@@ -51,7 +51,8 @@ void client_thread_main(zsock_t *pipe, void *user_data)
     while ( true ){
 
         zmsg_t *msg = zmsg_new();
-        zmsg_addmem(msg, file_data, file_len);
+        zmsg_addmem(msg, file_data, file_size);
+        /*zmsg_print(msg);*/
         zmsg_send(&msg, sock_client);
 
         zmsg_t *rsp = zmsg_recv(sock_client);
@@ -85,9 +86,13 @@ client_t *client_new(int client_id, const char *endpoint)
 
     client->id = client_id;
     client->endpoint = endpoint;
-    client->actor = zactor_new(client_thread_main, client);
 
     return client;
+}
+
+void client_create_actor(client_t *client)
+{
+    client->actor = zactor_new(client_thread_main, client);
 }
 
 void client_free(client_t *client)
@@ -129,12 +134,48 @@ int handle_read_on_client_pipe(zloop_t *loop, zsock_t *pipe, void *user_data)
     return 0;
 }
 
-static char file_data[1024 * 32];
-/*static const char *file_data = "Hello";*/
+static char *file_data = NULL;
+static uint32_t file_size = 0;
 
-int run_client(const char *endpoint, int op_code, int total_threads, uint32_t total_files, const char *key, const char *filename)
+int prepare_file_data(const char *filename)
+{
+    FILE *file = fopen(filename, "rb");
+    if ( file == NULL ){
+        error_log("fopen() failed. file:%s", filename);
+        return -1;
+    }
+
+    fseek(file, 0, SEEK_END);
+    uint32_t size = ftell(file);
+    fseek(file, 0, SEEK_SET);
+
+    char *buf = zmalloc(size);
+    /*memset(buf, 'Z', sizeof(size));*/
+
+    memset(buf, 0, sizeof(size));
+    uint32_t readed = fread(buf, 1, size, file); 
+    if ( readed != size ){
+        error_log("fread() failed. readed:%d file_size:%d", readed, size);
+        fclose(file);
+        return -1;
+    }
+
+    fclose(file);
+
+    file_data = buf;
+    file_size = size;
+
+    return 0;
+}
+
+int run_client(const char *endpoint, int op_code, int total_threads, uint32_t total_files, const char *key, const char *filename, int verbose)
 {
     info_log("run_client() with op_code:%d endpoint:%s threads:%d count:%d key:%s filename:%s", op_code, endpoint, total_threads, total_files, key, filename);
+
+    if ( prepare_file_data(filename) != 0 ){
+        return -1;
+    }
+
     total_actors = total_threads;
 
     client_t **clients = (client_t**)malloc(sizeof(client_t*) * total_actors);
@@ -148,13 +189,15 @@ int run_client(const char *endpoint, int op_code, int total_threads, uint32_t to
         client->filename = filename;
 
         client->file_data = file_data;
-        client->file_len = 1024 * 32;
+        client->file_size = file_size;
+
+        client_create_actor(client);
 
         clients[i] = client;
     }
 
     zloop_t *loop = zloop_new();
-    zloop_set_verbose(loop, 0);
+    zloop_set_verbose(loop, verbose);
 
     for ( int i = 0 ; i < total_actors ; i++ ){
         zactor_t *actor = clients[i]->actor;

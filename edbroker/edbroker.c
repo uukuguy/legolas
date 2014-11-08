@@ -128,12 +128,11 @@ int handle_timer(zloop_t *loop, int timer_id, void *user_data)
     return 0;
 }
 
-int run_broker(const char *frontend, const char *backend)
+int run_broker(const char *frontend, const char *backend, int verbose)
 {
     info_log("run_broker() with frontend:%s backend:%s", frontend, backend);
 
     int rc = 0;
-    int verbose = 0;
     broker_t *broker = broker_new();
 
     zsock_t *sock_local_frontend = zsock_new_router(frontend);

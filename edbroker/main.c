@@ -37,7 +37,7 @@ static struct option const long_options[] = {
 };
 static const char *short_options = "f:b:u:dvth";
 
-extern int run_broker(const char *frontend, const char *backend);
+extern int run_broker(const char *frontend, const char *backend, int verbose);
 
 /* ==================== daemon_loop() ==================== */ 
 int daemon_loop(void *data)
@@ -45,7 +45,7 @@ int daemon_loop(void *data)
     notice_log("In daemon_loop()");
 
     const program_options_t *po = (const program_options_t *)data;
-    return run_broker(po->frontend, po->backend);
+    return run_broker(po->frontend, po->backend, po->log_level >= LOG_DEBUG ? 1 : 0);
 }
 
 /* ==================== usage() ==================== */ 
@@ -125,6 +125,6 @@ int main(int argc, char *argv[])
     if ( po.is_daemon ){
         return daemon_fork(daemon_loop, (void*)&po); 
     } else 
-        return run_broker(po.frontend, po.backend);
+        return run_broker(po.frontend, po.backend, po.log_level >= LOG_DEBUG ? 1 : 0);
 }
 
