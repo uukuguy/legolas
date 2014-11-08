@@ -19,6 +19,35 @@
 /*#include "react_utils.h"*/
 #include <msgpack.h>
 
+void vnode_write_queue_handle_write(work_queue_t *wq)
+{
+    void *node_data = NULL;
+    while ( (node_data = dequeue_work(wq)) != NULL ){
+        vnode_write_queue_entry_t *entry = (vnode_write_queue_entry_t*)node_data;
+        session_t *session = entry->session;
+        object_t *object = entry->object;
+        zfree(entry);
+        
+        server_write_to_storage(SERVER(session), object);
+
+        /* FIXME 2014-10-10 18:57:20 */
+        __sync_add_and_fetch(&session->finished_works, 1);
+        /*session_response(session, RESULT_SUCCESS);*/
+
+        /*uint32_t total_committed = __sync_add_and_fetch(&vnode->total_committed, 1);*/
+        /*if ( total_committed > 800 ) {*/
+        /*__sync_sub_and_fetch(&vnode->total_committed, total_committed);*/
+        /*fsync(vnode->logFile);*/
+        /*kvdb_flush(vnode->kvdb);*/
+        /*}*/
+
+        /* FIXME 2014-10-10 18:56:55 */
+        /*session_response(session, RESULT_SUCCESS);*/
+
+        sched_yield();
+    }
+}
+
 /* ==================== parse_write_request() ==================== */ 
 int parse_write_request(session_t *session, message_t *request, msgidx_t *msgidx)
 {
@@ -108,11 +137,11 @@ object_t *server_write_to_cache(session_t *session, msgidx_t *msgidx)
         object_queue_insert(caching_objects, object);
     }
 
-    slice_t *slice = slice_new(); 
-    slice->seq_num = blockid;
-    byte_block_write(&slice->byteblock, write_buf, write_bytes);
-
-    listAddNodeTail(object->slices, slice);
+    object_add_slice(object, write_buf, write_bytes);
+    /*slice_t *slice = slice_new(); */
+    /*slice->seq_num = blockid;*/
+    /*byte_block_write(&slice->byteblock, write_buf, write_bytes);*/
+    /*listAddNodeTail(object->slices, slice);*/
 
     session->total_writed += msgidx->data_size;
 
@@ -121,19 +150,17 @@ object_t *server_write_to_cache(session_t *session, msgidx_t *msgidx)
 }
 
 /* ==================== server_write_to_storage() ==================== */ 
-/* called by vnode_write_queue_handle_write() in vnode.c */
-int server_write_to_storage(session_t *session, object_t *object)
+int server_write_to_storage(server_t *server, object_t *object)
 {
     int ret = 0;
 
 
     if ( object != NULL ) {
-        UNUSED vnode_t *vnode = get_vnode_by_key(SERVER(session), &object->key_md5);
+        UNUSED vnode_t *vnode = get_vnode_by_key(server, &object->key_md5);
         assert(vnode != NULL);
 
         ret = vnode_write_to_storage(vnode, object);
 
-        object_queue_remove(vnode->caching_objects, object);
     } else {
         ret = -1;
     }
@@ -182,7 +209,7 @@ int server_handle_write(session_t *session, message_t *request)
                 /*vnode_t *vnode = get_vnode_by_key(SERVER(session), &object->key_md5);*/
                 /*vnode_enqueue_write_queue(vnode, session, object);*/
 
-                server_write_to_storage(session, object);
+                server_write_to_storage(SERVER(session), object);
                 session_response(session, RESULT_SUCCESS);
 
                 __sync_add_and_fetch(&session->finished_works, 1);

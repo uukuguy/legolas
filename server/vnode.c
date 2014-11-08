@@ -19,36 +19,7 @@
 
 #define VNODE_WRITE_QUEUE_INTERVAL 1 /* ms */
 
-void vnode_write_queue_handle_write(work_queue_t *wq)
-{
-    void *node_data = NULL;
-    while ( (node_data = dequeue_work(wq)) != NULL ){
-        vnode_write_queue_entry_t *entry = (vnode_write_queue_entry_t*)node_data;
-        session_t *session = entry->session;
-        object_t *object = entry->object;
-        zfree(entry);
-        
-        server_write_to_storage(session, object);
-
-        /* FIXME 2014-10-10 18:57:20 */
-        __sync_add_and_fetch(&session->finished_works, 1);
-        /*session_response(session, RESULT_SUCCESS);*/
-
-        /*uint32_t total_committed = __sync_add_and_fetch(&vnode->total_committed, 1);*/
-        /*if ( total_committed > 800 ) {*/
-        /*__sync_sub_and_fetch(&vnode->total_committed, total_committed);*/
-        /*fsync(vnode->logFile);*/
-        /*kvdb_flush(vnode->kvdb);*/
-        /*}*/
-
-        /* FIXME 2014-10-10 18:56:55 */
-        /*session_response(session, RESULT_SUCCESS);*/
-
-        sched_yield();
-    }
-}
-
-vnode_t *vnode_new(char *root_dir, uint32_t id, enum eVnodeStorageType storage_type)
+vnode_t *vnode_new(const char *root_dir, uint32_t id, enum eVnodeStorageType storage_type, vnode_write_queue_handle_write_cb vnode_write_queue_handle_write)
 {
     vnode_t *vnode = (vnode_t*)zmalloc(sizeof(vnode_t));
 
@@ -206,6 +177,10 @@ int vnode_write_to_storage(vnode_t *vnode, object_t *object)
         ret = vnode_write_to_kvdb(vnode, object);
     } else if ( vnode->storage_type == STORAGE_LOGFILE ){
         ret = vnode_write_to_file(vnode, object);
+    }
+
+    if ( ret == 0 ) {
+        object_queue_remove(vnode->caching_objects, object);
     }
 
     return ret;

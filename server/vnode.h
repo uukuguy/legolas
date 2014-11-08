@@ -60,10 +60,13 @@ typedef struct vnode_t {
 
 typedef struct vnode_write_queue_entry_t{
     session_t *session;
+    vnode_t *vnode;
     object_t *object;
 } vnode_write_queue_entry_t;
 
-vnode_t *vnode_new(char *root_dir, uint32_t id, enum eVnodeStorageType storage_type);
+typedef void (*vnode_write_queue_handle_write_cb)(work_queue_t *wq);
+
+vnode_t *vnode_new(const char *root_dir, uint32_t id, enum eVnodeStorageType storage_type, vnode_write_queue_handle_write_cb vnode_write_queue_handle_write);
 void vnode_free(vnode_t *vnode);
 
 datazone_t *get_datazone_by_object(vnode_t *vnode, object_t *object);

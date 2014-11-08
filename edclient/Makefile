@@ -7,8 +7,9 @@ COMMON_CFLAGS = -g -fPIC -Wall -Werror -I../deps/zeromq/include -I../deps/czmq/i
 FINAL_CFLAGS = -std=gnu11 ${COMMON_CFLAGS}
 FINAL_CXXFLAGS = -std=c++11 ${COMMON_CFLAGS}
 
-COMMON_LDFLAGS = ../base/logger.c.o ../base/daemon.c.o
-FINAL_LDFLAGS = -static ${COMMON_LDFLAGS} -L../lib -lczmq -lzmq -lpthread -lstdc++
+BASE_LDFLAGS = -lbase -llmdb -leblob -leblob_react -lreact -lrocksdb -lleveldb -lsnappy -llsm-sqlite4 -lczmq -lzmq -lmsgpack -lbz2 -ljemalloc -lpthread -lssl -lcrypto -lstdc++ -lm -lz
+COMMON_LDFLAGS = -L../lib ${BASE_LDFLAGS}
+FINAL_LDFLAGS = -static ${COMMON_LDFLAGS} 
 
 all: ${TARGET}
 

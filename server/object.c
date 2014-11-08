@@ -365,6 +365,17 @@ object_t *object_get_from_kvdb(kvdb_t *kvdb, md5_value_t key_md5)
     return object;
 }
 
+uint32_t object_add_slice(object_t *object, const char *data, uint32_t data_size)
+{
+    slice_t *slice = slice_new(); 
+    slice->seq_num = object->nslices;
+    byte_block_write(&slice->byteblock, data, data_size);
+    listAddNodeTail(object->slices, slice);
+    object->nslices++;
+
+    return object->nslices;
+}
+
 int object_del_from_kvdb(kvdb_t *kvdb, md5_value_t key_md5)
 {
     int ret = 0;

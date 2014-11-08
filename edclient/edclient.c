@@ -120,6 +120,7 @@ int handle_read_on_client_pipe(zloop_t *loop, zsock_t *pipe, void *user_data)
 }
 
 static char file_data[1024 * 32];
+/*static const char *file_data = "Hello";*/
 
 int run_client(void)
 {

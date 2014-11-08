@@ -11,6 +11,7 @@
 
 SERVER = bin/legolasd
 CLIENT = bin/legolas
+LIBBASE = lib/libbase.a
 
 BASE_OBJS = base/logger.c.o base/daemon.c.o base/zmalloc.c.o 
 #base/coroutine.c.o  base/react_utils.cc.o
@@ -123,7 +124,7 @@ endif
 
 .PHONY: edproxy server client deps data test
 
-all: bin lib deps edproxy server client
+all: bin lib deps libbase edproxy server client 
 
 edproxy:
 	make -C edproxy
@@ -131,6 +132,11 @@ edproxy:
 server: ${SERVER}
 
 client: ${CLIENT}
+
+libbase: ${LIBBASE}
+
+${LIBBASE}: ${BASE_OBJS} ${KVDB_OBJS}
+	ar -curv ${LIBBASE} ${KVDB_OBJS} ${BASE_OBJS}
 
 # ---------------- deps ----------------
 .PHONY: jemalloc libuv leveldb lmdb libsodium zeromq czmq zyre liblfds pcl react eblob
@@ -556,6 +562,8 @@ FINAL_CFLAGS = -std=gnu11 -Wstrict-prototypes \
 #-DUSE_PRCTL
 FINAL_CXXFLAGS=${COMMON_CFLAGS} -std=c++11 ${CXXFLAGS}
 
+BASE_LDFLAGS = -lbase -llmdb -leblob -leblob_react -lreact -lrocksdb -lleveldb -lsnappy -llsm-sqlite4 -lmsgpack -lbz2 -ljemalloc -lpthread -lssl -lcrypto -lstdc++ -lm -lz
+
 FINAL_LDFLAGS = ${GPROF_FLAGS} -L./lib 
 ifeq (${UNAME}, Linux)
 FINAL_LDFLAGS += -Wl,-rpath=../lib,-rpath=./lib
@@ -579,7 +587,7 @@ FINAL_LDFLAGS += ${LDFLAGS_LIBUV} \
 				${LDFLAGS_REACT} \
 				${LDFLAGS_LOGCABIN} \
 				${INSTRUMENT_LDFLAGS} \
-				${LDFLAGS} -lsnappy -lpthread -lssl -lcrypto -lstdc++ -lm -lz
+				${LDFLAGS} ${BASE_LDFLAGS}
 
 #${LDFLAGS_LIBLFDS} 
 #${LDFLAGS_PCL} 
@@ -596,19 +604,16 @@ ifeq (${UNAME}, Darwin)
 	FINAL_CFLAGS += ${CFLAGS_UCONTEXT}
 endif
 
-#${SERVER}: deps ${BASE_OBJS} ${SERVER_OBJS} ${NET_OBJS} bin
-${SERVER}: ${BASE_OBJS} ${SERVER_OBJS} ${NET_OBJS} ${KVDB_OBJS}  
+${SERVER}: ${LIBBASE} ${SERVER_OBJS} ${NET_OBJS} ${KVDB_OBJS}  
 	${CC} -o ${SERVER} \
-		${BASE_OBJS} \
 		${SERVER_OBJS} \
 		${NET_OBJS} \
 		${KVDB_OBJS} \
 		${FINAL_LDFLAGS} 
 
 
-${CLIENT}: ${BASE_OBJS} ${CLIENT_OBJS} ${NET_OBJS} 
+${CLIENT}: ${LIBBASE} ${CLIENT_OBJS} ${NET_OBJS} 
 	${CC} -o ${CLIENT} \
-		${BASE_OBJS} \
 		${CLIENT_OBJS} \
 		${NET_OBJS} \
 		${FINAL_LDFLAGS}
@@ -633,6 +638,7 @@ clean:
 		${SERVER} \
 		${CLIENT} \
 		${BASE_OBJS} \
+		${LIBBASE} \
 		${SERVER_OBJS} \
 		${CLIENT_OBJS} \
 		${NET_OBJS} \

@@ -10,6 +10,8 @@
 
 #include <czmq.h>
 #include "common.h"
+#include "filesystem.h"
+#include "vnode.h"
 
 #define NUM_ACTORS 10
 #define WORKER_READY "\001"
@@ -22,22 +24,54 @@ extern const char *edbroker_backend_endpoint;
 
 typedef struct worker_t{
     int id;
+    vnode_t *vnode;
 
     zactor_t *actor;
     zloop_t *loop;
 } worker_t;
 
-worker_t *worker_new(void)
+worker_t *worker_new(int worker_id, int storage_type)
 {
     worker_t *worker = (worker_t*)malloc(sizeof(worker_t));
     memset(worker, 0, sizeof(worker_t));
+
+    worker->id = worker_id;
+
+    const char *storage_dir = "./data/storage";
+    if ( mkdir_if_not_exist(storage_dir) != 0 ){
+        printf("mkdir %s failed.\n", storage_dir);
+        abort();
+    }
+    worker->vnode = vnode_new(storage_dir, worker_id, storage_type, NULL);
 
     return worker;
 }
 
 void worker_free(worker_t *worker)
 {
+    vnode_free(worker->vnode);
     free(worker);
+}
+
+int worker_handle_message(worker_t *worker, zmsg_t *msg)
+{
+    /*zmsg_print(msg);*/
+
+    zframe_t *frame = zmsg_first(msg);
+    const char *data = (const char *)zframe_data(frame);
+    uint32_t data_size = zframe_size(frame);
+
+    object_t *object = object_new("key", 3);
+
+    object_add_slice(object, data, data_size);
+
+    object->object_size = data_size;
+
+    vnode_write_to_storage(worker->vnode, object);
+
+    object_free(object);
+
+    return 0;
 }
 
 void worker_thread_main(zsock_t *pipe, void *user_data)
@@ -63,6 +97,7 @@ void worker_thread_main(zsock_t *pipe, void *user_data)
         /*zmsg_print(msg);*/
 
         zframe_t *identity = zmsg_unwrap(msg);
+        worker_handle_message(worker, msg);
         zmsg_destroy(&msg);
 
         zmsg_t *rsp = zmsg_new();
@@ -117,8 +152,7 @@ int run_worker(void)
     zactor_t *actors[NUM_ACTORS];
     worker_t *workers[NUM_ACTORS];
     for ( int i = 0 ; i < NUM_ACTORS ; i++ ){
-        worker_t *worker = worker_new();
-        worker->id = i;
+        worker_t *worker = worker_new(i, STORAGE_LOGFILE);
         worker->loop = loop;
         zactor_t *actor = zactor_new(worker_thread_main, worker);
         worker->actor = actor;

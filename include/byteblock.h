@@ -11,7 +11,6 @@
 #ifndef __BYTE_BLOCK_H__
 #define __BYTE_BLOCK_H__
 
-#include "zmalloc.h"
 #include <stdint.h>
 
 #define BYTE_BLOCK_INIT_SIZE 8192

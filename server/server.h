@@ -74,7 +74,7 @@ int server_listen(server_t *server);
 vnode_t *get_vnode_by_key(server_t *server, md5_value_t *key_md5);
 logfile_t *get_logfile_by_session(server_t *server, session_t *session);
 
-int server_write_to_storage(session_t *session, object_t *object);
+int server_write_to_storage(server_t *server, object_t *object);
 
 #endif /* __SERVER_H__ */
 

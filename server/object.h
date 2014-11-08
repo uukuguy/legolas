@@ -43,6 +43,7 @@ typedef struct object_t
 object_t *object_new(const char *key, uint32_t keylen);
 void object_free(object_t *object);
 
+uint32_t object_add_slice(object_t *object, const char *data, uint32_t data_size);
 int object_put_into_file(int file, object_t *object);
 
 int object_put_into_kvdb(kvdb_t *kvdb, object_t *object);

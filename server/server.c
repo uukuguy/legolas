@@ -148,7 +148,7 @@ int server_listen(server_t *server)
 
 void recv_queue_handle_request(work_queue_t *wq);
 void send_queue_handle_response(work_queue_t *wq);
-
+void vnode_write_queue_handle_write(work_queue_t *wq); // in server_handle_write.c
 /* ==================== server_create_vnode() ==================== */ 
 vnode_t * server_create_vnode(server_t *server, int vnode_id)
 {
@@ -160,7 +160,7 @@ vnode_t * server_create_vnode(server_t *server, int vnode_id)
         return NULL;
     }
 
-    vnode_t *vnode = vnode_new(storage_dir, vnode_id, server->options.storage_type);
+    vnode_t *vnode = vnode_new(storage_dir, vnode_id, server->options.storage_type, vnode_write_queue_handle_write);
     server->vnodes[vnode_id] = vnode;
 
     return vnode;
