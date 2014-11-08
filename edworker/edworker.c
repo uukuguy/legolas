@@ -12,46 +12,24 @@
 #include "common.h"
 #include "filesystem.h"
 #include "vnode.h"
+#include "logger.h"
 
-#define NUM_ACTORS 10
+
 #define WORKER_READY "\001"
 #define WORKER_ACK "\002"
 
 #define ACTOR_READY "ACTOR READY"
 #define ACTOR_OVER "ACTOR OVER"
 
-extern const char *edbroker_backend_endpoint;
-
 typedef struct worker_t{
     int id;
     vnode_t *vnode;
 
+    const char *edbroker_backend_endpoint;
     zactor_t *actor;
+
     zloop_t *loop;
 } worker_t;
-
-worker_t *worker_new(int worker_id, int storage_type)
-{
-    worker_t *worker = (worker_t*)malloc(sizeof(worker_t));
-    memset(worker, 0, sizeof(worker_t));
-
-    worker->id = worker_id;
-
-    const char *storage_dir = "./data/storage";
-    if ( mkdir_if_not_exist(storage_dir) != 0 ){
-        printf("mkdir %s failed.\n", storage_dir);
-        abort();
-    }
-    worker->vnode = vnode_new(storage_dir, worker_id, storage_type, NULL);
-
-    return worker;
-}
-
-void worker_free(worker_t *worker)
-{
-    vnode_free(worker->vnode);
-    free(worker);
-}
 
 int worker_handle_message(worker_t *worker, zmsg_t *msg)
 {
@@ -79,13 +57,13 @@ void worker_thread_main(zsock_t *pipe, void *user_data)
     worker_t *worker = (worker_t*)user_data;
     int id = worker->id;
 
-    printf("==-== Worker %d Ready.\n", id);
+    trace_log("Worker %d Ready.", id);
 
     zsock_signal(pipe, 0);
 
     zstr_send(pipe, ACTOR_READY);
 
-    zsock_t *sock_worker = zsock_new_req(edbroker_backend_endpoint);
+    zsock_t *sock_worker = zsock_new_req(worker->edbroker_backend_endpoint);
     zframe_t *frame_ready = zframe_new(WORKER_READY, 1);
     zframe_send(&frame_ready, sock_worker, 0);
 
@@ -111,17 +89,47 @@ void worker_thread_main(zsock_t *pipe, void *user_data)
 
     zsock_destroy(&sock_worker);
 
-    printf("==-== Worker %d Exit.\n", id);
+    trace_log("Worker %d Exit.", id);
 
 }
 
+worker_t *worker_new(int worker_id, int storage_type, const char *edbroker_backend_endpoint)
+{
+    worker_t *worker = (worker_t*)malloc(sizeof(worker_t));
+    memset(worker, 0, sizeof(worker_t));
+
+    worker->id = worker_id;
+    worker->edbroker_backend_endpoint = edbroker_backend_endpoint;
+
+    const char *storage_dir = "./data/storage";
+    if ( mkdir_if_not_exist(storage_dir) != 0 ){
+        error_log("mkdir %s failed.", storage_dir);
+        abort();
+    }
+    worker->vnode = vnode_new(storage_dir, worker_id, storage_type, NULL);
+
+    worker->actor = zactor_new(worker_thread_main, worker);
+
+    return worker;
+}
+
+void worker_free(worker_t *worker)
+{
+    zactor_destroy(&worker->actor);
+    worker->actor = NULL;
+    vnode_free(worker->vnode);
+    worker->vnode = NULL;
+    free(worker);
+}
+
 static int over_actors = 0;
+static uint32_t total_actors = 0;
 
 int handle_read_on_worker_pipe(zloop_t *loop, zsock_t *pipe, void *user_data)
 {
     worker_t *worker = (worker_t*)user_data;
 
-    if ( over_actors >= NUM_ACTORS ){
+    if ( over_actors >= total_actors ){
         zloop_reader_end(loop, pipe);
         return -1;
     }
@@ -136,7 +144,7 @@ int handle_read_on_worker_pipe(zloop_t *loop, zsock_t *pipe, void *user_data)
     char *actor_rsp = zmsg_popstr(msg);
     if ( strcmp(actor_rsp, ACTOR_OVER) == 0 ){
         over_actors++;
-        printf("==-== Actor %d over! (%d/%d)\n", worker->id, over_actors, NUM_ACTORS);
+        notice_log("Actor %d over! (%d/%d)", worker->id, over_actors, total_actors);
     }
 
     zmsg_destroy(&msg);
@@ -144,34 +152,34 @@ int handle_read_on_worker_pipe(zloop_t *loop, zsock_t *pipe, void *user_data)
     return 0;
 }
 
-int run_worker(void)
+int run_worker(const char *endpoint, int total_threads)
 {
+    info_log("run_worker() with %d threads connect to %s", total_threads, endpoint);
+
+    total_actors = total_threads;
+
     zloop_t *loop = zloop_new();
-    zloop_set_verbose(loop, 1);
+    zloop_set_verbose(loop, 0);
 
-    zactor_t *actors[NUM_ACTORS];
-    worker_t *workers[NUM_ACTORS];
-    for ( int i = 0 ; i < NUM_ACTORS ; i++ ){
-        worker_t *worker = worker_new(i, STORAGE_LOGFILE);
+    worker_t **workers = (worker_t**)malloc(sizeof(worker_t*) * total_actors);
+    for ( int i = 0 ; i < total_actors ; i++ ){
+        worker_t *worker = worker_new(i, STORAGE_NONE, endpoint);
         worker->loop = loop;
-        zactor_t *actor = zactor_new(worker_thread_main, worker);
-        worker->actor = actor;
 
-        actors[i] = actor;
         workers[i] = worker;
     }
 
-    for ( int i = 0 ; i < NUM_ACTORS ; i++ ){
-        zactor_t *actor = actors[i];
+    for ( int i = 0 ; i < total_actors ; i++ ){
+        zactor_t *actor = workers[i]->actor;
         zloop_reader(loop, (zsock_t*)zactor_resolve(actor), handle_read_on_worker_pipe, workers[i]);
     }
 
     zloop_start(loop);
 
-    for ( int i = 0 ; i < NUM_ACTORS ; i++ ){
-        zactor_destroy(&actors[i]);
+    for ( int i = 0 ; i < total_actors ; i++ ){
         worker_free(workers[i]);
     }
+    free(workers);
 
     zloop_destroy(&loop);
 

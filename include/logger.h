@@ -81,7 +81,7 @@ do {									\
     sprintf(szNow, "%04d-%02d-%02d %02d:%02d:%02d.%03d", \
             tm.tm_year + 1900, tm.tm_mon + 1, tm.tm_mday, \
             tm.tm_hour, tm.tm_min, tm.tm_sec, msec); \
-	log_write(priority, "%s " color "| " priority_str " |\033[0m %s:%d:%s " color "| " fmt " \033[0m\n", szNow, __FILE__, __LINE__, __func__, ##args);	\
+	log_write(priority, "%s " color "| " priority_str " |\033[0m %s:%d:%s " color "|-> " fmt " \033[0m\n", szNow, __FILE__, __LINE__, __func__, ##args);	\
     if (likely(is_daemon)) \
     log_flush(); \
 } while (0)

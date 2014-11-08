@@ -10,11 +10,9 @@
 
 #include <czmq.h>
 #include "common.h"
+#include "logger.h"
 
 #define WORKER_READY "\001"
-
-const char *edbroker_frontend_endpoint = "tcp://127.0.0.1:19977";
-const char *edbroker_backend_endpoint = "tcp://127.0.0.1:19978";
 
 typedef struct broker_t{
     zloop_t *loop;
@@ -113,7 +111,7 @@ int handle_read_local_backend(zloop_t *loop, zsock_t *sock, void *user_data)
 
     zframe_t *first_frame = zmsg_first(msg);
     if ( memcmp(zframe_data(first_frame), WORKER_READY, 1) == 0 ){
-        printf("==-== Is WORKER_READY\n");
+        notice_log("WORKER_READY");
         zmsg_destroy(&msg);
     }
     if ( msg != NULL ){
@@ -130,14 +128,16 @@ int handle_timer(zloop_t *loop, int timer_id, void *user_data)
     return 0;
 }
 
-int run_server()
+int run_broker(const char *frontend, const char *backend)
 {
+    info_log("run_broker() with frontend:%s backend:%s", frontend, backend);
+
     int rc = 0;
     int verbose = 0;
     broker_t *broker = broker_new();
 
-    zsock_t *sock_local_frontend = zsock_new_router(edbroker_frontend_endpoint);
-    zsock_t *sock_local_backend = zsock_new_router(edbroker_backend_endpoint);
+    zsock_t *sock_local_frontend = zsock_new_router(frontend);
+    zsock_t *sock_local_backend = zsock_new_router(backend);
 
     zloop_t *loop = zloop_new();
     zloop_set_verbose(loop, verbose);
