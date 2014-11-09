@@ -145,6 +145,9 @@ int main(int argc, char *argv[])
         }
 	}
 
+	if (optind != argc)
+		po.filename = argv[optind];
+
     /* -------- Init logger -------- */
     char root_dir[NAME_MAX];
     get_instance_parent_full_path(root_dir, NAME_MAX);

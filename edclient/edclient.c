@@ -12,6 +12,11 @@
 #include "common.h"
 #include "logger.h"
 
+#define MSG_WORKER_ERROR "\0xFF"
+#define MSG_WORKER_READY "\001"
+#define MSG_WORKER_HEARTBEAT "\002"
+#define MSG_WORKER_ACK "\003"
+
 #define ACTOR_READY "ACTOR READY"
 #define ACTOR_OVER "ACTOR OVER"
 
@@ -61,11 +66,17 @@ void client_thread_main(zsock_t *pipe, void *user_data)
             break;
         }
         /*zmsg_print(rsp);*/
+        zframe_t *first_frame = zmsg_first(rsp);
+        if ( first_frame!= NULL ){
+            if ( memcmp(zframe_data(first_frame), MSG_WORKER_ERROR, strlen(MSG_WORKER_ERROR)) ){
+                error_log("Return MSG_WORKER_ERROR");
+            }
+        }
         zmsg_destroy(&rsp);
 
         msg_count++;
         if ( msg_count % 100 == 1 || msg_count + 5 >= client->total_files ){
-            info_log("Send message %d/%d", msg_count, client->total_files);
+            info_log("Client %d Send message %d/%d", client->id, msg_count, client->total_files);
         }
         if ( msg_count >= client->total_files )
             break;
@@ -93,6 +104,7 @@ client_t *client_new(int client_id, const char *endpoint)
 void client_create_actor(client_t *client)
 {
     client->actor = zactor_new(client_thread_main, client);
+    notice_log("Client %d start actor.", client->id);
 }
 
 void client_free(client_t *client)
@@ -105,7 +117,7 @@ void client_free(client_t *client)
 static int over_actors = 0;
 static uint32_t total_actors = 0;
 
-int handle_read_on_client_pipe(zloop_t *loop, zsock_t *pipe, void *user_data)
+int handle_pullin_on_client_pipe(zloop_t *loop, zsock_t *pipe, void *user_data)
 {
     client_t *client = (client_t*)user_data;
 
@@ -201,7 +213,7 @@ int run_client(const char *endpoint, int op_code, int total_threads, uint32_t to
 
     for ( int i = 0 ; i < total_actors ; i++ ){
         zactor_t *actor = clients[i]->actor;
-        zloop_reader(loop, (zsock_t*)zactor_resolve(actor), handle_read_on_client_pipe, clients[i]);
+        zloop_reader(loop, (zsock_t*)zactor_resolve(actor), handle_pullin_on_client_pipe, clients[i]);
     }
 
     zloop_start(loop);
