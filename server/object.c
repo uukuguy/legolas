@@ -352,6 +352,17 @@ object_t *object_get_from_kvdb(kvdb_t *kvdb, md5_value_t key_md5)
                 if ( unpack_object_object_size(&unpacker, object) == 0 ){
                     if ( unpack_object_nslices(&unpacker, object) == 0 ){
                         object_found = 1;
+                        uint32_t nslices = object->nslices;
+                        object->nslices = 0;
+                        int n;
+                        for ( n = 0 ; n < nslices ; n++ ){
+                            char *slice_data = NULL;
+                            uint32_t slice_size = 0;
+                            object_get_slice_from_kvdb(kvdb, object->key_md5, n, (void**)&slice_data, &slice_size);
+                             
+                            object_add_slice(object, slice_data, slice_size);
+                            zfree(slice_data);
+                        }
                     }
                 }
             }

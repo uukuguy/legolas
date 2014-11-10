@@ -25,6 +25,12 @@ void message_add_heartbeat(zmsg_t *msg, const char *heartbeat)
     zmsg_addmem(msg, heartbeat, strlen(heartbeat));
 }
 
+void message_add_key_data(zmsg_t *msg, const char *key, const char *data, uint32_t data_size)
+{
+    zmsg_addstr(msg, key);
+    zmsg_addmem(msg, data, data_size);
+}
+
 zmsg_t *create_base_message(int16_t msgtype)
 {
     zmsg_t *msg = zmsg_new();
@@ -49,11 +55,18 @@ zmsg_t *create_heartbeat_message(const char *heartbeat)
     return msg;
 }
 
+zmsg_t *create_action_message(const char *action)
+{
+    zmsg_t *msg = create_base_message(MSGTYPE_ACTION);
+    zmsg_addstr(msg, action);
+
+    return msg;
+}
+
 zmsg_t *create_key_data_message(const char *key, const char *data, uint32_t data_size)
 {
     zmsg_t *msg = create_base_message(MSGTYPE_DATA);
-    zmsg_addstr(msg, key);
-    zmsg_addmem(msg, data, data_size);
+    message_add_key_data(msg, key, data, data_size);
 
     return msg;
 }
@@ -155,6 +168,19 @@ int message_check_heartbeat(zmsg_t *msg, const char *heartbeat)
         zframe_t *frame = zmsg_next(msg);
         if ( frame != NULL ){
             return memcmp(zframe_data(frame), heartbeat, strlen(heartbeat));
+        }
+    }
+    return -1;
+}
+
+int message_check_action(zmsg_t *msg, const char *action)
+{
+    int16_t msgtype = message_get_msgtype(msg);
+    if ( msgtype == MSGTYPE_ACTION ){
+        zmsg_first(msg);
+        zframe_t *frame = zmsg_next(msg);
+        if ( frame != NULL ){
+            return memcmp(zframe_data(frame), action, strlen(action));
         }
     }
     return -1;

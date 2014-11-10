@@ -13,6 +13,8 @@
 #include "filesystem.h"
 #include "vnode.h"
 #include "logger.h"
+#include "md5.h"
+#include "adlist.h"
 #include "everdata.h"
 
 #define HEARTBEAT_INTERVAL 1000
@@ -34,41 +36,100 @@ typedef struct worker_t{
 } worker_t;
 
 /* ================ worker_handle_message() ================ */
-int worker_handle_message(worker_t *worker, zmsg_t *msg)
+zmsg_t *worker_handle_message(worker_t *worker, zmsg_t *msg)
 {
     /*zmsg_print(msg);*/
 
-    zframe_t *frame_head = zmsg_first(msg);
-    if ( frame_head == NULL ) return -1;
+    zmsg_t *sendback_msg = zmsg_new();
 
-    zframe_t *frame_key = zmsg_next(msg);
-    if ( frame_key == NULL ) return -1;
+    if ( message_check_action(msg, MSG_ACTION_PUT) == 0 ){ 
+        UNUSED zframe_t *frame_msgtype = zmsg_first(msg);
+        UNUSED zframe_t *frame_action = zmsg_next(msg);
 
-    const char *key = (const char *)zframe_data(frame_key);
-    uint32_t key_len = zframe_size(frame_key);
+        zframe_t *frame_key = zmsg_next(msg);
+        if ( frame_key == NULL ) {
+            message_add_status(sendback_msg, MSG_STATUS_WORKER_ERROR);
+            return sendback_msg;
+        }
 
-    zframe_t *frame = zmsg_next(msg);
+        const char *key = (const char *)zframe_data(frame_key);
+        uint32_t key_len = zframe_size(frame_key);
 
-    if ( frame != NULL ){
-        const char *data = (const char *)zframe_data(frame);
-        uint32_t data_size = zframe_size(frame);
+        zframe_t *frame = zmsg_next(msg);
 
-        /*notice_log("key:%s data_size:%d", key, data_size);*/
+        if ( frame != NULL ){
+            const char *data = (const char *)zframe_data(frame);
+            uint32_t data_size = zframe_size(frame);
 
-        object_t *object = object_new(key, key_len);
+            /*notice_log("key:%s data_size:%d", key, data_size);*/
 
-        object_add_slice(object, data, data_size);
+            object_t *object = object_new(key, key_len);
 
-        object->object_size = data_size;
+            object_add_slice(object, data, data_size);
 
-        vnode_write_to_storage(worker->vnode, object);
+            object->object_size = data_size;
 
-        object_free(object);
+            vnode_write_to_storage(worker->vnode, object);
 
-        return 0;
+            object_free(object);
+
+            message_add_status(sendback_msg, MSG_STATUS_WORKER_ACK);
+            return sendback_msg;
+        }
+    } else if (message_check_action(msg, MSG_ACTION_GET) == 0 ) {
+        UNUSED zframe_t *frame_msgtype = zmsg_first(msg);
+        UNUSED zframe_t *frame_action = zmsg_next(msg);
+
+        zframe_t *frame_key = zmsg_next(msg);
+        if ( frame_key == NULL ){
+            message_add_status(sendback_msg, MSG_STATUS_WORKER_ERROR);
+            return sendback_msg;
+        }
+
+        const char *key = (const char *)zframe_data(frame_key);
+        uint32_t key_len = zframe_size(frame_key);
+
+        md5_value_t key_md5;
+        md5(&key_md5, (uint8_t *)key, key_len);
+        object_t *object = vnode_read_from_storage(worker->vnode, key_md5);
+        if ( object != NULL ){
+            uint32_t object_size = object->object_size;
+            char *data = malloc(object_size);
+
+            listIter *iter = listGetIterator(object->slices, AL_START_HEAD);
+            listNode *node = NULL;
+            uint32_t pos = 0;
+            uint32_t data_size = 0;
+            while ( (node = listNext(iter)) != NULL ){
+                slice_t *slice = (slice_t*)node->value;
+                char *buf = slice->byteblock.buf;
+                uint32_t buf_size = slice->byteblock.size;
+                memcpy(&data[pos], buf, buf_size);
+                pos += buf_size;
+                data_size += buf_size;
+            };
+            listReleaseIterator(iter);
+            object_free(object);
+
+            /* FIXME 2014-11-11 00:37:16 */
+            if (data_size != object_size){
+                error_log("data_size(%d) != object_size(%d)", data_size, object_size);
+                message_add_status(sendback_msg, MSG_STATUS_WORKER_ERROR);
+                return sendback_msg;
+            } else {
+                int16_t msgtype = MSGTYPE_DATA;
+                zmsg_addmem(sendback_msg, &msgtype, sizeof(int16_t));
+                message_add_key_data(sendback_msg, key, data, object_size);
+                /*zmsg_print(sendback_msg);*/
+                return sendback_msg;
+            }
+        }
+
+    } else if (message_check_action(msg, MSG_ACTION_DEL) == 0 ) {
     }
 
-    return -1;
+    message_add_status(sendback_msg, MSG_STATUS_WORKER_ERROR);
+    return sendback_msg;
 }
 
 /* ================ worker_new_sock() ================ */
@@ -117,13 +178,14 @@ void worker_thread_main(zsock_t *pipe, void *user_data)
                 zmsg_destroy(&msg);
             } else {
                 zframe_t *identity = zmsg_unwrap(msg);
-                int rc = worker_handle_message(worker, msg);
+                zmsg_t *sendback_msg = worker_handle_message(worker, msg);
                 zmsg_destroy(&msg);
 
-                zmsg_t *sendback_msg = zmsg_new();
+                assert(sendback_msg != NULL);
+                /*zmsg_t *sendback_msg = zmsg_new();*/
                 zmsg_wrap(sendback_msg, identity);
 
-                message_add_status(sendback_msg, rc == 0 ? MSG_STATUS_WORKER_ACK : MSG_STATUS_WORKER_ERROR);
+                /*message_add_status(sendback_msg, rc == 0 ? MSG_STATUS_WORKER_ACK : MSG_STATUS_WORKER_ERROR);*/
 
                 zmsg_send(&sendback_msg, sock);
             }
