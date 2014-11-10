@@ -176,6 +176,7 @@ int main(int argc, char *argv[])
     msec1 = tv.tv_sec * 1000 + tv.tv_usec / 1000; 
 
     notice_log("========> Total Time: %d.%03d sec.<========", (msec1 - msec0) / 1000, (msec1 - msec0) % 1000);
+    notice_log("Avarage speed: %d files/sec", po.total_files * po.total_threads * 1000 / (msec1 - msec0) );
     notice_log("~~> End EverData Client.");
 
     return rc;
