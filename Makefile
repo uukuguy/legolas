@@ -13,14 +13,6 @@ SERVER = bin/legolasd
 CLIENT = bin/legolas
 LIBBASE = lib/libbase.a
 
-EDBROKER = bin/edbroker
-EDBROKER_OBJS = edbroker/edbroker.c.o edbroker/main.c.o
-EDWORKER = bin/edworker
-EDWORKER_OBJS = edworker/edworker.c.o edworker/main.c.o
-EDCLIENT = bin/edclient
-EDCLIENT_OBJS = edclient/edclient.c.o edclient/main.c.o
-
-
 BASE_OBJS = base/logger.c.o base/daemon.c.o base/zmalloc.c.o 
 #base/coroutine.c.o  base/react_utils.cc.o
 
@@ -130,18 +122,12 @@ ifeq (${UNAME}, Darwin)
 	SO=dylib
 endif
 
-.PHONY: edproxy server client deps data test edbroker edworker edclient
+.PHONY: edproxy server client deps data test everdata
 
-all: bin lib deps libbase edproxy server client edbroker edworker edclient
+all: bin lib deps libbase edproxy server client everdata
 
-edbroker: 
-	${MAKE} -C edbroker
-
-edworker:
-	${MAKE} -C edworker
-
-edclient:
-	${MAKE} -C edclient
+everdata: 
+	${MAKE} -C everdata
 
 edproxy:
 	${MAKE} -C edproxy
@@ -651,15 +637,10 @@ lib:
 
 clean:
 	${MAKE} -C test clean && \
-	${MAKE} -C edbroker clean && \
-	${MAKE} -C edworker clean && \
-	${MAKE} -C edclient clean && \
+	${MAKE} -C everdata clean && \
 	rm -fr \
 		${SERVER} \
 		${CLIENT} \
-		${EDBROKER} \
-		${EDWORKER} \
-		${EDCLIENT} \
 		${BASE_OBJS} \
 		${LIBBASE} \
 		${SERVER_OBJS} \

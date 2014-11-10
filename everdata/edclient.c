@@ -11,15 +11,10 @@
 #include <czmq.h>
 #include "common.h"
 #include "logger.h"
+#include "filesystem.h"
+#include "everdata.h"
 
-#define MSG_WORKER_ERROR "\0xFF"
-#define MSG_WORKER_READY "\001"
-#define MSG_WORKER_HEARTBEAT "\002"
-#define MSG_WORKER_ACK "\003"
-
-#define ACTOR_READY "ACTOR READY"
-#define ACTOR_OVER "ACTOR OVER"
-
+/* -------- struct client_t -------- */
 typedef struct client_t {
     const char *endpoint;
     int id;
@@ -31,10 +26,22 @@ typedef struct client_t {
     const char *key;
     const char *filename;
 
+    uint32_t start_index;
     zactor_t *actor;
 
 } client_t;
 
+/* ================ client_rebuild_data_key() ================ */
+void client_rebuild_data_key(client_t *client, uint32_t data_id, char *key)
+{
+    char file_name[NAME_MAX];
+    get_path_file_name(client->filename, file_name, NAME_MAX - 1);
+
+    sprintf(key, "/test/%s/%04d/%08d-%s", client->key, client->id, client->start_index + data_id, file_name);
+}
+
+#define RETRIES 3
+/* ================ client_thread_main() ================ */
 void client_thread_main(zsock_t *pipe, void *user_data)
 {
     client_t *client = (client_t*)user_data;
@@ -49,40 +56,60 @@ void client_thread_main(zsock_t *pipe, void *user_data)
     char sz_id[16];
     sprintf(sz_id, "%d", id);
 
-    zstr_send(pipe, ACTOR_READY);
+    message_send_status(pipe, MSG_STATUS_ACTOR_READY);
 
     zsock_t *sock_client = zsock_new_req(client->endpoint);
-    uint32_t msg_count = 0;
+    uint32_t file_count = 0;
     while ( true ){
 
-        zmsg_t *msg = zmsg_new();
-        zmsg_addmem(msg, file_data, file_size);
-        /*zmsg_print(msg);*/
-        zmsg_send(&msg, sock_client);
+        char key[NAME_MAX];
+        client_rebuild_data_key(client, file_count, key);
 
-        zmsg_t *rsp = zmsg_recv(sock_client);
-        if ( rsp == NULL ){
-            zstr_send(pipe, ACTOR_OVER);
-            break;
-        }
-        /*zmsg_print(rsp);*/
-        zframe_t *first_frame = zmsg_first(rsp);
-        if ( first_frame!= NULL ){
-            if ( memcmp(zframe_data(first_frame), MSG_WORKER_ERROR, strlen(MSG_WORKER_ERROR)) ){
-                error_log("Return MSG_WORKER_ERROR");
+        int Ok = 0;
+        int retries = 0;
+        while ( retries++ < RETRIES ){
+
+            /* ---------------- Send Message ---------------- */
+
+            zmsg_t *upload_msg = create_key_data_message(key, file_data, file_size);
+
+            zmsg_send(&upload_msg, sock_client);
+
+            /* ---------------- Receive Message ---------------- */
+
+            zmsg_t *recv_msg = zmsg_recv(sock_client);
+            if ( recv_msg == NULL ){
+                /*zstr_send(pipe, ACTOR_OVER);*/
+                message_send_status(pipe, MSG_STATUS_ACTOR_OVER);
+                break;
             }
-        }
-        zmsg_destroy(&rsp);
+            /*zmsg_print(recv_msg);*/
 
-        msg_count++;
-        if ( msg_count % 100 == 1 || msg_count + 5 >= client->total_files ){
-            info_log("Client %d Send message %d/%d", client->id, msg_count, client->total_files);
+            if (message_check_status(recv_msg, MSG_STATUS_WORKER_ACK) == 0 ){
+                /*info_log("Return MSG_STATUS_WORKER_ACK. key=%s", key);*/
+                Ok = 1;
+            } else if ( message_check_status(recv_msg, MSG_STATUS_WORKER_ERROR) == 0 ){
+                error_log("Return MSG_STATUS_WORKER_ERROR. key=%s", key);
+            }
+
+            zmsg_destroy(&recv_msg);
+
+            if ( Ok == 1 ) break;
+            notice_log("Retry %d/%d...", retries, RETRIES);
+            zclock_sleep(1000);
         }
-        if ( msg_count >= client->total_files )
+
+        /* ---------------- Check exit loop ---------------- */
+
+        file_count++;
+        if ( file_count % 100 == 1 || file_count + 5 >= client->total_files ){
+            info_log("Client %d Send message %d/%d", client->id, file_count, client->total_files);
+        }
+        if ( file_count >= client->total_files )
             break;
     }
 
-    zstr_send(pipe, ACTOR_OVER);
+    message_send_status(pipe, MSG_STATUS_ACTOR_OVER);
 
     zsock_destroy(&sock_client);
 
@@ -90,6 +117,7 @@ void client_thread_main(zsock_t *pipe, void *user_data)
 
 }
 
+/* ================ client_new() ================ */
 client_t *client_new(int client_id, const char *endpoint)
 {
     client_t *client = (client_t*)malloc(sizeof(client_t));
@@ -101,12 +129,14 @@ client_t *client_new(int client_id, const char *endpoint)
     return client;
 }
 
+/* ================ client_create_actor() ================ */
 void client_create_actor(client_t *client)
 {
     client->actor = zactor_new(client_thread_main, client);
     notice_log("Client %d start actor.", client->id);
 }
 
+/* ================ client_free() ================ */
 void client_free(client_t *client)
 {
     zactor_destroy(&client->actor);
@@ -117,6 +147,7 @@ void client_free(client_t *client)
 static int over_actors = 0;
 static uint32_t total_actors = 0;
 
+/* ================ handle_pullin_on_client_pipe() ================ */
 int handle_pullin_on_client_pipe(zloop_t *loop, zsock_t *pipe, void *user_data)
 {
     client_t *client = (client_t*)user_data;
@@ -134,12 +165,10 @@ int handle_pullin_on_client_pipe(zloop_t *loop, zsock_t *pipe, void *user_data)
 
     /*zmsg_print(msg);*/
 
-    char *actor_rsp = zmsg_popstr(msg);
-    if ( strcmp(actor_rsp, ACTOR_OVER) == 0 ){
+    if ( message_check_status(msg, MSG_STATUS_ACTOR_OVER) == 0 ){
         over_actors++;
         info_log("Actor %d over! (%d/%d)", client->id, over_actors, total_actors);
     }
-    free(actor_rsp);
 
     zmsg_destroy(&msg);
 
@@ -149,6 +178,7 @@ int handle_pullin_on_client_pipe(zloop_t *loop, zsock_t *pipe, void *user_data)
 static char *file_data = NULL;
 static uint32_t file_size = 0;
 
+/* ================ prepare_file_data() ================ */
 int prepare_file_data(const char *filename)
 {
     FILE *file = fopen(filename, "rb");
@@ -162,7 +192,6 @@ int prepare_file_data(const char *filename)
     fseek(file, 0, SEEK_SET);
 
     char *buf = zmalloc(size);
-    /*memset(buf, 'Z', sizeof(size));*/
 
     memset(buf, 0, sizeof(size));
     uint32_t readed = fread(buf, 1, size, file); 
@@ -180,6 +209,7 @@ int prepare_file_data(const char *filename)
     return 0;
 }
 
+/* ================ run_client() ================ */
 int run_client(const char *endpoint, int op_code, int total_threads, uint32_t total_files, const char *key, const char *filename, int verbose)
 {
     info_log("run_client() with op_code:%d endpoint:%s threads:%d count:%d key:%s filename:%s", op_code, endpoint, total_threads, total_files, key, filename);

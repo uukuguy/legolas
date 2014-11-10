@@ -88,8 +88,8 @@ int main(int argc, char *argv[])
 
     po.endpoint = "tcp://127.0.0.1:19977";
     po.op_code = 1;
-    po.total_threads = 100;
-    po.total_files = 1000;
+    po.total_threads = 10;
+    po.total_files = 10000;
     po.start_index = 0;
     po.key = "default";
     po.filename = "./data/samples/32K.dat";

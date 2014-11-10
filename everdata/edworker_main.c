@@ -29,7 +29,7 @@ typedef struct{
 static struct option const long_options[] = {
 	{"endpoint", required_argument, NULL, 'e'},
 	{"threads", required_argument, NULL, 'u'},
-	{"storage_type", required_argument, NULL, 's'},
+	{"storage", required_argument, NULL, 's'},
 	{"daemon", no_argument, NULL, 'd'},
 	{"verbose", no_argument, NULL, 'v'},
 	{"trace", no_argument, NULL, 't'},
@@ -61,7 +61,7 @@ static void usage(int status)
         printf("Everdata Worker\n\
                 -e, --endpoint          specify the edbroker endpoint\n\
                 -u, --threads           count of threads\n\
-                -s, --storage_type      NONE, LOGFILE, LMDB, EBLOB, LEVELDB, ROCKSDB, LSM\n\
+                -s, --storage      NONE, LOGFILE, LMDB, EBLOB, LEVELDB, ROCKSDB, LSM\n\
                 -d, --daemon            run in the daemon mode. \n\
                 -v, --verbose           print debug messages\n\
                 -t, --trace             print trace messages\n\

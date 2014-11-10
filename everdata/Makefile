@@ -1,0 +1,38 @@
+
+EVERDATA_OBJS = everdata.c.o
+
+EDBROKER = ../bin/edbroker
+EDBROKER_OBJS = edbroker_main.c.o edbroker.c.o
+
+EDWORKER = ../bin/edworker
+EDWORKER_OBJS = edworker_main.c.o edworker.c.o
+
+EDCLIENT = ../bin/edclient
+EDCLIENT_OBJS = edclient_main.c.o edclient.c.o
+
+COMMON_CFLAGS = -g -fPIC -Wall -Werror -I../deps/zeromq/include -I../deps/czmq/include -I../include -I../server
+
+FINAL_CFLAGS = -std=gnu11 ${COMMON_CFLAGS}
+FINAL_CXXFLAGS = -std=c++11 ${COMMON_CFLAGS}
+
+BASE_LDFLAGS = -lbase -llmdb -leblob -leblob_react -lreact -lrocksdb -lleveldb -lsnappy -llsm-sqlite4 -lczmq -lzmq -lmsgpack -lbz2 -ljemalloc -lpthread -lssl -lcrypto -lstdc++ -lm -lz
+COMMON_LDFLAGS = ../server/vnode.c.o ../server/datazone.c.o ../server/object.c.o -L../lib ${BASE_LDFLAGS}
+FINAL_LDFLAGS = -static ${COMMON_LDFLAGS} 
+
+all: ${EDBROKER} ${EDWORKER} ${EDCLIENT}
+
+${EDBROKER}: ${EDBROKER_OBJS} ${EVERDATA_OBJS}
+	${CC} -o ${EDBROKER} ${EDBROKER_OBJS} ${EVERDATA_OBJS} ${FINAL_LDFLAGS} 
+
+${EDWORKER}: ${EDWORKER_OBJS} ${EVERDATA_OBJS}
+	${CC} -o ${EDWORKER} ${EDWORKER_OBJS} ${EVERDATA_OBJS} ${FINAL_LDFLAGS} 
+
+${EDCLIENT}: ${EDCLIENT_OBJS} ${EVERDATA_OBJS}
+	${CC} -o ${EDCLIENT} ${EDCLIENT_OBJS} ${EVERDATA_OBJS} ${FINAL_LDFLAGS} 
+
+%.c.o: %.c
+	${CC} ${FINAL_CFLAGS} -o $*.c.o -c  $*.c
+
+clean:
+	rm -f ${EVERDATA_OBJS} ${EDBROKER} ${EDBROKER_OBJS} ${EDWORKER} ${EDWORKER_OBJS} ${EDCLIENT} ${EDCLIENT_OBJS}
+

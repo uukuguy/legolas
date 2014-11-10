@@ -13,15 +13,7 @@
 #include "filesystem.h"
 #include "vnode.h"
 #include "logger.h"
-
-
-#define MSG_WORKER_ERROR "\0xFF"
-#define MSG_WORKER_READY "\001"
-#define MSG_WORKER_HEARTBEAT "\002"
-#define MSG_WORKER_ACK "\003"
-
-#define ACTOR_READY "ACTOR READY"
-#define ACTOR_OVER "ACTOR OVER"
+#include "everdata.h"
 
 #define HEARTBEAT_INTERVAL 1000
 #define HEARTBEAT_LIVENESS 5
@@ -46,21 +38,37 @@ int worker_handle_message(worker_t *worker, zmsg_t *msg)
 {
     /*zmsg_print(msg);*/
 
-    zframe_t *frame = zmsg_first(msg);
-    const char *data = (const char *)zframe_data(frame);
-    uint32_t data_size = zframe_size(frame);
+    zframe_t *frame_head = zmsg_first(msg);
+    if ( frame_head == NULL ) return -1;
 
-    object_t *object = object_new("key", 3);
+    zframe_t *frame_key = zmsg_next(msg);
+    if ( frame_key == NULL ) return -1;
 
-    object_add_slice(object, data, data_size);
+    const char *key = (const char *)zframe_data(frame_key);
+    uint32_t key_len = zframe_size(frame_key);
 
-    object->object_size = data_size;
+    zframe_t *frame = zmsg_next(msg);
 
-    vnode_write_to_storage(worker->vnode, object);
+    if ( frame != NULL ){
+        const char *data = (const char *)zframe_data(frame);
+        uint32_t data_size = zframe_size(frame);
 
-    object_free(object);
+        /*notice_log("key:%s data_size:%d", key, data_size);*/
 
-    return 0;
+        object_t *object = object_new(key, key_len);
+
+        object_add_slice(object, data, data_size);
+
+        object->object_size = data_size;
+
+        vnode_write_to_storage(worker->vnode, object);
+
+        object_free(object);
+
+        return 0;
+    }
+
+    return -1;
 }
 
 /* ================ worker_new_sock() ================ */
@@ -68,8 +76,9 @@ zsock_t *worker_new_sock(worker_t *worker)
 {
     zsock_t *sock_worker = zsock_new_dealer(worker->edbroker_backend_endpoint);
 
-    zframe_t *frame_ready = zframe_new(MSG_WORKER_READY, strlen(MSG_WORKER_READY));
-    zframe_send(&frame_ready, sock_worker, 0);
+    if ( sock_worker != NULL ){
+        message_send_status(sock_worker, MSG_STATUS_WORKER_READY);
+    }
 
     return sock_worker;
 }
@@ -84,7 +93,7 @@ void worker_thread_main(zsock_t *pipe, void *user_data)
 
     zsock_signal(pipe, 0);
 
-    zstr_send(pipe, ACTOR_READY);
+    message_send_status(pipe, MSG_STATUS_ACTOR_READY);
 
     zsock_t *sock_worker = worker_new_sock(worker);
 
@@ -102,20 +111,21 @@ void worker_thread_main(zsock_t *pipe, void *user_data)
             }
             /*zmsg_print(msg);*/
 
-            if ( zmsg_size(msg) == strlen(MSG_WORKER_HEARTBEAT) ){
-                trace_log("Receive broker heartbeat.");
+            if ( message_check_heartbeat(msg, MSG_HEARTBEAT_BROKER) == 0 ){
+                trace_log("<-- Receive broker heartbeat.");
                 liveness = HEARTBEAT_LIVENESS;
                 zmsg_destroy(&msg);
             } else {
                 zframe_t *identity = zmsg_unwrap(msg);
-                worker_handle_message(worker, msg);
+                int rc = worker_handle_message(worker, msg);
                 zmsg_destroy(&msg);
 
-                zmsg_t *rsp = zmsg_new();
-                zmsg_wrap(rsp, identity);
-                zframe_t *frame_ACK = zframe_new(MSG_WORKER_ACK, strlen(MSG_WORKER_ACK));
-                zmsg_add(rsp, frame_ACK);
-                zmsg_send(&rsp, sock);
+                zmsg_t *sendback_msg = zmsg_new();
+                zmsg_wrap(sendback_msg, identity);
+
+                message_add_status(sendback_msg, rc == 0 ? MSG_STATUS_WORKER_ACK : MSG_STATUS_WORKER_ERROR);
+
+                zmsg_send(&sendback_msg, sock);
             }
         } else {
             if ( --liveness == 0 ){
@@ -133,16 +143,16 @@ void worker_thread_main(zsock_t *pipe, void *user_data)
         }
 
         if ( zclock_time() > worker->heartbeat_at ){
-            trace_log("Send broker heartbeat.");
+            trace_log("--> Send worker heartbeat.");
             worker->heartbeat_at = zclock_time() + HEARTBEAT_INTERVAL;
-            zframe_t *frame = zframe_new(MSG_WORKER_HEARTBEAT, strlen(MSG_WORKER_HEARTBEAT));
-            zframe_send(&frame, sock_worker, 0);
+
+            message_send_heartbeat(sock_worker, MSG_HEARTBEAT_WORKER);
         }
 
         zpoller_destroy(&poller);
     }
 
-    zstr_send(pipe, ACTOR_OVER);
+    message_send_status(pipe, MSG_STATUS_ACTOR_OVER);
 
     zsock_destroy(&sock_worker);
 
@@ -151,46 +161,46 @@ void worker_thread_main(zsock_t *pipe, void *user_data)
 }
 
 /* ================ worker_thread_main_for_req() ================ */
-void worker_thread_main_for_req(zsock_t *pipe, void *user_data)
-{
-    worker_t *worker = (worker_t*)user_data;
-    int id = worker->id;
+/*void worker_thread_main_for_req(zsock_t *pipe, void *user_data)*/
+/*{*/
+    /*worker_t *worker = (worker_t*)user_data;*/
+    /*int id = worker->id;*/
 
-    trace_log("Worker %d Ready.", id);
+    /*trace_log("Worker %d Ready.", id);*/
 
-    zsock_signal(pipe, 0);
+    /*zsock_signal(pipe, 0);*/
 
-    zstr_send(pipe, ACTOR_READY);
+    /*message_send_status(pipe, MSG_STATUS_ACTOR_READY);*/
 
-    zsock_t *sock_worker = zsock_new_req(worker->edbroker_backend_endpoint);
-    zframe_t *frame_ready = zframe_new(MSG_WORKER_READY, strlen(MSG_WORKER_READY));
-    zframe_send(&frame_ready, sock_worker, 0);
+    /*zsock_t *sock_worker = zsock_new_req(worker->edbroker_backend_endpoint);*/
 
-    while ( true ){
-        zmsg_t *msg = zmsg_recv(sock_worker);
-        if ( msg == NULL ){
-            break;
-        }
-        /*zmsg_print(msg);*/
+    /*message_send_status(sock_worker, MSG_STATUS_WORKER_READY);*/
 
-        zframe_t *identity = zmsg_unwrap(msg);
-        worker_handle_message(worker, msg);
-        zmsg_destroy(&msg);
+    /*while ( true ){*/
+        /*zmsg_t *msg = zmsg_recv(sock_worker);*/
+        /*if ( msg == NULL ){*/
+            /*break;*/
+        /*}*/
 
-        zmsg_t *rsp = zmsg_new();
-        zmsg_wrap(rsp, identity);
-        zframe_t *frame_ACK = zframe_new(MSG_WORKER_ACK, strlen(MSG_WORKER_ACK));
-        zmsg_add(rsp, frame_ACK);
-        zmsg_send(&rsp, sock_worker);
-    }
+        /*zframe_t *identity = zmsg_unwrap(msg);*/
+        /*worker_handle_message(worker, msg);*/
+        /*zmsg_destroy(&msg);*/
 
-    zstr_send(pipe, ACTOR_OVER);
+        /*zmsg_t *sendback_msg = zmsg_new();*/
+        /*zmsg_wrap(sendback_msg, identity);*/
 
-    zsock_destroy(&sock_worker);
+        /*message_add_status(sendback_msg, MSG_STATUS_WORKER_ACK);*/
 
-    trace_log("Worker %d Exit.", id);
+        /*zmsg_send(&sendback_msg, sock_worker);*/
+    /*}*/
 
-}
+    /*message_send_status(pipe, MSG_STATUS_ACTOR_OVER);*/
+
+    /*zsock_destroy(&sock_worker);*/
+
+    /*trace_log("Worker %d Exit.", id);*/
+
+/*}*/
 
 /* ================ worker_new() ================ */
 worker_t *worker_new(int worker_id, int storage_type, const char *edbroker_backend_endpoint)
@@ -244,8 +254,7 @@ int handle_pullin_on_worker_pipe(zloop_t *loop, zsock_t *pipe, void *user_data)
     }
     /*zmsg_print(msg);*/
 
-    char *actor_rsp = zmsg_popstr(msg);
-    if ( strcmp(actor_rsp, ACTOR_OVER) == 0 ){
+    if ( message_check_status(msg, MSG_STATUS_ACTOR_OVER) == 0 ){
         over_actors++;
         notice_log("Actor %d over! (%d/%d)", worker->id, over_actors, total_actors);
     }

@@ -12,11 +12,7 @@
 #include <pthread.h>
 #include "common.h"
 #include "logger.h"
-
-#define MSG_WORKER_ERROR "\0xFF"
-#define MSG_WORKER_READY "\001"
-#define MSG_WORKER_HEARTBEAT "\002"
-#define MSG_WORKER_ACK "\003"
+#include "everdata.h"
 
 #define HEARTBEAT_INTERVAL 1000
 #define HEARTBEAT_LIVENESS 5
@@ -225,28 +221,23 @@ int handle_pullin_on_local_frontend(zloop_t *loop, zsock_t *sock, void *user_dat
     }
     /*zmsg_print(msg);*/
 
-    
-    zframe_t *identity = broker_workers_pop(broker);
+    zframe_t *worker_identity = broker_workers_pop(broker);
 
-    if ( identity != NULL ){
+    if ( worker_identity != NULL ){
         /* for req */
         /*zmsg_pushmem(msg, "", 0);*/
 
-        zmsg_push(msg, identity);
+        zmsg_push(msg, worker_identity);
 
         zmsg_send(&msg, broker->sock_local_backend);
     } else {
+        zmsg_t *sendback_msg = create_sendback_message(msg);
+        message_add_status(sendback_msg, MSG_STATUS_WORKER_ERROR);
 
-        zframe_t *cli_identity = zmsg_unwrap(msg);
-
-        zmsg_t *rsp = zmsg_new();
-        zmsg_wrap(rsp, cli_identity);
-        zframe_t *frame_ACK = zframe_new(MSG_WORKER_ERROR, strlen(MSG_WORKER_ACK));
-        zmsg_add(rsp, frame_ACK);
-        zmsg_send(&rsp, sock);
-
-        zmsg_destroy(&msg);
+        zmsg_send(&sendback_msg, sock);
     }
+
+    zmsg_destroy(&msg);
 
     return 0;
 }
@@ -263,13 +254,13 @@ int handle_pullin_on_local_backend(zloop_t *loop, zsock_t *sock, void *user_data
     }
     /*zmsg_print(msg);*/
 
-    zframe_t *identity = zmsg_unwrap(msg);
+    zframe_t *worker_identity = zmsg_unwrap(msg);
+    assert(zframe_is(worker_identity));
 
-    worker_t *worker = worker_new(identity);
+    worker_t *worker = worker_new(worker_identity);
     broker_set_worker_ready(broker, worker);
 
-    zframe_t *first_frame = zmsg_first(msg);
-    if ( memcmp(zframe_data(first_frame), MSG_WORKER_HEARTBEAT, strlen(MSG_WORKER_HEARTBEAT)) == 0 ){
+    if ( message_check_heartbeat(msg, MSG_HEARTBEAT_WORKER) == 0 ){
         broker_lock_workers(broker);
         uint32_t available_workers = broker_get_available_workers(broker);
         int64_t now = zclock_time();
@@ -279,17 +270,19 @@ int handle_pullin_on_local_backend(zloop_t *loop, zsock_t *sock, void *user_data
             expiry = w->expiry;
         }
         broker_unlock_workers(broker);
-        trace_log("WORKER HEARTBEAT. Workers:%d. now:%zu first expiry:%zu(%d)", available_workers, now, expiry, (int32_t)(expiry - now));
+        trace_log("<-- Receive worker heartbeat. Workers:%d. now:%zu first expiry:%zu(%d)", available_workers, now, expiry, (int32_t)(expiry - now));
         zmsg_destroy(&msg);
 
-    } else if ( memcmp(zframe_data(first_frame), MSG_WORKER_READY, strlen(MSG_WORKER_READY)) == 0 ){
+    } else if ( message_check_status(msg, MSG_STATUS_WORKER_READY) == 0 ) {
         broker_lock_workers(broker);
         uint32_t available_workers = broker_get_available_workers(broker);
         broker_unlock_workers(broker);
         notice_log("WORKER READY. Workers:%d", available_workers);
         zmsg_destroy(&msg);
     } 
+
     if ( msg != NULL ){
+        /*zmsg_print(msg);*/
         zmsg_send(&msg, broker->sock_local_frontend);
     }
 
@@ -317,12 +310,13 @@ int handle_heartbeat_timer(zloop_t *loop, int timer_id, void *user_data)
                 int64_t now = zclock_time();
                 int64_t expiry = 0;
                 expiry = worker->expiry;
-                trace_log("Send heartbeat to Worker %s. Workers:%d. now:%zu first expiry:%zu(%d)", worker->id_string, available_workers, now, expiry, (int32_t)(expiry - now));
+                trace_log("--> Send broker heartbeat to worker %s. Workers:%d. now:%zu first expiry:%zu(%d)", worker->id_string, available_workers, now, expiry, (int32_t)(expiry - now));
             }
 
-            zframe_send(&worker->identity, broker->sock_local_backend, ZFRAME_REUSE | ZFRAME_MORE);
-            zframe_t *frame = zframe_new(MSG_WORKER_HEARTBEAT, strlen(MSG_WORKER_HEARTBEAT));
-            zframe_send(&frame, broker->sock_local_backend, 0);
+            zmsg_t *heartbeat_msg = zmsg_new();
+            zmsg_push(heartbeat_msg, zframe_dup(worker->identity));
+            message_add_heartbeat(heartbeat_msg, MSG_HEARTBEAT_BROKER);
+            zmsg_send(&heartbeat_msg, broker->sock_local_backend);
 
             worker = (worker_t*)zlist_next(workers);
 
