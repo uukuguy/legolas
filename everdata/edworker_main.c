@@ -19,7 +19,7 @@ static char program_name[] = "edworker";
 
 typedef struct{
     const char *endpoint;
-    int threads;
+    int total_threads;
     int storage_type;
 
     int is_daemon;
@@ -47,7 +47,7 @@ int daemon_loop(void *data)
     notice_log("In daemon_loop()");
 
     const program_options_t *po = (const program_options_t *)data;
-    return run_worker(po->endpoint, po->threads, po->storage_type, po->log_level >= LOG_DEBUG ? 1 : 0);
+    return run_worker(po->endpoint, po->total_threads, po->storage_type, po->log_level >= LOG_DEBUG ? 1 : 0);
 }
 
 /* ==================== usage() ==================== */ 
@@ -77,7 +77,7 @@ int main(int argc, char *argv[])
     memset(&po, 0, sizeof(program_options_t));
 
     po.endpoint = "tcp://127.0.0.1:19978";
-    po.threads = 10;
+    po.total_threads = 16;
     po.storage_type = STORAGE_NONE;
     po.is_daemon = 0;
     po.log_level = LOG_INFO;
@@ -91,9 +91,9 @@ int main(int argc, char *argv[])
                 po.endpoint = optarg;
                 break;
             case 'u':
-                po.threads = atoi(optarg);
-                if ( po.threads < 0 ) {
-                    po.threads = 1;
+                po.total_threads = atoi(optarg);
+                if ( po.total_threads < 0 ) {
+                    po.total_threads = 1;
                 }
                 break;
             case 's':
@@ -150,6 +150,6 @@ int main(int argc, char *argv[])
     if ( po.is_daemon ){
         return daemon_fork(daemon_loop, (void*)&po); 
     } else 
-        return run_worker(po.endpoint, po.threads, po.storage_type, po.log_level >= LOG_DEBUG ? 1 : 0);
+        return run_worker(po.endpoint, po.total_threads, po.storage_type, po.log_level >= LOG_DEBUG ? 1 : 0);
 }
 

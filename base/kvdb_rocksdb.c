@@ -23,9 +23,9 @@ typedef struct kvdb_rocksdb_t {
 } kvdb_rocksdb_t;
 
 void kvdb_rocksdb_close(kvdb_t *kvdb);
-int kvdb_rocksdb_put(kvdb_t *kvdb, void *key, uint32_t klen, void *value, uint32_t vlen);
-int kvdb_rocksdb_get(kvdb_t *kvdb, void *key, uint32_t klen, void **ppVal, uint32_t *pnVal);
-int kvdb_rocksdb_del(kvdb_t *kvdb, void *key, uint32_t klen);
+int kvdb_rocksdb_put(kvdb_t *kvdb, const char *key, uint32_t klen, void *value, uint32_t vlen);
+int kvdb_rocksdb_get(kvdb_t *kvdb, const char *key, uint32_t klen, void **ppVal, uint32_t *pnVal);
+int kvdb_rocksdb_del(kvdb_t *kvdb, const char *key, uint32_t klen);
 
 static const db_methods_t rocksdb_methods = {
     kvdb_rocksdb_close,
@@ -73,7 +73,7 @@ void kvdb_rocksdb_close(kvdb_t *kvdb){
 
 }
 
-int kvdb_rocksdb_put(kvdb_t *kvdb, void *key, uint32_t klen, void *value, uint32_t vlen)
+int kvdb_rocksdb_put(kvdb_t *kvdb, const char *key, uint32_t klen, void *value, uint32_t vlen)
 {
   kvdb_rocksdb_t *rocksdb = (kvdb_rocksdb_t*)kvdb;
   char *szErr = NULL;
@@ -85,7 +85,7 @@ int kvdb_rocksdb_put(kvdb_t *kvdb, void *key, uint32_t klen, void *value, uint32
   }
 }
 
-int kvdb_rocksdb_get(kvdb_t *kvdb, void *key, uint32_t klen, void **ppVal, uint32_t *pnVal)
+int kvdb_rocksdb_get(kvdb_t *kvdb, const char *key, uint32_t klen, void **ppVal, uint32_t *pnVal)
 {
   kvdb_rocksdb_t *rocksdb = (kvdb_rocksdb_t*)kvdb;
   char *szErr = NULL;
@@ -113,7 +113,7 @@ int kvdb_rocksdb_get(kvdb_t *kvdb, void *key, uint32_t klen, void **ppVal, uint3
   }
 }
 
-int kvdb_rocksdb_del(kvdb_t *kvdb, void *key, uint32_t klen)
+int kvdb_rocksdb_del(kvdb_t *kvdb, const char *key, uint32_t klen)
 {
   kvdb_rocksdb_t *rocksdb = (kvdb_rocksdb_t*)kvdb;
   char *szErr = NULL;

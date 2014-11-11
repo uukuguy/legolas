@@ -96,7 +96,7 @@ void kvdb_close(kvdb_t *kvdb)
     }
 }
 
-int kvdb_put(kvdb_t *kvdb, void *key, uint32_t klen, void *value, uint32_t vlen)
+int kvdb_put(kvdb_t *kvdb, const char *key, uint32_t klen, void *value, uint32_t vlen)
 {
     if ( kvdb->db_methods->db_put != NULL ){
         return kvdb->db_methods->db_put(kvdb, key, klen, value, vlen);
@@ -105,7 +105,7 @@ int kvdb_put(kvdb_t *kvdb, void *key, uint32_t klen, void *value, uint32_t vlen)
     }
 }
 
-int kvdb_get(kvdb_t *kvdb, void *key, uint32_t klen, void **value, uint32_t *vlen)
+int kvdb_get(kvdb_t *kvdb, const char *key, uint32_t klen, void **value, uint32_t *vlen)
 {
     if ( kvdb->db_methods->db_get != NULL ){
         return kvdb->db_methods->db_get(kvdb, key, klen, value, vlen);
@@ -114,7 +114,7 @@ int kvdb_get(kvdb_t *kvdb, void *key, uint32_t klen, void **value, uint32_t *vle
     }
 }
 
-int kvdb_del(kvdb_t *kvdb, void *key, uint32_t klen)
+int kvdb_del(kvdb_t *kvdb, const char *key, uint32_t klen)
 {
     if ( kvdb->db_methods->db_del != NULL ){
         return kvdb->db_methods->db_del(kvdb, key, klen);

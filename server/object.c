@@ -178,16 +178,33 @@ int unpack_object_nslices(msgpack_unpacker *unpacker, object_t *object)
 
     return 0;
 }
-
+/*
 #define MAKE_META_KEY(key_md5) \
-    char meta_key[37]; \
+    char meta_key[36]; \
     sprintf(meta_key, "%08x-%08x-%08x-%08x", key_md5.h0, key_md5.h1, key_md5.h2, key_md5.h3); \
-    uint32_t meta_key_len = 36;
+    uint32_t meta_key_len = 35;
 
 #define MAKE_SLICE_KEY(key_md5, slice_idx) \
         char slice_key[45]; \
         sprintf(slice_key, "%08x-%08x-%08x-%08x-%08d", key_md5.h0, key_md5.h1, key_md5.h2, key_md5.h3, slice_idx); \
         uint32_t slice_key_len = 44;
+*/
+
+#define MAKE_META_KEY(key_md5) \
+    char *meta_key = (char *)&(key_md5); \
+    uint32_t meta_key_len = sizeof(md5_value_t);
+
+typedef struct slice_key_t {
+    md5_value_t _key_md5;
+    uint32_t _slice_idx;
+} slice_key_t;
+
+#define MAKE_SLICE_KEY(key_md5, slice_idx) \
+    slice_key_t slice_key_tmp; \
+    slice_key_tmp._key_md5 = key_md5; \
+    slice_key_tmp._slice_idx = slice_idx; \
+    char *slice_key = (char*)&slice_key_tmp; \
+    uint32_t slice_key_len = sizeof(slice_key_t);
 
 int object_put_into_file(int file, object_t *object)
 {

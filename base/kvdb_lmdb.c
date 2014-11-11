@@ -21,9 +21,9 @@ typedef struct kvdb_lmdb_t {
 } kvdb_lmdb_t;
 
 void kvdb_lmdb_close(kvdb_t *kvdb);
-int kvdb_lmdb_put(kvdb_t *kvdb, void *key, uint32_t klen, void *value, uint32_t vlen);
-int kvdb_lmdb_get(kvdb_t *kvdb, void *key, uint32_t klen, void **ppVal, uint32_t *pnVal);
-int kvdb_lmdb_del(kvdb_t *kvdb, void *key, uint32_t klen);
+int kvdb_lmdb_put(kvdb_t *kvdb, const char *key, uint32_t klen, void *value, uint32_t vlen);
+int kvdb_lmdb_get(kvdb_t *kvdb, const char *key, uint32_t klen, void **ppVal, uint32_t *pnVal);
+int kvdb_lmdb_del(kvdb_t *kvdb, const char *key, uint32_t klen);
 void kvdb_lmdb_flush(kvdb_t *kvdb);
 
 static const db_methods_t lmdb_methods = {
@@ -121,7 +121,7 @@ void kvdb_lmdb_close(kvdb_t *kvdb){
     zfree(lmdb);
 }
 
-int kvdb_lmdb_put(kvdb_t *kvdb, void *key, uint32_t klen, void *value, uint32_t vlen)
+int kvdb_lmdb_put(kvdb_t *kvdb, const char *key, uint32_t klen, void *value, uint32_t vlen)
 {
     kvdb_lmdb_t *lmdb = (kvdb_lmdb_t*)kvdb;
 
@@ -132,7 +132,7 @@ int kvdb_lmdb_put(kvdb_t *kvdb, void *key, uint32_t klen, void *value, uint32_t 
     m_val.mv_size = vlen; 
     m_val.mv_data = value;
     m_key.mv_size = klen; 
-    m_key.mv_data = key;
+    m_key.mv_data = (void*)key;
 
     int rc = mdb_txn_begin(lmdb->env, NULL, 0, &txn);
     if( rc==0 ){
@@ -147,7 +147,7 @@ int kvdb_lmdb_put(kvdb_t *kvdb, void *key, uint32_t klen, void *value, uint32_t 
     return rc;
 }
 
-int kvdb_lmdb_get(kvdb_t *kvdb, void *key, uint32_t klen, void **ppVal, uint32_t *pnVal)
+int kvdb_lmdb_get(kvdb_t *kvdb, const char *key, uint32_t klen, void **ppVal, uint32_t *pnVal)
 {
     kvdb_lmdb_t *lmdb = (kvdb_lmdb_t*)kvdb;
 
@@ -155,7 +155,7 @@ int kvdb_lmdb_get(kvdb_t *kvdb, void *key, uint32_t klen, void **ppVal, uint32_t
     MDB_txn *txn;
 
     m_key.mv_size = klen;
-    m_key.mv_data = key;
+    m_key.mv_data = (void*)key;
 
     int rc = mdb_txn_begin(lmdb->env, NULL, MDB_RDONLY, &txn);
     if( rc==0 ){
@@ -180,7 +180,7 @@ int kvdb_lmdb_get(kvdb_t *kvdb, void *key, uint32_t klen, void **ppVal, uint32_t
     return rc;
 }
 
-int kvdb_lmdb_del(kvdb_t *kvdb, void *key, uint32_t klen)
+int kvdb_lmdb_del(kvdb_t *kvdb, const char *key, uint32_t klen)
 {
     kvdb_lmdb_t *lmdb = (kvdb_lmdb_t*)kvdb;
 
@@ -188,7 +188,7 @@ int kvdb_lmdb_del(kvdb_t *kvdb, void *key, uint32_t klen)
     MDB_txn *txn;
 
     m_key.mv_size = klen; 
-    m_key.mv_data = key;
+    m_key.mv_data = (void*)key;
 
     int rc = mdb_txn_begin(lmdb->env, NULL, 0, &txn);
     if( rc==0 ){

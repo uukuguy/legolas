@@ -35,100 +35,169 @@ typedef struct worker_t{
     zloop_t *loop;
 } worker_t;
 
+zmsg_t *worker_del_data(worker_t *worker, zmsg_t *msg)
+{
+    zmsg_t *sendback_msg = NULL;
+
+    if ( sendback_msg == NULL ){
+        sendback_msg = create_status_message(MSG_STATUS_WORKER_ERROR);
+    }
+
+    return sendback_msg;
+}
+
+
+zmsg_t *worker_get_data(worker_t *worker, zmsg_t *msg)
+{
+    zmsg_t *sendback_msg = NULL;
+
+    zframe_t *frame_msgtype = zmsg_first(msg);
+    if ( frame_msgtype != NULL ){
+        zframe_t *frame_action = zmsg_next(msg);
+        if ( frame_action != NULL ){
+
+            zframe_t *frame_key = zmsg_next(msg);
+            if ( frame_key != NULL ){
+
+                const char *key = (const char *)zframe_data(frame_key);
+                uint32_t key_len = zframe_size(frame_key);
+
+                md5_value_t key_md5;
+                md5(&key_md5, (uint8_t *)key, key_len);
+                char *slice_key = (char *)&key_md5; 
+                uint32_t slice_key_len = sizeof(key_md5);
+
+                char *slice_data = NULL;
+                uint32_t slice_data_size = 0;
+                int rc = kvdb_get(worker->vnode->kvdb, slice_key, slice_key_len, (void**)&slice_data, &slice_data_size);
+                if ( rc == 0 ){
+                    if ( slice_data != NULL ){
+                        sendback_msg = create_key_data_message(key, slice_data, slice_data_size);
+                    } else {
+                        sendback_msg = create_status_message(MSG_STATUS_WORKER_NOTFOUND);
+                    }
+                }
+                /*
+                object_t *object = vnode_read_from_storage(worker->vnode, key_md5);
+                if ( object != NULL ){
+                    uint32_t object_size = object->object_size;
+                    char *data = malloc(object_size);
+
+                    listIter *iter = listGetIterator(object->slices, AL_START_HEAD);
+                    listNode *node = NULL;
+                    uint32_t pos = 0;
+                    uint32_t data_size = 0;
+                    while ( (node = listNext(iter)) != NULL ){
+                        slice_t *slice = (slice_t*)node->value;
+                        char *buf = slice->byteblock.buf;
+                        uint32_t buf_size = slice->byteblock.size;
+                        memcpy(&data[pos], buf, buf_size);
+                        pos += buf_size;
+                        data_size += buf_size;
+                    };
+                    listReleaseIterator(iter);
+                    object_free(object);
+
+                    assert (data_size == object_size);
+
+                    sendback_msg = create_key_data_message(key, data, object_size);
+                    
+                } else {
+                    sendback_msg = create_status_message(MSG_STATUS_WORKER_NOTFOUND);
+                } // object != NULL*/
+            } // frame_key != NULL
+        } // frame_action != NULL
+    } // frame_msgtype != NULL
+
+    if ( sendback_msg == NULL ){
+        sendback_msg = create_status_message(MSG_STATUS_WORKER_ERROR);
+    }
+
+    return sendback_msg;
+}
+
+zmsg_t *worker_put_data(worker_t *worker, zmsg_t *msg)
+{ 
+    zmsg_t *sendback_msg = NULL;
+
+    UNUSED zframe_t *frame_msgtype = zmsg_first(msg);
+    if ( frame_msgtype != NULL ){
+        UNUSED zframe_t *frame_action = zmsg_next(msg);
+        if ( frame_action != NULL ) {
+            zframe_t *frame_key = zmsg_next(msg);
+            if ( frame_key != NULL ) {
+                const char *key = (const char *)zframe_data(frame_key);
+                UNUSED uint32_t key_len = zframe_size(frame_key);
+
+                zframe_t *frame = zmsg_next(msg);
+
+                if ( frame != NULL ){
+                    const char *data = (const char *)zframe_data(frame);
+                    uint32_t data_size = zframe_size(frame);
+
+                    md5_value_t key_md5;
+                    md5(&key_md5, (uint8_t *)key, key_len);
+                    char *slice_key = (char *)&key_md5; 
+                    uint32_t slice_key_len = sizeof(key_md5);
+                    int rc = kvdb_put(worker->vnode->kvdb, slice_key, slice_key_len, (void*)data, data_size);
+                    if ( rc == 0 )
+                    {
+                    /*object_t *object = object_new(key, key_len);*/
+                    /*object->object_size = data_size;*/
+                    /*object_add_slice(object, data, data_size);*/
+                    /*vnode_write_to_storage(worker->vnode, object);*/
+                    /*object_free(object);*/
+
+                    /*uint32_t default_slice_size = 1024 * 16;*/
+                    /*uint32_t writed_size = 0;*/
+                    /*int idx = 0;*/
+                    /*while ( writed_size < data_size ){*/
+                        /*char slice_key[NAME_MAX];*/
+                        /*sprintf(slice_key, "%s-%d", key, idx);*/
+                        /*uint32_t slice_size = writed_size + default_slice_size <= data_size ? default_slice_size : data_size - writed_size;*/
+
+                        /*object_t *object = object_new(slice_key, strlen(slice_key));*/
+                        /*object->object_size = slice_size;*/
+                        /*object_add_slice(object, &data[writed_size], slice_size);*/
+                        /*vnode_write_to_storage(worker->vnode, object);*/
+                        /*object_free(object);*/
+
+                        /*idx++;*/
+                        /*writed_size += slice_size;*/
+                    /*}*/
+
+                    sendback_msg = create_status_message(MSG_STATUS_WORKER_ACK);
+                    }
+                }
+            }
+        }
+    }
+    if ( sendback_msg == NULL ){
+        sendback_msg = create_status_message(MSG_STATUS_WORKER_ERROR);
+    }
+
+    return sendback_msg;
+}
+
 /* ================ worker_handle_message() ================ */
 zmsg_t *worker_handle_message(worker_t *worker, zmsg_t *msg)
 {
     /*zmsg_print(msg);*/
 
-    zmsg_t *sendback_msg = zmsg_new();
+    zmsg_t *sendback_msg = NULL;
 
     if ( message_check_action(msg, MSG_ACTION_PUT) == 0 ){ 
-        UNUSED zframe_t *frame_msgtype = zmsg_first(msg);
-        UNUSED zframe_t *frame_action = zmsg_next(msg);
-
-        zframe_t *frame_key = zmsg_next(msg);
-        if ( frame_key == NULL ) {
-            message_add_status(sendback_msg, MSG_STATUS_WORKER_ERROR);
-            return sendback_msg;
-        }
-
-        const char *key = (const char *)zframe_data(frame_key);
-        uint32_t key_len = zframe_size(frame_key);
-
-        zframe_t *frame = zmsg_next(msg);
-
-        if ( frame != NULL ){
-            const char *data = (const char *)zframe_data(frame);
-            uint32_t data_size = zframe_size(frame);
-
-            /*notice_log("key:%s data_size:%d", key, data_size);*/
-
-            object_t *object = object_new(key, key_len);
-
-            object_add_slice(object, data, data_size);
-
-            object->object_size = data_size;
-
-            vnode_write_to_storage(worker->vnode, object);
-
-            object_free(object);
-
-            message_add_status(sendback_msg, MSG_STATUS_WORKER_ACK);
-            return sendback_msg;
-        }
+        sendback_msg = worker_put_data(worker, msg);
     } else if (message_check_action(msg, MSG_ACTION_GET) == 0 ) {
-        UNUSED zframe_t *frame_msgtype = zmsg_first(msg);
-        UNUSED zframe_t *frame_action = zmsg_next(msg);
-
-        zframe_t *frame_key = zmsg_next(msg);
-        if ( frame_key == NULL ){
-            message_add_status(sendback_msg, MSG_STATUS_WORKER_ERROR);
-            return sendback_msg;
-        }
-
-        const char *key = (const char *)zframe_data(frame_key);
-        uint32_t key_len = zframe_size(frame_key);
-
-        md5_value_t key_md5;
-        md5(&key_md5, (uint8_t *)key, key_len);
-        object_t *object = vnode_read_from_storage(worker->vnode, key_md5);
-        if ( object != NULL ){
-            uint32_t object_size = object->object_size;
-            char *data = malloc(object_size);
-
-            listIter *iter = listGetIterator(object->slices, AL_START_HEAD);
-            listNode *node = NULL;
-            uint32_t pos = 0;
-            uint32_t data_size = 0;
-            while ( (node = listNext(iter)) != NULL ){
-                slice_t *slice = (slice_t*)node->value;
-                char *buf = slice->byteblock.buf;
-                uint32_t buf_size = slice->byteblock.size;
-                memcpy(&data[pos], buf, buf_size);
-                pos += buf_size;
-                data_size += buf_size;
-            };
-            listReleaseIterator(iter);
-            object_free(object);
-
-            /* FIXME 2014-11-11 00:37:16 */
-            if (data_size != object_size){
-                error_log("data_size(%d) != object_size(%d)", data_size, object_size);
-                message_add_status(sendback_msg, MSG_STATUS_WORKER_ERROR);
-                return sendback_msg;
-            } else {
-                int16_t msgtype = MSGTYPE_DATA;
-                zmsg_addmem(sendback_msg, &msgtype, sizeof(int16_t));
-                message_add_key_data(sendback_msg, key, data, object_size);
-                /*zmsg_print(sendback_msg);*/
-                return sendback_msg;
-            }
-        }
-
+        sendback_msg = worker_get_data(worker, msg);
     } else if (message_check_action(msg, MSG_ACTION_DEL) == 0 ) {
+        sendback_msg = worker_del_data(worker, msg);
     }
 
-    message_add_status(sendback_msg, MSG_STATUS_WORKER_ERROR);
+    if ( sendback_msg == NULL ){
+        sendback_msg = create_status_message(MSG_STATUS_WORKER_ERROR);
+    }
+
     return sendback_msg;
 }
 

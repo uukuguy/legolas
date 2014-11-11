@@ -40,6 +40,117 @@ void client_rebuild_data_key(client_t *client, uint32_t data_id, char *key)
     sprintf(key, "/test/%s/%04d/%08d-%s", client->key, client->id, client->start_index + data_id, file_name);
 }
 
+/* ================ delete_data() ================ */
+int delete_data(zsock_t *sock, const char *key)
+{
+    /* ---------------- Send Message ---------------- */
+    zmsg_t *delete_msg = create_action_message(MSG_ACTION_DEL);
+    message_add_key_data(delete_msg, key, "", 0);
+
+    zmsg_send(&delete_msg, sock);
+
+    /* ---------------- Receive Message ---------------- */
+
+    zmsg_t *recv_msg = zmsg_recv(sock);
+    if ( recv_msg == NULL ){
+        return -2;
+    }
+    zmsg_print(recv_msg);
+
+    int rc = -1;
+    if (message_check_status(recv_msg, MSG_STATUS_WORKER_NOTFOUND) == 0 ){
+        warning_log("Not Found. key=%s", key);
+        rc = 0;
+    } else if ( message_check_status(recv_msg, MSG_STATUS_WORKER_ERROR) == 0 ){
+        error_log("Return MSG_STATUS_WORKER_ERROR. key=%s", key);
+        rc = -1;
+    }
+
+    zmsg_destroy(&recv_msg);
+
+    return rc;
+}
+
+/* ================ download_data() ================ */
+int download_data(zsock_t *sock, const char *key)
+{
+    /* ---------------- Send Message ---------------- */
+    zmsg_t *download_msg = create_action_message(MSG_ACTION_GET);
+    message_add_key_data(download_msg, key, "", 0);
+
+    zmsg_send(&download_msg, sock);
+
+    /* ---------------- Receive Message ---------------- */
+
+    zmsg_t *recv_msg = zmsg_recv(sock);
+    if ( recv_msg == NULL ){
+        return -2;
+    }
+    /*zmsg_print(recv_msg);*/
+
+    int rc = -1;
+    if (message_check_status(recv_msg, MSG_STATUS_WORKER_NOTFOUND) == 0 ){
+        warning_log("Not Found. key=%s", key);
+        rc = 0;
+    } else if ( message_check_status(recv_msg, MSG_STATUS_WORKER_ERROR) == 0 ){
+        error_log("Return MSG_STATUS_WORKER_ERROR. key=%s", key);
+        rc = -1;
+    } else {
+        /*zmsg_print(recv_msg);*/
+        zframe_t *frame_msgtype = zmsg_first(recv_msg);
+        if ( frame_msgtype != NULL ){
+            int16_t msgtype = *(int16_t*)zframe_data(frame_msgtype);
+            if ( msgtype == MSGTYPE_DATA ){
+                zmsg_first(recv_msg);
+
+                zframe_t *frame_key = zmsg_next(recv_msg);
+                UNUSED const char *key = (const char *)zframe_data(frame_key);
+
+                zframe_t *frame_data = zmsg_next(recv_msg);
+                UNUSED const char *data =  (const char *)zframe_data(frame_data);
+                UNUSED uint32_t data_size = zframe_size(frame_data);
+                /*notice_log("Receive key:%s data_size:%d", key, data_size);*/
+                rc = 0;
+            }
+        }
+    }
+
+    zmsg_destroy(&recv_msg);
+
+    return rc;
+}
+
+/* ================ upload_data() ================ */
+int upload_data(zsock_t *sock, const char *key, const char *data, uint32_t data_size)
+{
+    /* ---------------- Send Message ---------------- */
+    zmsg_t *upload_msg = create_action_message(MSG_ACTION_PUT);
+    message_add_key_data(upload_msg, key, data, data_size);
+
+    zmsg_send(&upload_msg, sock);
+
+    /* ---------------- Receive Message ---------------- */
+
+    zmsg_t *recv_msg = zmsg_recv(sock);
+    if ( recv_msg == NULL ){
+        return -2;
+    }
+    /*zmsg_print(recv_msg);*/
+
+    int rc = 0;
+    if (message_check_status(recv_msg, MSG_STATUS_WORKER_ACK) == 0 ){
+        /*info_log("Return MSG_STATUS_WORKER_ACK. key=%s", key);*/
+        rc = 0;
+    } else if ( message_check_status(recv_msg, MSG_STATUS_WORKER_ERROR) == 0 ){
+        error_log("Return MSG_STATUS_WORKER_ERROR. key=%s", key);
+        rc = -1;
+    }
+
+    zmsg_destroy(&recv_msg);
+
+    return rc;
+}
+
 #define RETRIES 3
 /* ================ client_thread_main() ================ */
 void client_thread_main(zsock_t *pipe, void *user_data)
@@ -65,67 +176,20 @@ void client_thread_main(zsock_t *pipe, void *user_data)
         char key[NAME_MAX];
         client_rebuild_data_key(client, file_count, key);
 
-        int Ok = 0;
         int retries = 0;
-        while ( retries++ < RETRIES ){
+        while ( retries++ < RETRIES ) {
 
-            /* ---------------- Send Message ---------------- */
-            if ( client->op_code == 1 ){
-                zmsg_t *upload_msg = create_action_message(MSG_ACTION_PUT);
-                message_add_key_data(upload_msg, key, file_data, file_size);
-
-                zmsg_send(&upload_msg, sock_client);
+            int rc = 0;
+            if ( client->op_code == 1 ) {
+                rc = upload_data(sock_client, key, file_data, file_size);
             } else if ( client->op_code == 2 ) {
-
-                zmsg_t *download_msg = create_action_message(MSG_ACTION_GET);
-                message_add_key_data(download_msg, key, "", 0);
-
-                zmsg_send(&download_msg, sock_client);
+                rc = download_data(sock_client, key);
             } else if ( client->op_code == 3 ) {
-                zmsg_t *delete_msg = create_action_message(MSG_ACTION_DEL);
-                message_add_key_data(delete_msg, key, "", 0);
-
-                zmsg_send(&delete_msg, sock_client);
+                rc = delete_data(sock_client, key);
             }
+            if ( rc == -2 ) break;
+            if ( rc == 0 ) break;
 
-            /* ---------------- Receive Message ---------------- */
-
-            zmsg_t *recv_msg = zmsg_recv(sock_client);
-            if ( recv_msg == NULL ){
-                /*zstr_send(pipe, ACTOR_OVER);*/
-                message_send_status(pipe, MSG_STATUS_ACTOR_OVER);
-                break;
-            }
-            /*zmsg_print(recv_msg);*/
-
-            if (message_check_status(recv_msg, MSG_STATUS_WORKER_ACK) == 0 ){
-                /*info_log("Return MSG_STATUS_WORKER_ACK. key=%s", key);*/
-                Ok = 1;
-            } else if ( message_check_status(recv_msg, MSG_STATUS_WORKER_ERROR) == 0 ){
-                error_log("Return MSG_STATUS_WORKER_ERROR. key=%s", key);
-            } else {
-                /*zmsg_print(recv_msg);*/
-                zframe_t *frame_msgtype = zmsg_first(recv_msg);
-                if ( frame_msgtype != NULL ){
-                    int16_t msgtype = *(int16_t*)zframe_data(frame_msgtype);
-                    if ( msgtype == MSGTYPE_DATA ){
-                        zmsg_first(recv_msg);
-
-                        zframe_t *frame_key = zmsg_next(recv_msg);
-                        UNUSED const char *key = (const char *)zframe_data(frame_key);
-
-                        zframe_t *frame_data = zmsg_next(recv_msg);
-                        UNUSED const char *data =  (const char *)zframe_data(frame_data);
-                        UNUSED uint32_t data_size = zframe_size(frame_data);
-                        /*notice_log("Receive key:%s data_size:%d", key, data_size);*/
-                        Ok = 1;
-                    }
-                }
-            }
-
-            zmsg_destroy(&recv_msg);
-
-            if ( Ok == 1 ) break;
             notice_log("Retry %d/%d...", retries, RETRIES);
             zclock_sleep(1000);
         }

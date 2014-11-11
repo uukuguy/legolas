@@ -23,9 +23,9 @@ typedef struct kvdb_leveldb_t {
 } kvdb_leveldb_t;
 
 void kvdb_leveldb_close(kvdb_t *kvdb);
-int kvdb_leveldb_put(kvdb_t *kvdb, void *key, uint32_t klen, void *value, uint32_t vlen);
-int kvdb_leveldb_get(kvdb_t *kvdb, void *key, uint32_t klen, void **ppVal, uint32_t *pnVal);
-int kvdb_leveldb_del(kvdb_t *kvdb, void *key, uint32_t klen);
+int kvdb_leveldb_put(kvdb_t *kvdb, const char *key, uint32_t klen, void *value, uint32_t vlen);
+int kvdb_leveldb_get(kvdb_t *kvdb, const char *key, uint32_t klen, void **ppVal, uint32_t *pnVal);
+int kvdb_leveldb_del(kvdb_t *kvdb, const char *key, uint32_t klen);
 
 static const db_methods_t leveldb_methods = {
     kvdb_leveldb_close,
@@ -73,7 +73,7 @@ void kvdb_leveldb_close(kvdb_t *kvdb){
 
 }
 
-int kvdb_leveldb_put(kvdb_t *kvdb, void *key, uint32_t klen, void *value, uint32_t vlen)
+int kvdb_leveldb_put(kvdb_t *kvdb, const char *key, uint32_t klen, void *value, uint32_t vlen)
 {
   kvdb_leveldb_t *leveldb = (kvdb_leveldb_t*)kvdb;
   char *szErr = NULL;
@@ -85,7 +85,7 @@ int kvdb_leveldb_put(kvdb_t *kvdb, void *key, uint32_t klen, void *value, uint32
   }
 }
 
-int kvdb_leveldb_get(kvdb_t *kvdb, void *key, uint32_t klen, void **ppVal, uint32_t *pnVal)
+int kvdb_leveldb_get(kvdb_t *kvdb, const char *key, uint32_t klen, void **ppVal, uint32_t *pnVal)
 {
   kvdb_leveldb_t *leveldb = (kvdb_leveldb_t*)kvdb;
   char *szErr = NULL;
@@ -110,7 +110,7 @@ int kvdb_leveldb_get(kvdb_t *kvdb, void *key, uint32_t klen, void **ppVal, uint3
   }
 }
 
-int kvdb_leveldb_del(kvdb_t *kvdb, void *key, uint32_t klen)
+int kvdb_leveldb_del(kvdb_t *kvdb, const char *key, uint32_t klen)
 {
   kvdb_leveldb_t *leveldb = (kvdb_leveldb_t*)kvdb;
   char *szErr = NULL;

@@ -25,9 +25,9 @@ typedef struct kvdb_lsm_t {
 } kvdb_lsm_t;
 
 void kvdb_lsm_close(kvdb_t *kvdb);
-int kvdb_lsm_put(kvdb_t *kvdb, void *key, uint32_t klen, void *value, uint32_t vlen);
-int kvdb_lsm_get(kvdb_t *kvdb, void *key, uint32_t klen, void **ppVal, uint32_t *pnVal);
-int kvdb_lsm_del(kvdb_t *kvdb, void *key, uint32_t klen);
+int kvdb_lsm_put(kvdb_t *kvdb, const char *key, uint32_t klen, void *value, uint32_t vlen);
+int kvdb_lsm_get(kvdb_t *kvdb, const char *key, uint32_t klen, void **ppVal, uint32_t *pnVal);
+int kvdb_lsm_del(kvdb_t *kvdb, const char *key, uint32_t klen);
 
 static const db_methods_t lsm_methods = {
     kvdb_lsm_close,
@@ -87,16 +87,16 @@ void kvdb_lsm_close(kvdb_t *kvdb){
 
 }
 
-int kvdb_lsm_put(kvdb_t *kvdb, void *key, uint32_t klen, void *value, uint32_t vlen)
+int kvdb_lsm_put(kvdb_t *kvdb, const char *key, uint32_t klen, void *value, uint32_t vlen)
 {
   kvdb_lsm_t *lsm = (kvdb_lsm_t*)kvdb;
 
-  int rc = lsm_write(lsm->db, key, klen, value, vlen);
+  int rc = lsm_write(lsm->db, (void*)key, klen, value, vlen);
 
   return rc;
 }
 
-int kvdb_lsm_get(kvdb_t *kvdb, void *key, uint32_t klen, void **ppVal, uint32_t *pnVal)
+int kvdb_lsm_get(kvdb_t *kvdb, const char *key, uint32_t klen, void **ppVal, uint32_t *pnVal)
 {
   kvdb_lsm_t *lsm = (kvdb_lsm_t*)kvdb;
   lsm_cursor *csr;
@@ -104,7 +104,7 @@ int kvdb_lsm_get(kvdb_t *kvdb, void *key, uint32_t klen, void **ppVal, uint32_t 
   int rc = lsm_csr_open(lsm->db, &csr);
   if ( rc != 0 ) return -1;
 
-  rc = lsm_csr_seek(csr, key, klen, LSM_SEEK_EQ);
+  rc = lsm_csr_seek(csr, (void*)key, klen, LSM_SEEK_EQ);
   if( rc == 0 ){
     if( lsm_csr_valid(csr) ){
         void *pVal; int nVal;
@@ -126,10 +126,10 @@ int kvdb_lsm_get(kvdb_t *kvdb, void *key, uint32_t klen, void **ppVal, uint32_t 
   return rc;
 }
 
-int kvdb_lsm_del(kvdb_t *kvdb, void *key, uint32_t klen)
+int kvdb_lsm_del(kvdb_t *kvdb, const char *key, uint32_t klen)
 {
   kvdb_lsm_t *lsm = (kvdb_lsm_t*)kvdb;
 
-  return lsm_delete(lsm->db, key, klen);
+  return lsm_delete(lsm->db, (void*)key, klen);
 }
 

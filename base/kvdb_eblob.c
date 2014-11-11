@@ -22,9 +22,9 @@ typedef struct kvdb_eblob_t {
 } kvdb_eblob_t;
 
 void kvdb_eblob_close(kvdb_t *kvdb);
-int kvdb_eblob_put(kvdb_t *kvdb, void *key, uint32_t klen, void *value, uint32_t vlen);
-int kvdb_eblob_get(kvdb_t *kvdb, void *key, uint32_t klen, void **ppVal, uint32_t *pnVal);
-int kvdb_eblob_del(kvdb_t *kvdb, void *key, uint32_t klen);
+int kvdb_eblob_put(kvdb_t *kvdb, const char *key, uint32_t klen, void *value, uint32_t vlen);
+int kvdb_eblob_get(kvdb_t *kvdb, const char *key, uint32_t klen, void **ppVal, uint32_t *pnVal);
+int kvdb_eblob_del(kvdb_t *kvdb, const char *key, uint32_t klen);
 void kvdb_eblob_flush(kvdb_t *kvdb);
 
 static const db_methods_t eblob_methods = {
@@ -82,7 +82,7 @@ void kvdb_eblob_close(kvdb_t *kvdb){
     zfree(eblob);
 }
 
-int kvdb_eblob_put(kvdb_t *kvdb, void *key, uint32_t klen, void *value, uint32_t vlen)
+int kvdb_eblob_put(kvdb_t *kvdb, const char *key, uint32_t klen, void *value, uint32_t vlen)
 {
     kvdb_eblob_t *eblob = (kvdb_eblob_t*)kvdb;
 
@@ -95,7 +95,7 @@ int kvdb_eblob_put(kvdb_t *kvdb, void *key, uint32_t klen, void *value, uint32_t
     return rc;
 }
 
-int kvdb_eblob_get(kvdb_t *kvdb, void *key, uint32_t klen, void **ppVal, uint32_t *pnVal)
+int kvdb_eblob_get(kvdb_t *kvdb, const char *key, uint32_t klen, void **ppVal, uint32_t *pnVal)
 {
     kvdb_eblob_t *eblob = (kvdb_eblob_t*)kvdb;
 
@@ -110,7 +110,7 @@ int kvdb_eblob_get(kvdb_t *kvdb, void *key, uint32_t klen, void **ppVal, uint32_
     return rc;
 }
 
-int kvdb_eblob_del(kvdb_t *kvdb, void *key, uint32_t klen)
+int kvdb_eblob_del(kvdb_t *kvdb, const char *key, uint32_t klen)
 {
     kvdb_eblob_t *eblob = (kvdb_eblob_t*)kvdb;
 

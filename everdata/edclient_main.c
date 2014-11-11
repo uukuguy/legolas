@@ -87,9 +87,9 @@ int main(int argc, char *argv[])
     memset(&po, 0, sizeof(program_options_t));
 
     po.endpoint = "tcp://127.0.0.1:19977";
-    po.op_code = 1;
-    po.total_threads = 10;
-    po.total_files = 10000;
+    po.op_code = 0;
+    po.total_threads = 16;
+    po.total_files = 6250;
     po.start_index = 0;
     po.key = "default";
     po.filename = "./data/samples/32K.dat";
@@ -169,7 +169,13 @@ int main(int argc, char *argv[])
     gettimeofday(&tv, NULL); 
     msec0 = tv.tv_sec * 1000 + tv.tv_usec / 1000; 
 
-    int rc = run_client(po.endpoint, po.op_code, po.total_threads, po.total_files, po.key, po.filename, po.log_level >= LOG_DEBUG ? 1 : 0);
+    int rc = 0;
+    if ( po.op_code == 0 ){
+       warning_log("Usage: %s --write | --read | --delete", program_name);
+       rc = -1;
+    } else {
+        rc = run_client(po.endpoint, po.op_code, po.total_threads, po.total_files, po.key, po.filename, po.log_level >= LOG_DEBUG ? 1 : 0);
+    }
 
     /* -------- End Timing -------- */
     gettimeofday(&tv, NULL); 

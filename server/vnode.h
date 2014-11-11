@@ -43,6 +43,7 @@ typedef struct vnode_t {
     uint32_t n_datazones;
     datazone_t *datazones[MAX_DATAZONES];
 
+    kvdb_t *kvdb_metadata;
     kvdb_t *kvdb;
     int logFile;
     //uint32_t total_committed;
@@ -77,6 +78,9 @@ int vnode_delete_from_storage(vnode_t *vnode, md5_value_t key_md5);
 int vnode_get_slice_from_storage(vnode_t *vnode, md5_value_t key_md5, uint32_t slice_idx, void** ppbuf, uint32_t *pbuf_size);
 
 void vnode_enqueue_write_queue(vnode_t *vnode, session_t *session, object_t *object);
+
+int vnode_put_metadata(vnode_t *vnode, const char *key, const char *data, uint32_t data_size);
+int vnode_get_metadata(vnode_t *vnode, const char *key, char **data, uint32_t *data_size);
 
 #endif /* __VNODE_H__ */
 

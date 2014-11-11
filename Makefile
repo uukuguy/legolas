@@ -691,6 +691,9 @@ data:
 	dd if=/dev/urandom of=data/samples/320.dat bs=320 count=1
 	dd if=/dev/urandom of=data/samples/640.dat bs=640 count=1
 	dd if=/dev/urandom of=data/samples/1K.dat bs=1K count=1
+	dd if=/dev/urandom of=data/samples/4K.dat bs=1K count=4
+	dd if=/dev/urandom of=data/samples/8K.dat bs=1K count=8
+	dd if=/dev/urandom of=data/samples/16K.dat bs=1K count=16
 	dd if=/dev/urandom of=data/samples/32K.dat bs=1K count=32
 	dd if=/dev/urandom of=data/samples/64K.dat bs=1K count=64
 	dd if=/dev/urandom of=data/samples/100K.dat bs=1K count=100
