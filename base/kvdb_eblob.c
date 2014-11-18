@@ -38,11 +38,14 @@ static const db_methods_t eblob_methods = {
     undefined_transaction_function
 };
 
-kvdb_t *kvdb_eblob_open(const char *dbpath)
+kvdb_t *kvdb_eblob_open(kvenv_t *kvenv, const char *dbname)
 {
+    const char *dbpath = kvenv->dbpath;
+
     kvdb_eblob_t *eblob = (kvdb_eblob_t *)zmalloc(sizeof(struct kvdb_eblob_t));
     memset(eblob, 0, sizeof(kvdb_eblob_t));
 
+    eblob->kvdb.kvenv = kvenv;
     eblob->kvdb.dbclass = "eblob";
     eblob->kvdb.db_methods = &eblob_methods;
 

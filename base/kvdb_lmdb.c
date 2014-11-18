@@ -14,9 +14,13 @@
 #include "zmalloc.h"
 #include "logger.h"
 
+typedef struct kvenv_lmdb_t{
+    kvenv_t kvenv;
+    MDB_env *env;
+} kvenv_lmdb_t;
+
 typedef struct kvdb_lmdb_t {
     kvdb_t kvdb;
-    MDB_env *env;
     MDB_dbi dbi;
 } kvdb_lmdb_t;
 
@@ -37,42 +41,46 @@ static const db_methods_t lmdb_methods = {
     undefined_transaction_function
 };
 
-kvdb_t *kvdb_lmdb_open(const char *dbpath)
+kvenv_t *kvenv_new_lmdb(const char *dbpath, uint64_t max_dbsize, uint32_t max_dbs)
 {
-    MDB_txn *txn;
-    int maxreaders = 8;
-    int maxdbs = 4;
+    kvenv_lmdb_t *kvenv_lmdb = (kvenv_lmdb_t*)zmalloc(sizeof(kvenv_lmdb_t));
+    memset(kvenv_lmdb, 0, sizeof(kvenv_lmdb_t));
+    kvenv_lmdb->kvenv.dbclass = "lmdb";
+    kvenv_lmdb->kvenv.max_dbsize = max_dbsize;
+    kvenv_lmdb->kvenv.max_dbs = max_dbs;
 
-    kvdb_lmdb_t *lmdb = (kvdb_lmdb_t *)zmalloc(sizeof(struct kvdb_lmdb_t));
-    memset(lmdb, 0, sizeof(kvdb_lmdb_t));
-
-    lmdb->kvdb.dbclass = "lmdb";
-    lmdb->kvdb.db_methods = &lmdb_methods;
-
-    int rc = mdb_env_create(&lmdb->env);
+    int rc = mdb_env_create(&kvenv_lmdb->env);
     if ( rc != 0 ) {
-        zfree(lmdb);
+        zfree(kvenv_lmdb);
         error_log("mdb_env_create() failed.");
         return NULL;
     }
 
-    rc = mdb_env_set_mapsize(lmdb->env, 1*1024*1024*1024);
+    int maxreaders = 256;
+    if ( max_dbs == 0 ){
+        max_dbs = 256;
+    }
+    if ( max_dbsize == 0 ) {
+        max_dbsize = 1024L * 1024L * 1024L * 4L;
+    }
+
+    rc = mdb_env_set_mapsize(kvenv_lmdb->env, max_dbsize);
     if ( rc != 0 ) {
-        zfree(lmdb);
+        zfree(kvenv_lmdb);
         error_log("mdb_env_set_mapsize() failed.");
         return NULL;
     }
 
-    rc = mdb_env_set_maxreaders(lmdb->env, maxreaders); 
+    rc = mdb_env_set_maxreaders(kvenv_lmdb->env, maxreaders); 
     if ( rc != 0 ) {
-        zfree(lmdb);
+        zfree(kvenv_lmdb);
         error_log("mdb_env_set_maxreaders() failed.");
         return NULL;
     }
 
-    rc = mdb_env_set_maxdbs(lmdb->env, maxdbs); 
+    rc = mdb_env_set_maxdbs(kvenv_lmdb->env, max_dbs); 
     if ( rc != 0 ) {
-        zfree(lmdb);
+        zfree(kvenv_lmdb);
         error_log("mdb_env_set_maxdbs() failed.");
         return NULL;
     }
@@ -80,24 +88,48 @@ kvdb_t *kvdb_lmdb_open(const char *dbpath)
     /*rc = mdb_env_open(lmdb->env, dbpath, MDB_FIXEDMAP | MDB_NOSYNC, 0640); */
 
     /*rc = mdb_env_open(lmdb->env, dbpath, MDB_MAPASYNC | MDB_WRITEMAP | MDB_NOTLS , 0640); */
-    rc = mdb_env_open(lmdb->env, dbpath, MDB_NOSYNC, 0640); 
+    rc = mdb_env_open(kvenv_lmdb->env, dbpath, MDB_NOSYNC, 0640); 
     if ( rc != 0 ) {
-        zfree(lmdb);
-        error_log("mdb_env_open() failed.");
+        zfree(kvenv_lmdb);
+        error_log("mdb_env_open() failed. dbpath=%s", dbpath);
         return NULL;
     }
 
-    rc = mdb_txn_begin(lmdb->env, NULL, 0, &txn);
+    return (kvenv_t*)kvenv_lmdb;
+}
+
+void kvenv_free_lmdb(kvenv_t *kvenv)
+{
+    kvenv_lmdb_t *kvenv_lmdb = (kvenv_lmdb_t*)kvenv;
+    mdb_env_close(kvenv_lmdb->env);
+
+    zfree(kvenv);
+}
+
+kvdb_t *kvdb_lmdb_open(kvenv_t *kvenv, const char *dbname)
+{
+    MDB_txn *txn;
+
+    kvdb_lmdb_t *lmdb = (kvdb_lmdb_t *)zmalloc(sizeof(struct kvdb_lmdb_t));
+    memset(lmdb, 0, sizeof(kvdb_lmdb_t));
+
+    lmdb->kvdb.kvenv = kvenv;
+    lmdb->kvdb.dbclass = "lmdb";
+    lmdb->kvdb.db_methods = &lmdb_methods;
+
+    kvenv_lmdb_t *kvenv_lmdb = (kvenv_lmdb_t*)kvenv;
+
+    int rc = mdb_txn_begin(kvenv_lmdb->env, NULL, 0, &txn);
     if ( rc != 0 ) {
         zfree(lmdb);
         error_log("mdb_txn_begin() failed.");
         return NULL;
     }
 
-    rc = mdb_open(txn, NULL, 0, &lmdb->dbi);
+    rc = mdb_open(txn, dbname, MDB_CREATE, &lmdb->dbi);
     if ( rc != 0 ) {
         zfree(lmdb);
-        error_log("mdb_open() failed.");
+        error_log("mdb_open() failed. dbname:%s", dbname);
         return NULL;
     }
 
@@ -114,16 +146,16 @@ kvdb_t *kvdb_lmdb_open(const char *dbpath)
 
 void kvdb_lmdb_close(kvdb_t *kvdb){
     kvdb_lmdb_t *lmdb = (kvdb_lmdb_t*)kvdb;
+    kvenv_lmdb_t *kvenv_lmdb = (kvenv_lmdb_t*)kvdb->kvenv;
 
-
-    mdb_close(lmdb->env, lmdb->dbi);
-    mdb_env_close(lmdb->env);
+    mdb_close(kvenv_lmdb->env, lmdb->dbi);
     zfree(lmdb);
 }
 
 int kvdb_lmdb_put(kvdb_t *kvdb, const char *key, uint32_t klen, void *value, uint32_t vlen)
 {
     kvdb_lmdb_t *lmdb = (kvdb_lmdb_t*)kvdb;
+    kvenv_lmdb_t *kvenv_lmdb = (kvenv_lmdb_t*)kvdb->kvenv;
 
     MDB_val m_val;
     MDB_val m_key;
@@ -134,7 +166,7 @@ int kvdb_lmdb_put(kvdb_t *kvdb, const char *key, uint32_t klen, void *value, uin
     m_key.mv_size = klen; 
     m_key.mv_data = (void*)key;
 
-    int rc = mdb_txn_begin(lmdb->env, NULL, 0, &txn);
+    int rc = mdb_txn_begin(kvenv_lmdb->env, NULL, 0, &txn);
     if( rc==0 ){
         rc = mdb_put(txn, lmdb->dbi, &m_key, &m_val, 0);
         if( rc==0 ){
@@ -150,6 +182,7 @@ int kvdb_lmdb_put(kvdb_t *kvdb, const char *key, uint32_t klen, void *value, uin
 int kvdb_lmdb_get(kvdb_t *kvdb, const char *key, uint32_t klen, void **ppVal, uint32_t *pnVal)
 {
     kvdb_lmdb_t *lmdb = (kvdb_lmdb_t*)kvdb;
+    kvenv_lmdb_t *kvenv_lmdb = (kvenv_lmdb_t*)kvdb->kvenv;
 
     MDB_val m_key;
     MDB_txn *txn;
@@ -157,7 +190,7 @@ int kvdb_lmdb_get(kvdb_t *kvdb, const char *key, uint32_t klen, void **ppVal, ui
     m_key.mv_size = klen;
     m_key.mv_data = (void*)key;
 
-    int rc = mdb_txn_begin(lmdb->env, NULL, MDB_RDONLY, &txn);
+    int rc = mdb_txn_begin(kvenv_lmdb->env, NULL, MDB_RDONLY, &txn);
     if( rc==0 ){
         MDB_val m_val = {0, 0};
         rc = mdb_get(txn, lmdb->dbi, &m_key, &m_val);
@@ -183,6 +216,7 @@ int kvdb_lmdb_get(kvdb_t *kvdb, const char *key, uint32_t klen, void **ppVal, ui
 int kvdb_lmdb_del(kvdb_t *kvdb, const char *key, uint32_t klen)
 {
     kvdb_lmdb_t *lmdb = (kvdb_lmdb_t*)kvdb;
+    kvenv_lmdb_t *kvenv_lmdb = (kvenv_lmdb_t*)kvdb->kvenv;
 
     MDB_val m_key;
     MDB_txn *txn;
@@ -190,7 +224,7 @@ int kvdb_lmdb_del(kvdb_t *kvdb, const char *key, uint32_t klen)
     m_key.mv_size = klen; 
     m_key.mv_data = (void*)key;
 
-    int rc = mdb_txn_begin(lmdb->env, NULL, 0, &txn);
+    int rc = mdb_txn_begin(kvenv_lmdb->env, NULL, 0, &txn);
     if( rc==0 ){
         rc = mdb_del(txn, lmdb->dbi, &m_key, 0);
         if( rc==0 ){
@@ -205,7 +239,8 @@ int kvdb_lmdb_del(kvdb_t *kvdb, const char *key, uint32_t klen)
 
 void kvdb_lmdb_flush(kvdb_t *kvdb)
 {
-    kvdb_lmdb_t *lmdb = (kvdb_lmdb_t*)kvdb;
-    mdb_env_sync(lmdb->env, 1);
+    /*kvdb_lmdb_t *lmdb = (kvdb_lmdb_t*)kvdb;*/
+    kvenv_lmdb_t *kvenv_lmdb = (kvenv_lmdb_t*)kvdb->kvenv;
+    mdb_env_sync(kvenv_lmdb->env, 1);
 }
 

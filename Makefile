@@ -88,6 +88,7 @@ CLIENT_OBJS = client/main.c.o \
 			  client/udb_read_data.c.o \
 			  client/udb_delete_data.c.o 
 
+CCL=ccl-20141117
 LIBUV=libuv-v0.11.22
 JEMALLOC=jemalloc-3.6.0
 LEVELDB=leveldb-1.15.0
@@ -142,10 +143,25 @@ ${LIBBASE}: ${BASE_OBJS} ${KVDB_OBJS}
 	ar -curv ${LIBBASE} ${KVDB_OBJS} ${BASE_OBJS}
 
 # ---------------- deps ----------------
-.PHONY: jemalloc libuv leveldb lmdb libsodium zeromq czmq zyre liblfds pcl react eblob
+.PHONY: ccl jemalloc libuv leveldb lmdb libsodium zeromq czmq zyre liblfds pcl react eblob
 
-deps: jemalloc libuv leveldb lmdb lsm-sqlite4 libsodium zeromq czmq zyre msgpack cgreenlet crush lthread  pth libcoro rocksdb react eblob logcabin
+deps: ccl jemalloc libuv leveldb lmdb lsm-sqlite4 libsodium zeromq czmq zyre msgpack cgreenlet crush lthread  pth libcoro rocksdb react eblob logcabin
 #pcl 
+
+# ................ ccl ................
+
+CFLAGS_CCL=-I`pwd`/./deps/ccl
+LDFLAGS_JEMALLOC=-lccl
+
+ccl: deps/ccl
+
+deps/ccl:
+	cd deps && \
+	tar zxvf ${CCL}.tar.gz && \
+	ln -sf ${CCL} ccl && \
+	cd ${CCL} && \
+	make && \
+	cp -f libccl.a ../../lib/
 
 # ................ jemalloc ................
 
@@ -153,7 +169,7 @@ CFLAGS_JEMALLOC=-DUSE_JEMALLOC -DHAVE_ATOMIC  -I./deps/jemalloc/include
 #-DJEMALLOC_MANGLE
 #-DJEMALLOC_NO_DEMANGLE 
 #LDFLAGS_JEMALLOC=./deps/jemalloc/lib/libjemalloc.a
-LDFLAGS_JEMALLOC=-L./deps/jemalloc/lib -ljemalloc
+#LDFLAGS_JEMALLOC=-L./deps/jemalloc/lib -ljemalloc
 LDFLAGS_JEMALLOC=-ljemalloc
 
 jemalloc: deps/jemalloc
@@ -538,7 +554,8 @@ deps/logcabin:
 	
 #CFLAGS_UCONTEXT=-D_XOPEN_SOURCE # ucontext.h error: The deprecated ucontext routines require _XOPEN_SOURCE to be defined.
 
-COMMON_CFLAGS += ${CFLAGS_LIBUV} \
+COMMON_CFLAGS += ${CFLAGS_CCL} \
+				 ${CFLAGS_LIBUV} \
 				 ${CFLAGS_JEMALLOC} \
 				 ${CFLAGS_LEVELDB} \
 				 ${CFLAGS_ROCKSDB} \
@@ -571,7 +588,8 @@ FINAL_LDFLAGS = ${GPROF_FLAGS} -L./lib
 ifeq (${UNAME}, Linux)
 FINAL_LDFLAGS += -Wl,-rpath=../lib,-rpath=./lib
 endif
-FINAL_LDFLAGS += ${LDFLAGS_LIBUV} \
+FINAL_LDFLAGS += ${LDFLAGS_CCL} \
+				${LDFLAGS_LIBUV} \
 				${LDFLAGS_JEMALLOC} \
 				${LDFLAGS_LEVELDB} \
 				${LDFLAGS_ROCKSDB} \
@@ -653,6 +671,7 @@ clean:
 
 clean-deps:
 	rm -fr \
+		deps/${CCL} deps/ccl \
 		deps/${LIBUV} deps/libuv \
 		deps/${JEMALLOC} deps/jemalloc \
 		deps/${LEVELDB} deps/leveldb \

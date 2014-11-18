@@ -1,4 +1,4 @@
-directory ./everdata:./server:./client:./base:./net:./deps/czmq/src
+directory ./everdata:./server:./client:./net:./deps/ccl:./deps/czmq/src:./base
 
 set args --trace  
 

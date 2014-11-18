@@ -34,12 +34,24 @@ extern "C" {
         int (*db_rollback)(kvdb_t *, int);
     } db_methods_t;
 
+    typedef struct kvenv_t{
+        const char *dbclass;
+        const char *dbpath;
+        uint32_t max_dbsize;
+        uint32_t max_dbs;
+    } kvenv_t;
+
     typedef struct kvdb_t {
+        kvenv_t *kvenv;
         db_methods_t const *db_methods;
         const char *dbclass;
     } kvdb_t;
 
-    kvdb_t *kvdb_open(const char *dbclass, const char *dbpath);
+
+    kvenv_t *kvenv_new(const char *dbclass, const char *dbpath, uint64_t max_dbsize, uint32_t max_dbs);
+    void kvenv_free(kvenv_t *kvenv);
+
+    kvdb_t *kvdb_open(kvenv_t *kvenv, const char *dbname);
     void kvdb_close(kvdb_t *kvdb);
 
     int kvdb_put(kvdb_t *kvdb, const char *key, uint32_t klen, void *value, uint32_t vlen);

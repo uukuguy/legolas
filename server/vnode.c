@@ -46,15 +46,15 @@ vnode_t *vnode_new(const char *root_dir, uint32_t id, enum eVnodeStorageType sto
     }
 
     /* Metadata DB */
-    char dbpath_metadata[NAME_MAX];
-    sprintf(dbpath_metadata, "%s/metadata.db", vnode->root_dir);
-    kvdb_t *kvdb_metadata = kvdb_open("lmdb", dbpath_metadata);
-    if ( kvdb_metadata == NULL ){
-        error_log("Metadata DB kvdb_init() failed. vnode(%d) dir:%s", id, vnode->root_dir);
-        zfree(vnode);
-        return NULL;
-    }
-    vnode->kvdb_metadata = kvdb_metadata;
+    /*char dbpath_metadata[NAME_MAX];*/
+    /*sprintf(dbpath_metadata, "%s/metadata.db", vnode->root_dir);*/
+    /*kvdb_t *kvdb_metadata = kvdb_open("lmdb", dbpath_metadata);*/
+    /*if ( kvdb_metadata == NULL ){*/
+        /*error_log("Metadata DB kvdb_init() failed. vnode(%d) dir:%s", id, vnode->root_dir);*/
+        /*zfree(vnode);*/
+        /*return NULL;*/
+    /*}*/
+    /*vnode->kvdb_metadata = kvdb_metadata;*/
 
     /* Slices DB */
     if ( vnode->storage_type >= STORAGE_KVDB ){
@@ -62,27 +62,51 @@ vnode_t *vnode_new(const char *root_dir, uint32_t id, enum eVnodeStorageType sto
         sprintf(dbpath, "%s/slices.db", vnode->root_dir);
 
         kvdb_t *kvdb = NULL;
+        kvenv_t *kvenv = NULL;
+        uint64_t max_dbsize = 1024L * 1024L * 1024L * 4L;
+        uint32_t max_dbs = 4;
 
         if ( vnode->storage_type == STORAGE_KVDB ){
-            kvdb = kvdb_open("lmdb", dbpath);
+            kvenv = kvenv_new("lmdb", dbpath, max_dbsize, max_dbs);
+            /*kvdb = kvdb_open("lmdb", dbpath);*/
         } else if ( vnode->storage_type == STORAGE_KVDB_LMDB ){
-            kvdb = kvdb_open("lmdb", dbpath);
+            kvenv = kvenv_new("lmdb", dbpath, max_dbsize, max_dbs);
+            /*kvdb = kvdb_open("lmdb", dbpath);*/
         } else if ( vnode->storage_type == STORAGE_KVDB_LSM ){
-            kvdb = kvdb_open("lsm", dbpath);
+            kvenv = kvenv_new("lsm", dbpath, max_dbsize, max_dbs);
+            /*kvdb = kvdb_open("lsm", dbpath);*/
         } else if ( vnode->storage_type == STORAGE_KVDB_ROCKSDB ){
-            kvdb = kvdb_open("rocksdb", dbpath);
+            kvenv = kvenv_new("rocksdb", dbpath, max_dbsize, max_dbs);
+            /*kvdb = kvdb_open("rocksdb", dbpath);*/
         } else if ( vnode->storage_type == STORAGE_KVDB_LEVELDB ){
-            kvdb = kvdb_open("leveldb", dbpath);
+            kvenv = kvenv_new("leveldb", dbpath, max_dbsize, max_dbs);
+            /*kvdb = kvdb_open("leveldb", dbpath);*/
         } else if ( vnode->storage_type == STORAGE_KVDB_EBLOB ){
-            kvdb = kvdb_open("eblob", dbpath);
+            kvenv = kvenv_new("eblob", dbpath, max_dbsize, max_dbs);
+            /*kvdb = kvdb_open("eblob", dbpath);*/
         }
 
+        if ( kvenv == NULL ){
+            error_log("Slices DB kvenv_new() failed. vnode(%d) dir:%s", id, vnode->root_dir);
+            zfree(vnode);
+            return NULL;
+        }
+
+        kvdb = kvdb_open(kvenv, "slices");
         if ( kvdb == NULL ){
             error_log("Slices DB kvdb_init() failed. vnode(%d) dir:%s", id, vnode->root_dir);
             zfree(vnode);
             return NULL;
         }
+        kvdb_t *kvdb_metadata = kvdb_open(kvenv, "metadata");
+        if ( kvdb_metadata == NULL ){
+            error_log("Metadata DB kvdb_init() failed. vnode(%d) dir:%s", id, vnode->root_dir);
+            zfree(vnode);
+            return NULL;
+        }
+
         vnode->kvdb = kvdb;
+        vnode->kvdb_metadata = kvdb_metadata;
     }
 
     vnode->caching_objects = object_queue_new(object_compare_md5_func);
@@ -117,8 +141,12 @@ void vnode_free(vnode_t *vnode){
     }
 
     if ( vnode->kvdb != NULL ){
+        kvenv_t *kvenv = vnode->kvdb->kvenv;
+
         kvdb_close(vnode->kvdb);
         vnode->kvdb = NULL;
+
+        kvenv_free(kvenv);
     }
 
     if ( vnode->caching_objects != NULL ){

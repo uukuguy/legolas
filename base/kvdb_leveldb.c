@@ -38,11 +38,14 @@ static const db_methods_t leveldb_methods = {
     undefined_transaction_function
 };
 
-kvdb_t *kvdb_leveldb_open(const char *dbpath)
+kvdb_t *kvdb_leveldb_open(kvenv_t *kvenv, const char *dbname)
 {
+    const char *dbpath = kvenv->dbpath;
+
     kvdb_leveldb_t *leveldb = (kvdb_leveldb_t *)zmalloc(sizeof(struct kvdb_leveldb_t));
     memset(leveldb, 0, sizeof(kvdb_leveldb_t));
 
+    leveldb->kvdb.kvenv = kvenv;
     leveldb->kvdb.dbclass = "leveldb";
     leveldb->kvdb.db_methods = &leveldb_methods;
 

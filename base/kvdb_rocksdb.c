@@ -38,11 +38,14 @@ static const db_methods_t rocksdb_methods = {
     undefined_transaction_function
 };
 
-kvdb_t *kvdb_rocksdb_open(const char *dbpath)
+kvdb_t *kvdb_rocksdb_open(kvenv_t *kvenv, const char *dbname)
 {
+    const char *dbpath = kvenv->dbpath;
+
     kvdb_rocksdb_t *rocksdb = (kvdb_rocksdb_t *)zmalloc(sizeof(struct kvdb_rocksdb_t));
     memset(rocksdb, 0, sizeof(kvdb_rocksdb_t));
 
+    rocksdb->kvdb.kvenv = kvenv;
     rocksdb->kvdb.dbclass = "rocksdb";
     rocksdb->kvdb.db_methods = &rocksdb_methods;
 

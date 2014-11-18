@@ -170,6 +170,11 @@ void client_thread_main(zsock_t *pipe, void *user_data)
     message_send_status(pipe, MSG_STATUS_ACTOR_READY);
 
     zsock_t *sock_client = zsock_new_req(client->endpoint);
+    if ( sock_client == NULL ){
+        error_log("Connect broker failed. Client %d", client->id);
+        return;
+    }
+
     uint32_t file_count = 0;
     while ( true ){
 

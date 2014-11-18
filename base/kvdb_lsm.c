@@ -51,11 +51,14 @@ lsm_env *global_lsm_env(void)
   return &env;
 }
 
-kvdb_t *kvdb_lsm_open(const char *dbpath)
+kvdb_t *kvdb_lsm_open(kvenv_t *kvenv, const char *dbname)
 {
+    const char *dbpath = kvenv->dbpath;
+
     kvdb_lsm_t *lsm = (kvdb_lsm_t *)zmalloc(sizeof(struct kvdb_lsm_t));
     memset(lsm, 0, sizeof(kvdb_lsm_t));
 
+    lsm->kvdb.kvenv = kvenv;
     lsm->kvdb.dbclass = "lsm";
     lsm->kvdb.db_methods = &lsm_methods;
 
