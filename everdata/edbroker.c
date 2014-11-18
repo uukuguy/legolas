@@ -12,289 +12,10 @@
 #include <pthread.h>
 #include "common.h"
 #include "logger.h"
+#include "md5.h"
 #include "everdata.h"
 
-#include "containers.h" 
-
-/* -------- struct g_iterator_t -------- */
-typedef struct g_iterator_t{
-    Iterator *it;
-} g_iterator_t;
-
-/* -------- struct g_array_t -------- */
-typedef struct g_array_t{
-    Vector *vector;
-} g_array_t;
-
-/* -------- struct g_dlist_t -------- */
-typedef struct g_dlist_t{
-    Dlist *dlist;
-} g_dlist_t;
-
-
-/* ================ g_iterator_new() ================ */
-/*g_iterator_t *g_iterator_new(g_array_t *array)*/
-/*{*/
-    /*g_iterator_t *g_iter = (g_iterator_t*)malloc(sizeof(g_iterator_t));*/
-    /*memset(g_iter, 0, sizeof(g_iterator_t));*/
-
-    /*g_iter->it = iVector.NewIterator(array->vector);*/
-
-    /*return g_iter;*/
-/*}*/
-
-/* ================ g_iterator_free() ================ */
-/*void g_iteartor_free(g_iterator_t *g_iter)*/
-/*{*/
-    /*iVector.DeleteIterator(g_iter->it);*/
-    /*free(g_iter);*/
-/*}*/
-
-/* ================ g_iterator_get_first() ================ */
-void *g_iterator_get_first(g_iterator_t *g_iter)
-{
-    return g_iter->it->GetFirst(g_iter->it);
-}
-
-/* ================ g_iterator_get_next() ================ */
-void *g_iterator_get_next(g_iterator_t *g_iter)
-{
-    return g_iter->it->GetNext(g_iter->it);
-}
-
-/* ================ g_iterator_get_previous() ================ */
-void *g_iterator_get_previous(g_iterator_t *g_iter)
-{
-    return g_iter->it->GetPrevious(g_iter->it);
-}
-
-/* ================ g_iterator_get_last() ================ */
-void *g_iterator_get_last(g_iterator_t *g_iter)
-{
-    return g_iter->it->GetLast(g_iter->it);
-}
-
-/* ================ g_iterator_get_item() ================ */
-void *g_iterator_get_item(g_iterator_t *g_iter)
-{
-    return g_iter->it->GetCurrent(g_iter->it);
-}
-
-/* ================ g_iterator_set_item() ================ */
-int g_iterator_set_item(g_iterator_t *g_iter, void *new_item)
-{
-    return g_iter->it->Replace(g_iter->it, new_item, 1); 
-}
-
-g_dlist_t *g_dlist_new(size_t item_size)
-{
-    g_dlist_t *g_dlist = (g_dlist_t*)malloc(sizeof(g_dlist_t));
-    memset(g_dlist, 0, sizeof(g_dlist_t));
-
-    g_dlist->dlist = iDlist.Create(item_size);
-
-    return g_dlist;
-}
-
-void g_dlist_free(g_dlist_t *g_dlist)
-{
-    iDlist.Finalize(g_dlist->dlist);
-    free(g_dlist);
-}
-
-size_t g_dlist_size(g_dlist_t *g_dlist)
-{
-    return iDlist.Size(g_dlist->dlist);
-}
-
-int g_dlist_push_back(g_dlist_t *g_dlist, void *item)
-{
-    return iDlist.PushBack(g_dlist->dlist, item);
-}
-
-int g_dlist_push_front(g_dlist_t *g_dlist, void *item)
-{
-    return iDlist.PushFront(g_dlist->dlist, item);
-}
-
-void *g_dlist_pop_front(g_dlist_t *g_dlist)
-{
-    void *item = NULL;
-
-    iDlist.PopFront(g_dlist->dlist, &item);
-
-    return item;
-}
-
-void *g_dlist_pop_back(g_dlist_t *g_dlist)
-{
-    void *item = NULL;
-
-    iDlist.PopBack(g_dlist->dlist, &item);
-
-    return item;
-}
-
-void g_dlist_clear(g_dlist_t *g_dlist)
-{
-    iDlist.Clear(g_dlist->dlist);
-}
-
-/* ================ g_dlist_erase_at() ================ */
-int g_dlist_erase_at(g_dlist_t *g_dlist, size_t item_pos)
-{
-    return iDlist.EraseAt(g_dlist->dlist, item_pos);
-}
-
-void *g_dlist_get_at(g_dlist_t *g_dlist, size_t item_pos)
-{
-    return iDlist.GetElement(g_dlist->dlist, item_pos);
-}
-
-void *g_dlist_get_front(g_dlist_t *g_dlist)
-{
-    return iDlist.Front(g_dlist->dlist);
-}
-
-void *g_dlist_get_back(g_dlist_t *g_dlist)
-{
-    return iDlist.Back(g_dlist->dlist);
-}
-
-/* ================ g_dlist_new_iterator() ================ */
-g_iterator_t *g_dlist_new_iterator(g_dlist_t *g_dlist)
-{
-    g_iterator_t *g_iter = (g_iterator_t*)malloc(sizeof(g_iterator_t));
-    memset(g_iter, 0, sizeof(g_iterator_t));
-
-    g_iter->it = iDlist.NewIterator(g_dlist->dlist);
-
-    return g_iter;
-}
-
-/* ================ g_dlist_free_iterator() ================ */
-void g_dlist_free_iterator(g_iterator_t *g_iter)
-{
-    iDlist.DeleteIterator(g_iter->it);
-    free(g_iter);
-}
-
-/* ================ g_array_new() ================ */
-g_array_t *g_array_new(size_t item_size, size_t default_items)
-{
-    g_array_t *array = (g_array_t*)malloc(sizeof(g_array_t));
-    memset(array, 0, sizeof(g_array_t));
-
-    array->vector = iVector.Create(item_size, default_items);
-
-    return array;
-}
-
-/* ================ g_array_free() ================ */
-void g_array_free(g_array_t *array)
-{
-    iVector.Finalize(array->vector);
-    free(array);
-}
-
-/* ================ g_array_clear() ================ */
-void g_array_clear(g_array_t *array)
-{
-    iVector.Clear(array->vector);
-}
-
-/* ================ g_array_size() ================ */
-size_t g_array_size(g_array_t *array)
-{
-    return iVector.Size(array->vector);
-}
-
-/* ================ g_array_push_back() ================ */
-int g_array_push_back(g_array_t *array, void *item)
-{
-    int pos = iVector.Add(array->vector, item);
-    /*info_log("g_array_push_back(). item: %p array size: %zu", item, g_array_size(array));*/
-    return pos;
-}
-
-/* ================ g_array_push_front() ================ */
-int g_array_push_front(g_array_t *array, void *item)
-{
-    int pos = iVector.InsertAt(array->vector, 0, item);
-    return pos;
-}
-
-/* ================ g_array_pop_front() ================ */
-void *g_array_pop_front(g_array_t *array)
-{
-   void *item = NULL;
-   size_t old_size = g_array_size(array);
-   /*info_log("g_array_pop_front(). size=%zu", old_size)*/
-
-   if ( g_array_size(array) > 0 ) {
-       item = iVector.GetElement(array->vector, 0);
-       if ( item != NULL ){
-           iVector.EraseAt(array->vector, 0);
-       }
-       assert(g_array_size(array) == old_size - 1);
-   }
-   /*info_log("exit g_array_pop_front(). now size = %zu", g_array_size(array));*/
-   return item;
-}
-
-/* ================ g_array_pop_back() ================ */
-void *g_array_pop_back(g_array_t *array)
-{
-   void *item;
-   int rc = iVector.PopBack(array->vector, &item);
-   if ( rc > 0 ){
-       return item;
-   } else {
-       return NULL;
-   }
-}
-
-/* ================ g_array_get_at() ================ */
-void *g_array_get_at(g_array_t *array, size_t item_pos)
-{
-    return iVector.GetElement(array->vector, item_pos);
-}
-
-/* ================ g_array_get_front() ================ */
-void *g_array_get_front(g_array_t *array)
-{
-    return iVector.Front(array->vector);
-}
-
-/* ================ g_array_get_back() ================ */
-void *g_array_get_back(g_array_t *array)
-{
-    return iVector.Back(array->vector);
-}
-
-/* ================ g_array_erase_at() ================ */
-int g_array_erase_at(g_array_t *array, size_t item_pos)
-{
-    return iVector.EraseAt(array->vector, item_pos);
-}
-
-/* ================ g_array_new_iterator() ================ */
-g_iterator_t *g_array_new_iterator(g_array_t *array)
-{
-    g_iterator_t *g_iter = (g_iterator_t*)malloc(sizeof(g_iterator_t));
-    memset(g_iter, 0, sizeof(g_iterator_t));
-
-    g_iter->it = iVector.NewIterator(array->vector);
-
-    return g_iter;
-}
-
-/* ================ g_array_free_iterator() ================ */
-void g_array_free_iteartor(g_iterator_t *g_iter)
-{
-    iVector.DeleteIterator(g_iter->it);
-    free(g_iter);
-}
+#include "cboost.h"
 
 #define HEARTBEAT_INTERVAL 1000
 #define HEARTBEAT_LIVENESS 5
@@ -337,12 +58,9 @@ typedef struct broker_t{
     int heartbeat_timer_id;
     int64_t heartbeat_at;
 
-    /*zlist_t *workers;*/
     pthread_mutex_t workers_lock;
 
-    /*g_array_t *backends;*/
-    /*g_dlist_t *backends;*/
-    zlist_t *backends;
+    cb_vector_t *backends;
 
 } broker_t;
 
@@ -355,11 +73,8 @@ broker_t *broker_new(void)
 
     broker->heartbeat_timer_id = -1;
     broker->heartbeat_at = zclock_time() + HEARTBEAT_INTERVAL;
-    /*broker->workers = zlist_new();*/
 
-    /*broker->backends = g_array_new(sizeof(worker_t*), 4);*/
-    /*broker->backends = g_dlist_new(sizeof(worker_t*));*/
-    broker->backends = zlist_new();
+    broker->backends = cb_vector_new();
 
     return broker;
 }
@@ -379,32 +94,12 @@ void broker_free(broker_t *broker)
 
     broker_lock_workers(broker);
 
-    /*zlist_t *workers = broker->workers;*/
-    /*while ( zlist_size(workers) ){*/
-        /*worker_t *w = (worker_t*)zlist_pop(workers);*/
-        /*worker_free(w);*/
-    /*}*/
-
-    zlist_t *backends = broker->backends;
-    while ( zlist_size(backends) ){
-        worker_t *w = (worker_t*)zlist_pop(backends);
+    for ( int i = 0 ; i < cb_vector_size(broker->backends) ; i++ ){
+        worker_t *w = (worker_t*)cb_vector_get_item(broker->backends, i);
         worker_free(w);
     }
-    /*g_iterator_t *it = g_array_new_iterator(broker->backends);*/
-    /*g_iterator_t *it = g_dlist_new_iterator(broker->backends);*/
-
-    /*for (worker_t **worker_p = (worker_t**)g_iterator_get_first(it);*/
-            /*worker_p != NULL ;*/
-            /*worker_p = (worker_t**)g_iterator_get_next(it)){*/
-        /*worker_t *worker = *worker_p;*/
-        /*worker_free(worker);*/
-    /*}*/
-
-    /*g_array_free(broker->backends);*/
-    /*g_dlist_free(broker->backends);*/
-
-    /*zlist_destroy(&workers);*/
-    zlist_destroy(&backends);
+    cb_vector_free(broker->backends);
+    broker->backends = NULL;
 
     broker_unlock_workers(broker);
 
@@ -416,10 +111,7 @@ void broker_free(broker_t *broker)
 
 uint32_t broker_get_available_workers(broker_t *broker)
 {
-    /*return zlist_size(broker->workers);*/
-    /*return g_array_size(broker->backends);*/
-    /*return g_dlist_size(broker->backends);*/
-    return zlist_size(broker->backends);
+    return cb_vector_size(broker->backends);
 }
 
 void broker_end_local_frontend(broker_t *broker)
@@ -459,78 +151,21 @@ void broker_set_worker_ready(broker_t *broker, worker_t *worker)
 
     broker_lock_workers(broker);
 
-    /* FIXME 2014-11-18 00:30:05 */
-    /*size_t idx = 0;*/
-    /*size_t total_workers = broker_get_available_workers(broker);*/
-    /*if ( total_workers > 0 ){*/
-        /*worker_t *w = NULL;*/
-        /*[>worker_t **w_p = (worker_t**)g_array_get_at(broker->backends, 0);<]*/
-        /*[>worker_t **w_p = (worker_t**)g_dlist_get_at(broker->backends, 0);<]*/
-
-        /*size_t old_size = g_dlist_size(broker->backends);*/
-        /*g_iterator_t *it = g_dlist_new_iterator(broker->backends);*/
-        /*worker_t **w_p = g_iterator_get_first(it);*/
-
-        /*if ( w_p != NULL )*/
-            /*w = *w_p;*/
-
-        /*while ( w != NULL ){*/
-
-            /*if ( w->id_string != NULL && worker->id_string != NULL && strcmp(worker->id_string, w->id_string) == 0 ){*/
-                /*[>g_array_erase_at(broker->backends, idx);<]*/
-                /*g_dlist_erase_at(broker->backends, idx);*/
-                /*size_t now_size = g_dlist_size(broker->backends);*/
-                /*assert(now_size == old_size - 1);*/
-                /*worker_free(w);*/
-                /*break;*/
-            /*}*/
-
-            /*idx++;*/
-            /*if ( idx >= total_workers )*/
-                /*break;*/
-
-            /*w = NULL;*/
-            /*[>w_p = (worker_t**)g_array_get_at(broker->backends, idx);<]*/
-            /*w_p = g_iterator_get_next(it);*/
-            /*if ( w_p != NULL ) */
-                /*w = *w_p;*/
-        /*}*/
-
-        /*g_dlist_free_iterator(it);*/
-    /*}*/
-
-    /*worker_t **w_p = &worker;*/
-    /*g_array_push_back(broker->backends, (void*)w_p);*/
-    /*g_dlist_push_back(broker->backends, (void*)w_p);*/
-
-    /*info_log("g_array_push_back(). worker:%p", worker);*/
-
-
-    /*zlist_t *workers = broker->workers;*/
-
-    /*worker_t *w = (worker_t*)zlist_first(workers);*/
-    /*while ( w != NULL ){*/
-        /*if ( strcmp(worker->id_string, w->id_string) == 0 ){*/
-            /*zlist_remove(workers, w);*/
-            /*worker_free(w);*/
-            /*break;*/
-        /*}*/
-        /*w = (worker_t*)zlist_next(workers);*/
-    /*};*/
-    /*zlist_append(workers, worker);*/
-
-    zlist_t *backends = broker->backends;
-
-    worker_t *w = (worker_t*)zlist_first(backends);
-    while ( w != NULL ){
+    int worker_found = 0;
+    cb_vector_t *backends = broker->backends;
+    for ( int i = 0 ; i < cb_vector_size(backends) ; i++ ){
+        worker_t *w = (worker_t*)cb_vector_get_item(backends, i);
         if ( strcmp(worker->id_string, w->id_string) == 0 ){
-            zlist_remove(backends, w);
-            worker_free(w);
+            worker_found = 1;
             break;
         }
-        w = (worker_t*)zlist_next(backends);
-    };
-    zlist_append(backends, worker);
+    }
+    if ( worker_found == 1 ){
+        /*cb_vector_erase(backends, i);*/
+        /*worker_free(w);*/
+    } else {
+        cb_vector_push_back(backends, worker);
+    }
 
     broker_unlock_workers(broker);
 }
@@ -540,23 +175,7 @@ zframe_t *broker_workers_pop_without_lock(broker_t *broker)
 {
     zframe_t *identity = NULL;
 
-
-    /* FIXME 2014-11-18 00:46:36 */
-    /*zlist_t *workers = broker->workers;*/
-    /*worker_t *worker = (worker_t*)zlist_pop(workers);*/
-    zlist_t *backends = broker->backends;
-    worker_t *worker = (worker_t*)zlist_pop(backends);
-
-    /*[>worker_t **worker_p = (worker_t**)g_array_pop_front(broker->backends);<]*/
-    /*worker_t **worker_p = (worker_t**)g_dlist_pop_front(broker->backends);*/
-
-    /*[>info_log("worker_p: %p", worker_p);<]*/
-    /*if ( worker_p == NULL ){*/
-        /*return NULL;*/
-    /*}*/
-    /*worker_t *worker = *worker_p;*/
-    /*[>info_log("worker_p: %p, worker: %p", worker_p, worker);<]*/
-
+    worker_t *worker = (worker_t*)cb_vector_pop_front(broker->backends);
     if ( worker != NULL ){
         identity = worker->identity;
         worker->identity = NULL;
@@ -583,21 +202,8 @@ void broker_workers_purge(broker_t *broker)
 
     broker_lock_workers(broker);
 
-    /* FIXME 2014-11-18 00:49:31 */
-    /*zlist_t *workers = broker->workers;*/
-    /*worker_t *w = (worker_t*)zlist_first(workers);*/
-    zlist_t *backends = broker->backends;
-    worker_t *w = (worker_t*)zlist_first(backends);
-
-    /*worker_t *w = NULL;*/
-    /*[>worker_t **w_p = (worker_t**)g_array_get_front(broker->backends);<]*/
-    /*worker_t **w_p = (worker_t**)g_dlist_get_front(broker->backends);*/
-
-    /*[>g_iterator_t *it = g_dlist_new_iterator(broker->backends);<]*/
-    /*[>worker_t **w_p = (worker_t**)g_iterator_get_first(it);<]*/
-
-    /*if ( w_p != NULL )*/
-        /*w = *w_p;*/
+    cb_vector_t *backends = broker->backends;
+    worker_t *w = (worker_t*)cb_vector_get_first(backends);
 
     while ( w != NULL ){
         int64_t now = zclock_time();
@@ -613,16 +219,50 @@ void broker_workers_purge(broker_t *broker)
             zframe_destroy(&frame);
         }
 
-        /* FIXME 2014-11-18 00:50:21 */
-        w = (worker_t*)zlist_first(backends);
-        /*w = NULL;*/
-        /*[>w_p = (worker_t**)g_array_get_front(broker->backends);<]*/
-        /*w_p = (worker_t**)g_dlist_get_front(broker->backends);*/
-        /*if ( w_p != NULL )*/
-            /*w = *w_p;*/
+        w = (worker_t*)cb_vector_get_first(backends);
     };
 
     broker_unlock_workers(broker);
+}
+
+zframe_t *broker_choose_worker_identity(broker_t *broker, zmsg_t *msg)
+{
+    /*zframe_t *worker_identity = broker_workers_pop(broker);*/
+
+    zframe_t *worker_identity = NULL;
+
+    UNUSED zframe_t *frame_identity = zmsg_first(msg);
+    if ( frame_identity != NULL ){
+        UNUSED zframe_t *frame_empty = zmsg_next(msg);
+        if ( frame_empty != NULL ){
+            UNUSED zframe_t *frame_msgtype = zmsg_next(msg);
+            if ( frame_msgtype != NULL ){
+                UNUSED zframe_t *frame_action = zmsg_next(msg);
+                if ( frame_action != NULL ) {
+                    zframe_t *frame_key = zmsg_next(msg);
+                    if ( frame_key != NULL ) {
+                        const char *key = (const char *)zframe_data(frame_key);
+                        UNUSED uint32_t key_len = zframe_size(frame_key);
+
+                        md5_value_t key_md5;
+                        md5(&key_md5, (uint8_t *)key, key_len);
+
+                        size_t total_backends = cb_vector_size(broker->backends);
+                        if ( total_backends > 0 ){
+                            int idx = key_md5.h1 % total_backends;
+                            worker_t *worker = cb_vector_get_item(broker->backends, idx);
+                            if ( worker != NULL ){
+                                worker_identity = zframe_dup(worker->identity);
+                                /*notice_log("Choose worker identity: %s, key: %s", worker->id_string, key);*/
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    return worker_identity;
 }
 
 /* ================ handle_pullin_on_local_frontend() ================ */
@@ -637,7 +277,7 @@ int handle_pullin_on_local_frontend(zloop_t *loop, zsock_t *sock, void *user_dat
     }
     /*zmsg_print(msg);*/
 
-    zframe_t *worker_identity = broker_workers_pop(broker);
+    zframe_t *worker_identity = broker_choose_worker_identity(broker, msg);
 
     if ( worker_identity != NULL ){
         /* for req */
@@ -683,16 +323,7 @@ int handle_pullin_on_local_backend(zloop_t *loop, zsock_t *sock, void *user_data
         int64_t now = zclock_time();
         int64_t expiry = 0;
 
-        /* FIXME 2014-11-18 00:52:56 */
-        /*worker_t *w = (worker_t*)zlist_first(broker->workers);*/
-        worker_t *w = (worker_t*)zlist_first(broker->backends);
-
-        /*worker_t *w = NULL;*/
-        /*[>worker_t **w_p = (worker_t**)g_array_get_front(broker->backends);<]*/
-        /*worker_t **w_p = (worker_t**)g_dlist_get_front(broker->backends);*/
-        /*if ( w_p != NULL )*/
-            /*w = *w_p;*/
-
+        worker_t *w = (worker_t*)cb_vector_get_first(broker->backends);
         if ( w != NULL ){
             expiry = w->expiry;
         }
@@ -728,23 +359,12 @@ int handle_heartbeat_timer(zloop_t *loop, int timer_id, void *user_data)
 
         broker_lock_workers(broker);
 
-        /* FIXME 2014-11-18 00:54:20 */
-        /*zlist_t *workers = broker->workers;*/
-        /*assert(workers != NULL);*/
-        /*worker_t *worker = (worker_t*)zlist_first(workers);*/
+        cb_vector_t *backends = broker->backends;
+        size_t total_backends = cb_vector_size(backends);
+        size_t idx = 0;
 
-        zlist_t *backends = broker->backends;
-        worker_t *worker = (worker_t*)zlist_first(backends);
-
-        /*[>g_iterator_t *it = g_array_new_iterator(broker->backends);<]*/
-        /*g_iterator_t *it = g_dlist_new_iterator(broker->backends);*/
-
-        /*worker_t *worker = NULL;*/
-        /*worker_t **w_p = (worker_t**)g_iterator_get_first(it);*/
-        /*if ( w_p != NULL )*/
-            /*worker = *w_p;*/
-
-        while ( worker != NULL ){
+        while ( idx < total_backends ) {
+            worker_t *worker = (worker_t*)cb_vector_get_item(backends, idx++);
 
             {
                 uint32_t available_workers = broker_get_available_workers(broker);
@@ -758,25 +378,13 @@ int handle_heartbeat_timer(zloop_t *loop, int timer_id, void *user_data)
             zmsg_push(heartbeat_msg, zframe_dup(worker->identity));
             message_add_heartbeat(heartbeat_msg, MSG_HEARTBEAT_BROKER);
             zmsg_send(&heartbeat_msg, broker->sock_local_backend);
-
-            /* FIXME 2014-11-18 00:55:20 */
-            /*worker = (worker_t*)zlist_next(workers);*/
-            worker = (worker_t*)zlist_next(backends);
-
-            /*worker = NULL;*/
-            /*w_p = (worker_t**)g_iterator_get_next(it);*/
-            /*if ( w_p != NULL )*/
-                /*worker = *w_p;*/
-
         };
-        /*g_array_free_iteartor(it);*/
-        /*g_dlist_free_iterator(it);*/
 
         broker_unlock_workers(broker);
 
     }
 
-    broker_workers_purge(broker);
+    /*broker_workers_purge(broker);*/
 
     return 0;
 }

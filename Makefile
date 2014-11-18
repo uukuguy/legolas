@@ -13,7 +13,7 @@ SERVER = bin/legolasd
 CLIENT = bin/legolas
 LIBBASE = lib/libbase.a
 
-BASE_OBJS = base/logger.c.o base/daemon.c.o base/zmalloc.c.o 
+BASE_OBJS = base/cboost.cc.o base/logger.c.o base/daemon.c.o base/zmalloc.c.o 
 #base/coroutine.c.o  base/react_utils.cc.o
 
 BASE_OBJS += base/work.c.o base/md5.c.o base/byteblock.c.o base/filesystem.c.o base/sysinfo.c.o
