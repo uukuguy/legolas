@@ -35,6 +35,16 @@ typedef enum eVnodeStorageType {
     STORAGE_KVDB_LSM
 } eVnodeStorageType;
 
+typedef struct slicedb_t {
+    uint32_t id;
+    kvdb_t *kvdb;
+    uint64_t max_dbsize;
+} slicedb_t;
+
+slicedb_t *slicedb_new(uint32_t id, kvdb_t *kvdb, uint64_t max_dbsize);
+void slicedb_init(slicedb_t *slicedb, uint32_t id, kvdb_t *kvdb, uint64_t max_dbsize);
+void slicedb_free(slicedb_t *slicedb);
+
 typedef struct vnode_t {
     uint32_t id;
     char root_dir[NAME_MAX];
@@ -44,9 +54,14 @@ typedef struct vnode_t {
     datazone_t *datazones[MAX_DATAZONES];
 
     kvdb_t *kvdb_metadata;
-    kvdb_t *kvdb;
+    //kvdb_t *kvdb;
     int logFile;
+    slicedb_t *active_slicedb;
+    //uint32_t active_slicedb_id;
     //uint32_t total_committed;
+    //kvdb_t *slicedbs[1024];
+    slicedb_t *slicedbs[1024];
+    uint64_t max_dbsize;
 
     object_queue_t *caching_objects;
 

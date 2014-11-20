@@ -18,35 +18,53 @@ extern "C" {
 #include "common.h"
 
 /* ================ iterator ================ */
-typedef struct cb_iterator_t cb_iterator_t;
+typedef struct g_iterator_t g_iterator_t;
 
-extern void cb_iterator_first(cb_iterator_t *iter);  
-extern void cb_iterator_next(cb_iterator_t *iter);  
-extern void cb_iterator_prev(cb_iterator_t *iter);  
-extern void cb_iterator_last(cb_iterator_t *iter);  
-extern int cb_iterator_is_end(cb_iterator_t *iter);
-extern void cb_iterator_free(cb_iterator_t *iter);
+extern g_iterator_t *g_iterator_next(g_iterator_t *iter);
+extern g_iterator_t *g_iterator_prev(g_iterator_t *iter);
+extern void *g_iterator_get(g_iterator_t *iter);
+extern void g_iterator_set(g_iterator_t *iter, void *element);
+extern void g_iterator_erase(g_iterator_t *iter);
+extern void g_iterator_free(g_iterator_t *iter);
 
 /* ================ vector ================ */
-typedef struct cb_vector_t  cb_vector_t;
+typedef struct g_vector_t  g_vector_t;
 
-extern cb_vector_t *cb_vector_new(void);
-extern void cb_vector_free(cb_vector_t *vec);
-extern void cb_vector_clear(cb_vector_t *vec);
-extern size_t cb_vector_size(cb_vector_t *vec);
-extern void cb_vector_push_back(cb_vector_t *vec, void *item);
-extern size_t cb_vector_erase(cb_vector_t *vec, size_t item_idx);
-extern void *cb_vector_get_item(cb_vector_t *vec, size_t item_idx);
-extern void *cb_vector_get_first(cb_vector_t *vec);
-extern void *cb_vector_get_last(cb_vector_t *vec);
-extern void *cb_vector_pop_front(cb_vector_t *vec);
-
-
-extern cb_iterator_t *cb_vector_new_iterator(cb_vector_t *vec);
-
+extern g_vector_t *g_vector_new(void);
+extern void g_vector_free(g_vector_t *vec);
+extern void g_vector_clear(g_vector_t *vec);
+extern size_t g_vector_size(g_vector_t *vec);
+extern void g_vector_push_back(g_vector_t *vec, void *element);
+extern void *g_vector_pop_front(g_vector_t *vec);
+extern size_t g_vector_erase(g_vector_t *vec, size_t element_idx);
+extern void *g_vector_get_element(g_vector_t *vec, size_t element_idx);
+extern void *g_vector_get_first(g_vector_t *vec);
+extern void *g_vector_get_last(g_vector_t *vec);
+extern g_iterator_t *g_vector_begin(g_vector_t *vector);
+extern g_iterator_t *g_vector_end(g_vector_t *vector);
 
 
 /* ================ list ================ */
+typedef struct g_list_t g_list_t;
+
+extern g_list_t *g_list_new(void);
+extern void g_list_free(g_list_t *list);
+extern void g_list_clear(g_list_t *list);
+extern size_t g_list_size(g_list_t *list);
+extern void g_list_push_back(g_list_t *list, void *element);
+extern void g_list_push_front(g_list_t *list, void *element);
+extern void g_list_pop_back(g_list_t *list);
+extern void g_list_pop_front(g_list_t *list);
+extern g_iterator_t *g_list_begin(g_list_t *list);
+extern g_iterator_t *g_list_end(g_list_t *list);
+extern g_iterator_t *g_list_erase(g_list_t *list, g_iterator_t *iter);
+extern int g_list_empty(g_list_t *list);
+
+
+/* ================ queue ================ */
+
+
+/* ================ stack ================ */
 
 
 /* ================ map ================ */

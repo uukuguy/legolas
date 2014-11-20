@@ -238,6 +238,8 @@ int object_put_into_file(int file, object_t *object)
     write(file, meta_key, meta_key_len);
     write(file, sbuf->data, sbuf->size);
 
+    object->saved_size = sbuf->size + sizeof(md5_value_t);
+
     msgpack_sbuffer_free(sbuf);
     msgpack_packer_free(packer);
 
@@ -254,6 +256,8 @@ int object_put_into_file(int file, object_t *object)
 
         write(file, slice_key, slice_key_len);
         write(file, buf, buf_size);
+
+        object->saved_size += buf_size;
 
         slice_idx++;
     }
@@ -293,6 +297,8 @@ int object_put_into_kvdb(kvdb_t *kvdb, object_t *object)
 
     int rc = kvdb_put(kvdb, meta_key, meta_key_len, sbuf->data, sbuf->size);
 
+    object->saved_size = sbuf->size + sizeof(md5_value_t);
+
     msgpack_sbuffer_free(sbuf);
     msgpack_packer_free(packer);
 
@@ -319,6 +325,7 @@ int object_put_into_kvdb(kvdb_t *kvdb, object_t *object)
             error_log("Storage save by kvdb_put() failed. slice_key=%s slice_idx=%d/%d buf_size=%d", slice_key, slice_idx + 1, nSlices, buf_size);
             return -1;
         } else {
+            object->saved_size += buf_size;
             trace_log("Storage save by kvdb_put() OK. slice_key=%s slice_idx=%d/%d buf_size=%d", slice_key, slice_idx + 1, nSlices, buf_size);
         }
 
@@ -378,8 +385,10 @@ object_t *object_get_from_kvdb(kvdb_t *kvdb, md5_value_t key_md5)
                             object_get_slice_from_kvdb(kvdb, object->key_md5, n, (void**)&slice_data, &slice_size);
                              
                             object_add_slice(object, slice_data, slice_size);
+                            object->saved_size += slice_size;
                             zfree(slice_data);
                         }
+                        object->saved_size += sizeof(md5_value_t);
                     }
                 }
             }

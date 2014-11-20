@@ -35,6 +35,7 @@ typedef struct object_t
     md5_value_t key_md5;
     uint32_t object_size;
     uint32_t nslices;
+    uint32_t saved_size;
 
     list *slices;
     uint32_t unfinished_size;

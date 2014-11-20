@@ -175,9 +175,9 @@ void worker_enqueue_delete_queue(worker_t *worker, deleter_t *deleter)
     enqueue_work(worker->read_queue, (void*)deleter);
 }
 
-vnode_t *worker_get_vnode_by_key(worker_t *worker, uint32_t h1)
+vnode_t *worker_get_vnode_by_key(worker_t *worker, uint32_t h2)
 {
-    uint32_t d1 = h1 % worker->total_writers;
+    uint32_t d1 = h2 % worker->total_writers;
     return worker->vnodes[d1];
 }
 
@@ -215,7 +215,7 @@ zmsg_t *worker_get_data(worker_t *worker, zsock_t *sock, zframe_t *identity, zms
                 md5(&key_md5, (uint8_t *)key, key_len);
 
                 /*vnode_t *vnode = woker->vnode;*/
-                vnode_t *vnode = worker_get_vnode_by_key(worker, key_md5.h1);
+                vnode_t *vnode = worker_get_vnode_by_key(worker, key_md5.h2);
 
                 object_t *object = vnode_read_from_storage(vnode, key_md5);
                 if ( object != NULL ){
@@ -240,6 +240,8 @@ zmsg_t *worker_get_data(worker_t *worker, zsock_t *sock, zframe_t *identity, zms
                     assert (data_size == object_size);
 
                     sendback_msg = create_key_data_message(key, data, object_size);
+
+                    free(data);
                     
                 } else {
                     sendback_msg = create_status_message(MSG_STATUS_WORKER_NOTFOUND);
@@ -277,7 +279,7 @@ zmsg_t *worker_put_data(worker_t *worker, zsock_t *sock, zframe_t *identity, zms
                     object_t *object = object_new(key, key_len);
 
                     /*vnode_t *vnode = woker->vnode;*/
-                    vnode_t *vnode = worker_get_vnode_by_key(worker, object->key_md5.h1);
+                    vnode_t *vnode = worker_get_vnode_by_key(worker, object->key_md5.h2);
 
                     object->object_size = data_size;
                     object_add_slice(object, data, data_size);

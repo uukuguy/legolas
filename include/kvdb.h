@@ -50,6 +50,7 @@ extern "C" {
 
     kvenv_t *kvenv_new(const char *dbclass, const char *dbpath, uint64_t max_dbsize, uint32_t max_dbs);
     void kvenv_free(kvenv_t *kvenv);
+    size_t kvenv_get_dbsize(kvenv_t *kvenv);
 
     kvdb_t *kvdb_open(kvenv_t *kvenv, const char *dbname);
     void kvdb_close(kvdb_t *kvdb);
@@ -62,6 +63,14 @@ extern "C" {
     void undefined_kvdb_function(kvdb_t *);
     int undefined_transaction_function(kvdb_t *, int);
 
+    int kvdb_get_uint32(kvdb_t *kvdb, const char *key, uint32_t *ret_value);
+    int kvdb_put_uint32(kvdb_t *kvdb, const char *key, uint32_t value);
+    int kvdb_get_uint64(kvdb_t *kvdb, const char *key, uint64_t *ret_value);
+    int kvdb_put_uint64(kvdb_t *kvdb, const char *key, uint64_t value);
+    int kvdb_get_str(kvdb_t *kvdb, const char *key, char **value, uint32_t *value_len);
+    int kvdb_put_str(kvdb_t *kvdb, const char *key, const char *value);
+    int kvdb_get_data(kvdb_t *kvdb, const char *key, char **value, uint32_t *vlen);
+    int kvdb_put_data(kvdb_t *kvdb, const char *key, const char *value, uint32_t vlen);
 
 #ifdef __cplusplus
 }

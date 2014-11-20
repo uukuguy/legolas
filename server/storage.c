@@ -17,34 +17,34 @@
 
 int storage_init_directories(const char* rootDir)
 {
-    info_log("Storage init directories %s. Waiting ...", rootDir);
-    if ( mkdir_if_not_exist(rootDir) == 0 ){
-        debug_log("%04d.. ", 0);
-        int i, ret;
-        for ( i = 0 ; i < STORAGE_MAX_VNODES ; i++ ){
-            char dirname[1024];
-            sprintf(dirname, "%s/%04d", rootDir, i);
-            ret = mkdir_if_not_exist(dirname);
-            if ( ret != 0 ) {
-                error_log("mkdir failed. dirname:%s", dirname);
-                return ret;
-            }
+    /*info_log("Storage init directories %s. Waiting ...", rootDir);*/
+    /*if ( mkdir_if_not_exist(rootDir) == 0 ){*/
+        /*debug_log("%04d.. ", 0);*/
+        /*int i, ret;*/
+        /*for ( i = 0 ; i < STORAGE_MAX_VNODES ; i++ ){*/
+            /*char dirname[1024];*/
+            /*sprintf(dirname, "%s/%04d", rootDir, i);*/
+            /*ret = mkdir_if_not_exist(dirname);*/
+            /*if ( ret != 0 ) {*/
+                /*error_log("mkdir failed. dirname:%s", dirname);*/
+                /*return ret;*/
+            /*}*/
 
-            /* ----------------------------- */
-            int j;
-            for ( j = 0 ; j < STORAGE_MAX_SECTIONS ; j++ ){
-            /*for ( j = 0 ; j < 100 ; j++ ){*/
-                char subdirname[1024];
-                sprintf(subdirname, "%s/%02d", dirname, j);
-                ret = mkdir_if_not_exist(subdirname);
-                if ( ret != 0 ) {
-                    error_log("mkdir failed. dirname:%s", subdirname);
-                    return ret;
-                }
-            }
-        }
-    }
-    info_log("Storage init directories done.");
+            /*[> ----------------------------- <]*/
+            /*int j;*/
+            /*for ( j = 0 ; j < STORAGE_MAX_SECTIONS ; j++ ){*/
+            /*[>for ( j = 0 ; j < 100 ; j++ ){<]*/
+                /*char subdirname[1024];*/
+                /*sprintf(subdirname, "%s/%02d", dirname, j);*/
+                /*ret = mkdir_if_not_exist(subdirname);*/
+                /*if ( ret != 0 ) {*/
+                    /*error_log("mkdir failed. dirname:%s", subdirname);*/
+                    /*return ret;*/
+                /*}*/
+            /*}*/
+        /*}*/
+    /*}*/
+    /*info_log("Storage init directories done.");*/
     return 0;
 }
 

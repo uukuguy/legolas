@@ -60,7 +60,7 @@ typedef struct broker_t{
 
     pthread_mutex_t workers_lock;
 
-    cb_vector_t *backends;
+    g_vector_t *backends;
 
 } broker_t;
 
@@ -74,7 +74,7 @@ broker_t *broker_new(void)
     broker->heartbeat_timer_id = -1;
     broker->heartbeat_at = zclock_time() + HEARTBEAT_INTERVAL;
 
-    broker->backends = cb_vector_new();
+    broker->backends = g_vector_new();
 
     return broker;
 }
@@ -94,11 +94,11 @@ void broker_free(broker_t *broker)
 
     broker_lock_workers(broker);
 
-    for ( int i = 0 ; i < cb_vector_size(broker->backends) ; i++ ){
-        worker_t *w = (worker_t*)cb_vector_get_item(broker->backends, i);
+    for ( int i = 0 ; i < g_vector_size(broker->backends) ; i++ ){
+        worker_t *w = (worker_t*)g_vector_get_element(broker->backends, i);
         worker_free(w);
     }
-    cb_vector_free(broker->backends);
+    g_vector_free(broker->backends);
     broker->backends = NULL;
 
     broker_unlock_workers(broker);
@@ -111,7 +111,7 @@ void broker_free(broker_t *broker)
 
 uint32_t broker_get_available_workers(broker_t *broker)
 {
-    return cb_vector_size(broker->backends);
+    return g_vector_size(broker->backends);
 }
 
 void broker_end_local_frontend(broker_t *broker)
@@ -152,19 +152,19 @@ void broker_set_worker_ready(broker_t *broker, worker_t *worker)
     broker_lock_workers(broker);
 
     int worker_found = 0;
-    cb_vector_t *backends = broker->backends;
-    for ( int i = 0 ; i < cb_vector_size(backends) ; i++ ){
-        worker_t *w = (worker_t*)cb_vector_get_item(backends, i);
+    g_vector_t *backends = broker->backends;
+    for ( int i = 0 ; i < g_vector_size(backends) ; i++ ){
+        worker_t *w = (worker_t*)g_vector_get_element(backends, i);
         if ( strcmp(worker->id_string, w->id_string) == 0 ){
             worker_found = 1;
             break;
         }
     }
     if ( worker_found == 1 ){
-        /*cb_vector_erase(backends, i);*/
+        /*g_vector_erase(backends, i);*/
         /*worker_free(w);*/
     } else {
-        cb_vector_push_back(backends, worker);
+        g_vector_push_back(backends, worker);
     }
 
     broker_unlock_workers(broker);
@@ -175,7 +175,7 @@ zframe_t *broker_workers_pop_without_lock(broker_t *broker)
 {
     zframe_t *identity = NULL;
 
-    worker_t *worker = (worker_t*)cb_vector_pop_front(broker->backends);
+    worker_t *worker = (worker_t*)g_vector_pop_front(broker->backends);
     if ( worker != NULL ){
         identity = worker->identity;
         worker->identity = NULL;
@@ -202,8 +202,8 @@ void broker_workers_purge(broker_t *broker)
 
     broker_lock_workers(broker);
 
-    cb_vector_t *backends = broker->backends;
-    worker_t *w = (worker_t*)cb_vector_get_first(backends);
+    g_vector_t *backends = broker->backends;
+    worker_t *w = (worker_t*)g_vector_get_first(backends);
 
     while ( w != NULL ){
         int64_t now = zclock_time();
@@ -219,7 +219,7 @@ void broker_workers_purge(broker_t *broker)
             zframe_destroy(&frame);
         }
 
-        w = (worker_t*)cb_vector_get_first(backends);
+        w = (worker_t*)g_vector_get_first(backends);
     };
 
     broker_unlock_workers(broker);
@@ -247,10 +247,10 @@ zframe_t *broker_choose_worker_identity(broker_t *broker, zmsg_t *msg)
                         md5_value_t key_md5;
                         md5(&key_md5, (uint8_t *)key, key_len);
 
-                        size_t total_backends = cb_vector_size(broker->backends);
+                        size_t total_backends = g_vector_size(broker->backends);
                         if ( total_backends > 0 ){
                             int idx = key_md5.h1 % total_backends;
-                            worker_t *worker = cb_vector_get_item(broker->backends, idx);
+                            worker_t *worker = g_vector_get_element(broker->backends, idx);
                             if ( worker != NULL ){
                                 worker_identity = zframe_dup(worker->identity);
                                 /*notice_log("Choose worker identity: %s, key: %s", worker->id_string, key);*/
@@ -323,7 +323,7 @@ int handle_pullin_on_local_backend(zloop_t *loop, zsock_t *sock, void *user_data
         int64_t now = zclock_time();
         int64_t expiry = 0;
 
-        worker_t *w = (worker_t*)cb_vector_get_first(broker->backends);
+        worker_t *w = (worker_t*)g_vector_get_first(broker->backends);
         if ( w != NULL ){
             expiry = w->expiry;
         }
@@ -359,12 +359,12 @@ int handle_heartbeat_timer(zloop_t *loop, int timer_id, void *user_data)
 
         broker_lock_workers(broker);
 
-        cb_vector_t *backends = broker->backends;
-        size_t total_backends = cb_vector_size(backends);
+        g_vector_t *backends = broker->backends;
+        size_t total_backends = g_vector_size(backends);
         size_t idx = 0;
 
         while ( idx < total_backends ) {
-            worker_t *worker = (worker_t*)cb_vector_get_item(backends, idx++);
+            worker_t *worker = (worker_t*)g_vector_get_element(backends, idx++);
 
             {
                 uint32_t available_workers = broker_get_available_workers(broker);

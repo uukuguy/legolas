@@ -19,6 +19,95 @@
 
 #define VNODE_WRITE_QUEUE_INTERVAL 1 /* ms */
 
+slicedb_t *slicedb_new(uint32_t id, kvdb_t *kvdb, uint64_t max_dbsize)
+{
+    slicedb_t *slicedb = (slicedb_t*)zmalloc(sizeof(slicedb_t));
+
+    slicedb_init(slicedb, id, kvdb, max_dbsize);
+
+    return slicedb;
+}
+
+void slicedb_init(slicedb_t *slicedb, uint32_t id, kvdb_t *kvdb, uint64_t max_dbsize)
+{
+    memset(slicedb, 0, sizeof(slicedb_t));
+    slicedb->id = id;
+    slicedb->kvdb = kvdb,
+    slicedb->max_dbsize = max_dbsize;
+}
+
+void slicedb_free(slicedb_t *slicedb)
+{
+    if ( slicedb->kvdb != NULL ){
+        kvdb_close(slicedb->kvdb);
+        slicedb->kvdb = NULL;
+    }
+    zfree(slicedb);
+}
+
+void slicedb_free(slicedb_t *slicedb);
+kvenv_t *vnode_create_kvenv(vnode_t *vnode, const char *dbpath)
+{
+    kvenv_t *kvenv = NULL;
+    uint64_t max_dbsize = vnode->max_dbsize;
+    uint32_t max_dbs = 4;
+
+    if ( vnode->storage_type == STORAGE_KVDB ){
+        kvenv = kvenv_new("lmdb", dbpath, max_dbsize, max_dbs);
+    } else if ( vnode->storage_type == STORAGE_KVDB_LMDB ){
+        kvenv = kvenv_new("lmdb", dbpath, max_dbsize, max_dbs);
+    } else if ( vnode->storage_type == STORAGE_KVDB_LSM ){
+        kvenv = kvenv_new("lsm", dbpath, max_dbsize, max_dbs);
+    } else if ( vnode->storage_type == STORAGE_KVDB_ROCKSDB ){
+        kvenv = kvenv_new("rocksdb", dbpath, max_dbsize, max_dbs);
+    } else if ( vnode->storage_type == STORAGE_KVDB_LEVELDB ){
+        kvenv = kvenv_new("leveldb", dbpath, max_dbsize, max_dbs);
+    } else if ( vnode->storage_type == STORAGE_KVDB_EBLOB ){
+        kvenv = kvenv_new("eblob", dbpath, max_dbsize, max_dbs);
+    }
+
+    if ( kvenv == NULL ){
+        error_log("kvenv_new() failed. vnode(%d) dbpath:%s", vnode->id, dbpath);
+    }
+
+    return kvenv;
+}
+
+kvdb_t *vnode_open_kvdb(vnode_t *vnode, const char *dbname)
+{
+    char dbpath[NAME_MAX];
+    sprintf(dbpath, "%s/%s", vnode->root_dir, dbname);
+
+    kvdb_t *kvdb = NULL;
+
+    kvenv_t *kvenv = vnode_create_kvenv(vnode, dbpath);
+    if ( kvenv != NULL ){
+        kvdb = kvdb_open(kvenv, "slices");
+        if ( kvdb == NULL ){
+            error_log("kvdb_init() failed. vnode(%d) dbname:%s dbpath:%s", vnode->id, dbname, dbpath);
+        }
+    }
+
+    return kvdb;
+}
+
+slicedb_t *vnode_open_slicedb(vnode_t *vnode, uint32_t db_id)
+{
+    slicedb_t *slicedb = NULL;
+
+    char dbname[NAME_MAX];
+    sprintf(dbname, "slice-%03d", db_id);
+    kvdb_t *kvdb = vnode_open_kvdb(vnode, dbname);
+    if ( kvdb != NULL ){
+        slicedb = slicedb_new(db_id, kvdb, vnode->max_dbsize);
+        vnode->slicedbs[db_id] = slicedb;
+    } else {
+        error_log("SliceDB create failed. dbname:%s", dbname);
+    }
+
+    return slicedb;
+}
+
 vnode_t *vnode_new(const char *root_dir, uint32_t id, enum eVnodeStorageType storage_type, vnode_write_queue_handle_write_cb vnode_write_queue_handle_write)
 {
     vnode_t *vnode = (vnode_t*)zmalloc(sizeof(vnode_t));
@@ -26,6 +115,8 @@ vnode_t *vnode_new(const char *root_dir, uint32_t id, enum eVnodeStorageType sto
     memset(vnode, 0, sizeof(vnode_t));
     vnode->id = id;
     vnode->storage_type = storage_type;
+    /*vnode->max_dbsize = 1024L * 1024L * 1024L * 4L;*/
+    vnode->max_dbsize = 1024L * 1024L * 500L;
 
     /* Create vnode root dir */
     sprintf(vnode->root_dir, "%s/%04d", root_dir, id);
@@ -45,68 +136,48 @@ vnode_t *vnode_new(const char *root_dir, uint32_t id, enum eVnodeStorageType sto
         }
     }
 
-    /* Metadata DB */
-    /*char dbpath_metadata[NAME_MAX];*/
-    /*sprintf(dbpath_metadata, "%s/metadata.db", vnode->root_dir);*/
-    /*kvdb_t *kvdb_metadata = kvdb_open("lmdb", dbpath_metadata);*/
-    /*if ( kvdb_metadata == NULL ){*/
-        /*error_log("Metadata DB kvdb_init() failed. vnode(%d) dir:%s", id, vnode->root_dir);*/
-        /*zfree(vnode);*/
-        /*return NULL;*/
-    /*}*/
-    /*vnode->kvdb_metadata = kvdb_metadata;*/
-
     /* Slices DB */
     if ( vnode->storage_type >= STORAGE_KVDB ){
-        char dbpath[NAME_MAX];
-        sprintf(dbpath, "%s/slices.db", vnode->root_dir);
 
-        kvdb_t *kvdb = NULL;
-        kvenv_t *kvenv = NULL;
-        uint64_t max_dbsize = 1024L * 1024L * 1024L * 4L;
-        uint32_t max_dbs = 4;
-
-        if ( vnode->storage_type == STORAGE_KVDB ){
-            kvenv = kvenv_new("lmdb", dbpath, max_dbsize, max_dbs);
-            /*kvdb = kvdb_open("lmdb", dbpath);*/
-        } else if ( vnode->storage_type == STORAGE_KVDB_LMDB ){
-            kvenv = kvenv_new("lmdb", dbpath, max_dbsize, max_dbs);
-            /*kvdb = kvdb_open("lmdb", dbpath);*/
-        } else if ( vnode->storage_type == STORAGE_KVDB_LSM ){
-            kvenv = kvenv_new("lsm", dbpath, max_dbsize, max_dbs);
-            /*kvdb = kvdb_open("lsm", dbpath);*/
-        } else if ( vnode->storage_type == STORAGE_KVDB_ROCKSDB ){
-            kvenv = kvenv_new("rocksdb", dbpath, max_dbsize, max_dbs);
-            /*kvdb = kvdb_open("rocksdb", dbpath);*/
-        } else if ( vnode->storage_type == STORAGE_KVDB_LEVELDB ){
-            kvenv = kvenv_new("leveldb", dbpath, max_dbsize, max_dbs);
-            /*kvdb = kvdb_open("leveldb", dbpath);*/
-        } else if ( vnode->storage_type == STORAGE_KVDB_EBLOB ){
-            kvenv = kvenv_new("eblob", dbpath, max_dbsize, max_dbs);
-            /*kvdb = kvdb_open("eblob", dbpath);*/
-        }
-
-        if ( kvenv == NULL ){
-            error_log("Slices DB kvenv_new() failed. vnode(%d) dir:%s", id, vnode->root_dir);
-            zfree(vnode);
-            return NULL;
-        }
-
-        kvdb = kvdb_open(kvenv, "slices");
-        if ( kvdb == NULL ){
-            error_log("Slices DB kvdb_init() failed. vnode(%d) dir:%s", id, vnode->root_dir);
-            zfree(vnode);
-            return NULL;
-        }
-        kvdb_t *kvdb_metadata = kvdb_open(kvenv, "metadata");
+        // Create Metadata DB.
+        const char *metadata_dbname = "metadata";
+        kvdb_t *kvdb_metadata = vnode_open_kvdb(vnode, metadata_dbname);
         if ( kvdb_metadata == NULL ){
-            error_log("Metadata DB kvdb_init() failed. vnode(%d) dir:%s", id, vnode->root_dir);
+            error_log("MetadataDB create failed. dbname:%s", metadata_dbname);
             zfree(vnode);
             return NULL;
         }
-
-        vnode->kvdb = kvdb;
         vnode->kvdb_metadata = kvdb_metadata;
+
+        uint32_t active_slicedb_id = 0;
+        if ( kvdb_get_uint32(kvdb_metadata, "active_slicedb_id", &active_slicedb_id) != 0 ){
+            active_slicedb_id = 0;
+        }
+        notice_log("vnode active_slicedb_id:%d", active_slicedb_id);
+
+        // Create Slice DB.
+        for ( int db_id = 0 ; db_id <= active_slicedb_id ; db_id++ ){
+            slicedb_t *slicedb = vnode_open_slicedb(vnode, db_id);
+            if ( slicedb != NULL ){
+            } else {
+            /*char dbname[NAME_MAX];*/
+            /*sprintf(dbname, "slice-%03d", db_id);*/
+            /*kvdb_t *kvdb = vnode_open_kvdb(vnode, dbname);*/
+            /*if ( kvdb != NULL ){*/
+                /*vnode->slicedbs[db_id] = slicedb_new(db_id, kvdb, vnode->max_dbsize);*/
+            /*} else {*/
+                /*error_log("SliceDB create failed. dbname:%s", dbname);*/
+                for ( int n = 0 ; n < db_id ; n++ ){
+                    slicedb_free(vnode->slicedbs[n]);
+                    vnode->slicedbs[n] = NULL;
+                }
+                zfree(vnode);
+                return NULL;
+            }
+        }
+        vnode->active_slicedb = vnode->slicedbs[active_slicedb_id];
+        /*vnode->kvdb = vnode->active_slicedb->kvdb;*/
+
     }
 
     vnode->caching_objects = object_queue_new(object_compare_md5_func);
@@ -135,18 +206,19 @@ void vnode_free(vnode_t *vnode){
         vnode->logFile = 0;
     }
 
+    if ( vnode->active_slicedb != NULL ){
+        uint32_t active_slicedb_id = vnode->active_slicedb->id;
+        for ( int db_id = 0 ; db_id < active_slicedb_id ; db_id++ ){
+            if ( vnode->slicedbs[db_id] != NULL ){
+                slicedb_free(vnode->slicedbs[db_id]);
+                vnode->slicedbs[db_id] = NULL;
+            }
+        }
+    }
+
     if ( vnode->kvdb_metadata != NULL ){
         kvdb_close(vnode->kvdb_metadata);
         vnode->kvdb_metadata = NULL;
-    }
-
-    if ( vnode->kvdb != NULL ){
-        kvenv_t *kvenv = vnode->kvdb->kvenv;
-
-        kvdb_close(vnode->kvdb);
-        vnode->kvdb = NULL;
-
-        kvenv_free(kvenv);
     }
 
     if ( vnode->caching_objects != NULL ){
@@ -160,10 +232,10 @@ void vnode_free(vnode_t *vnode){
     vnode->standby_object_size = 0;
 
     /* Index DB */
-    if ( vnode->kvdb != NULL ){
-        kvdb_close(vnode->kvdb);
-        vnode->kvdb = NULL;
-    }
+    /*if ( vnode->kvdb != NULL ){*/
+        /*kvdb_close(vnode->kvdb);*/
+        /*vnode->kvdb = NULL;*/
+    /*}*/
 
     /* datazones */
     int i;
@@ -196,7 +268,7 @@ int vnode_put_metadata(vnode_t *vnode, const char *key, const char *data, uint32
 
 int vnode_get_metadata(vnode_t *vnode, const char *key, char **data, uint32_t *data_size)
 {
-    return kvdb_get(vnode->kvdb, key, strlen(key), (void**)data, data_size);
+    return kvdb_get(vnode->kvdb_metadata, key, strlen(key), (void**)data, data_size);
 }
 
 /* ==================== vnode_write_to_file() ==================== */ 
@@ -219,9 +291,30 @@ int vnode_write_to_file(vnode_t *vnode, object_t *object)
 int vnode_write_to_kvdb(vnode_t *vnode, object_t *object)
 {
     /* FIXME */
-    object_put_into_kvdb(vnode->kvdb, object);
+    /*object_put_into_kvdb(vnode->kvdb, object);*/
+    object_put_into_kvdb(vnode->active_slicedb->kvdb, object);
 
     return 0;
+}
+
+typedef struct slice_metadata_t{
+    uint32_t version;
+    uint32_t slicedb_id;
+} slice_metadata_t;
+
+uint32_t vnode_get_slicedb_id(vnode_t *vnode, md5_value_t *key_md5)
+{
+    uint32_t slicedb_id = vnode->active_slicedb->id;
+
+    slice_metadata_t *slice_metadata = NULL;
+    uint32_t value_len = 0;
+    if ( kvdb_get(vnode->kvdb_metadata, (const char*)key_md5, sizeof(md5_value_t), (void**)&slice_metadata, &value_len) == 0 ){
+        if ( slice_metadata != NULL && value_len == sizeof(slice_metadata_t) ){
+            slicedb_id = slice_metadata->slicedb_id;
+        }
+    }
+
+    return slicedb_id;
 }
 
 /* ==================== vnode_write_to_storage() ==================== */ 
@@ -229,8 +322,46 @@ int vnode_write_to_storage(vnode_t *vnode, object_t *object)
 {
     int ret = 0;
 
+
     if ( vnode->storage_type >= STORAGE_KVDB ){
-        ret = vnode_write_to_kvdb(vnode, object);
+        md5_value_t *key_md5 = &object->key_md5;
+        uint32_t slicedb_id = vnode_get_slicedb_id(vnode, key_md5);
+
+        int try_to_write_full_db = 0;
+        if ( kvenv_get_dbsize(vnode->active_slicedb->kvdb->kvenv) > 0.9 * vnode->active_slicedb->max_dbsize ){
+            uint32_t active_slicedb_id = vnode->active_slicedb->id;
+            if ( active_slicedb_id == slicedb_id ){
+                try_to_write_full_db = 1;
+            }
+            slicedb_t *slicedb = vnode_open_slicedb(vnode, active_slicedb_id + 1);
+            vnode->active_slicedb = slicedb;
+
+            if ( kvdb_put_uint32(vnode->kvdb_metadata, "active_slicedb_id", active_slicedb_id) != 0 ){
+                error_log("Save active_slicedb_id failed. vnode->id:%d active_slicedb_id:%d", vnode->id, active_slicedb_id + 1);
+            }
+        }
+
+        slicedb_t *active_slicedb = vnode->active_slicedb;
+
+        if ( slicedb_id < vnode->active_slicedb->id ){
+            if ( try_to_write_full_db ){
+                ret = object_del_from_kvdb(vnode->slicedbs[slicedb_id]->kvdb, *key_md5);
+            } else {
+                active_slicedb = vnode->slicedbs[slicedb_id];
+            }
+        }
+
+        slice_metadata_t slice_metadata;
+        memset(&slice_metadata, 0, sizeof(slice_metadata_t));
+        slice_metadata.version = 0;
+        slice_metadata.slicedb_id = active_slicedb->id;
+        ret = kvdb_put(vnode->kvdb_metadata, (const char *)key_md5, sizeof(md5_value_t), (void*)&slice_metadata, sizeof(slice_metadata_t)); 
+        if ( ret == 0 ){
+            /*ret = vnode_write_to_kvdb(vnode, object);*/
+            ret = object_put_into_kvdb(active_slicedb->kvdb, object);
+        } else {
+            error_log("Write metadata failed. vnode->id:%d object->key:%s", vnode->id, object->key);
+        }
     } else if ( vnode->storage_type == STORAGE_LOGFILE ){
         ret = vnode_write_to_file(vnode, object);
     }
@@ -247,7 +378,8 @@ object_t *vnode_read_from_storage(vnode_t *vnode, md5_value_t key_md5)
     object_t *object = NULL;
     
     if ( vnode->storage_type >= STORAGE_KVDB ){
-        object = object_get_from_kvdb(vnode->kvdb, key_md5);
+        uint32_t slicedb_id = vnode_get_slicedb_id(vnode, &key_md5);
+        object = object_get_from_kvdb(vnode->slicedbs[slicedb_id]->kvdb, key_md5);
     } else if ( vnode->storage_type == STORAGE_LOGFILE ){
     } 
 
@@ -256,10 +388,11 @@ object_t *vnode_read_from_storage(vnode_t *vnode, md5_value_t key_md5)
 
 int vnode_delete_from_storage(vnode_t *vnode, md5_value_t key_md5)
 {
-    int rc = 0;
+    int rc = -1;
 
     if ( vnode->storage_type >= STORAGE_KVDB ){
-        rc = object_del_from_kvdb(vnode->kvdb, key_md5);
+        uint32_t slicedb_id = vnode_get_slicedb_id(vnode, &key_md5);
+        rc = object_del_from_kvdb(vnode->slicedbs[slicedb_id]->kvdb, key_md5);
     } else if ( vnode->storage_type == STORAGE_LOGFILE ){
     } 
 
@@ -271,7 +404,8 @@ int vnode_get_slice_from_storage(vnode_t *vnode, md5_value_t key_md5, uint32_t s
     int ret = -1;
 
     if ( vnode->storage_type >= STORAGE_KVDB ){
-        ret = object_get_slice_from_kvdb(vnode->kvdb, key_md5, slice_idx, ppbuf, pbuf_size);
+        /*ret = object_get_slice_from_kvdb(vnode->kvdb, key_md5, slice_idx, ppbuf, pbuf_size);*/
+        ret = object_get_slice_from_kvdb(vnode->active_slicedb->kvdb, key_md5, slice_idx, ppbuf, pbuf_size);
     } else if ( vnode->storage_type == STORAGE_LOGFILE ){
     }
 

@@ -88,10 +88,12 @@ kvenv_t *kvenv_new_lmdb(const char *dbpath, uint64_t max_dbsize, uint32_t max_db
     /*rc = mdb_env_open(lmdb->env, dbpath, MDB_FIXEDMAP | MDB_NOSYNC, 0640); */
 
     /*rc = mdb_env_open(lmdb->env, dbpath, MDB_MAPASYNC | MDB_WRITEMAP | MDB_NOTLS , 0640); */
+    /*rc = mdb_env_open(kvenv_lmdb->env, dbpath, MDB_MAPASYNC | MDB_WRITEMAP, 0640); */
+    /*rc = mdb_env_open(kvenv_lmdb->env, dbpath, MDB_NOMETASYNC, 0640); */
     rc = mdb_env_open(kvenv_lmdb->env, dbpath, MDB_NOSYNC, 0640); 
     if ( rc != 0 ) {
         zfree(kvenv_lmdb);
-        error_log("mdb_env_open() failed. dbpath=%s", dbpath);
+        error_log("mdb_env_open() failed. dbpath=%s error: %s", dbpath, mdb_strerror(rc));
         return NULL;
     }
 
@@ -104,6 +106,15 @@ void kvenv_free_lmdb(kvenv_t *kvenv)
     mdb_env_close(kvenv_lmdb->env);
 
     zfree(kvenv);
+}
+
+size_t kvenv_get_dbsize_lmdb(kvenv_t *kvenv)
+{
+    kvenv_lmdb_t *kvenv_lmdb = (kvenv_lmdb_t*)kvenv;
+
+    MDB_envinfo stat;
+    mdb_env_info(kvenv_lmdb->env, &stat);
+    return 0x1000L * stat.me_last_pgno;
 }
 
 kvdb_t *kvdb_lmdb_open(kvenv_t *kvenv, const char *dbname)
@@ -172,6 +183,7 @@ int kvdb_lmdb_put(kvdb_t *kvdb, const char *key, uint32_t klen, void *value, uin
         if( rc==0 ){
             rc = mdb_txn_commit(txn);
         }else{
+            error_log("kvdb_lmdb_put() failure. error: %s", mdb_strerror(rc));
             mdb_txn_abort(txn);
         }
     }
@@ -194,18 +206,19 @@ int kvdb_lmdb_get(kvdb_t *kvdb, const char *key, uint32_t klen, void **ppVal, ui
     if( rc==0 ){
         MDB_val m_val = {0, 0};
         rc = mdb_get(txn, lmdb->dbi, &m_key, &m_val);
-        if( rc==MDB_NOTFOUND ){
-            rc = 0;
-            *ppVal = 0;
-            *pnVal = -1;
-        }else{
+        if ( rc == 0 ) {
             uint32_t nVal = m_val.mv_size;
             char *pVal = m_val.mv_data;
             char *result = (char*)zmalloc(nVal);
             memcpy(result, pVal, nVal);
             *ppVal = result;
-
             *pnVal = nVal;
+        } else if( rc==MDB_NOTFOUND ){
+            rc = 0;
+            *ppVal = 0;
+            *pnVal = -1;
+        }else{
+            error_log("kvdb_lmdb_get() failure. error: %s", mdb_strerror(rc));
         }
         mdb_txn_commit(txn);
     }
@@ -230,6 +243,7 @@ int kvdb_lmdb_del(kvdb_t *kvdb, const char *key, uint32_t klen)
         if( rc==0 ){
             rc = mdb_txn_commit(txn);
         }else{
+            error_log("kvdb_lmdb_del() failure. error: %s", mdb_strerror(rc));
             mdb_txn_abort(txn);
         }
     }

@@ -15,8 +15,11 @@
 
 #ifdef HAS_LMDB
 kvdb_t *kvdb_lmdb_open(kvenv_t *kvenv, const char *dbname);
+
 kvenv_t *kvenv_new_lmdb(const char *dbpath, uint64_t max_dbsize, uint32_t max_dbs);
 void kvenv_free_lmdb(kvenv_t *kvenv);
+size_t kvenv_get_dbsize_lmdb(kvenv_t *kvenv);
+
 #endif
 
 #ifdef HAS_LEVELDB
@@ -39,24 +42,25 @@ typedef struct kvdb_classes_t {
     const char *dbclass;
     kvdb_t *(*kvdb_open)(kvenv_t*, const char *dbname);
     kvenv_t *(*kvenv_new)(const char *, uint64_t, uint32_t);
-    void (*kvenv_free)(kvenv_t *kvenv);
+    void (*kvenv_free)(kvenv_t *);
+    size_t (*kvenv_get_dbsize)(kvenv_t *);
 } kvdb_classes_t;
 
 static kvdb_classes_t kvdb_classes[] ={
 #ifdef HAS_LMDB
-    {"lmdb", kvdb_lmdb_open, kvenv_new_lmdb, kvenv_free_lmdb},
+    {"lmdb", kvdb_lmdb_open, kvenv_new_lmdb, kvenv_free_lmdb, kvenv_get_dbsize_lmdb},
 #endif
 #ifdef HAS_LEVELDB
-    {"leveldb", kvdb_leveldb_open, NULL, NULL},
+    {"leveldb", kvdb_leveldb_open, NULL, NULL, NULL},
 #endif
 #ifdef HAS_ROCKSDB
-    {"rocksdb", kvdb_rocksdb_open, NULL, NULL},
+    {"rocksdb", kvdb_rocksdb_open, NULL, NULL, NULL},
 #endif
 #ifdef HAS_LSM
-    {"lsm", kvdb_lsm_open, NULL, NULL},
+    {"lsm", kvdb_lsm_open, NULL, NULL, NULL},
 #endif
 #ifdef HAS_EBLOB
-    {"eblob", kvdb_eblob_open, NULL, NULL}, 
+    {"eblob", kvdb_eblob_open, NULL, NULL, NULL}, 
 #endif
 };
 
@@ -102,6 +106,26 @@ void kvenv_free(kvenv_t *kvenv)
             break;
         } 
     }
+}
+
+
+size_t kvenv_get_dbsize(kvenv_t *kvenv)
+{
+    size_t dbsize = 0;
+
+    int i;
+    for ( i = 0 ; i < sizeof(kvdb_classes) / sizeof(kvdb_classes_t) ; i++ ){
+        if ( strcmp(kvenv->dbclass, kvdb_classes[i].dbclass) == 0 ){
+            if ( kvdb_classes[i].kvenv_get_dbsize != NULL ){
+                dbsize = kvdb_classes[i].kvenv_get_dbsize(kvenv);
+            } else {
+                dbsize = 0;
+            }
+            break;
+        } 
+    }
+
+    return dbsize;
 }
 
 kvdb_t *kvdb_open(kvenv_t *kvenv, const char *dbname)
@@ -170,4 +194,63 @@ int undefined_transaction_function(kvdb_t *kvdb, int level)
 {
     return -1;
 }
+
+int kvdb_get_uint32(kvdb_t *kvdb, const char *key, uint32_t *ret_value)
+{
+    int rc = -1;
+    uint32_t *value = NULL;
+    uint32_t value_len = 0;
+    if ( kvdb_get(kvdb, key, strlen(key), (void**)&value, &value_len) == 0 ){
+        if ( value != NULL && value_len == sizeof(uint32_t)){
+            *ret_value = *value;
+            rc = 0;
+        }
+    }
+    return rc;
+}
+
+int kvdb_put_uint32(kvdb_t *kvdb, const char *key, uint32_t value)
+{
+    return kvdb_put(kvdb, key, strlen(key), &value, sizeof(uint32_t));
+}
+
+int kvdb_get_uint64(kvdb_t *kvdb, const char *key, uint64_t *ret_value)
+{
+    int rc = -1;
+    uint64_t *value = NULL;
+    uint32_t value_len = 0;
+    if ( kvdb_get(kvdb, key, strlen(key), (void**)&value, &value_len) == 0 ){
+        if ( value != NULL && value_len == sizeof(uint32_t)){
+            *ret_value = *value;
+            rc = 0;
+        }
+    }
+    return rc;
+}
+
+int kvdb_put_uint64(kvdb_t *kvdb, const char *key, uint64_t value)
+{
+    return kvdb_put(kvdb, key, strlen(key), &value, sizeof(uint64_t));
+}
+
+int kvdb_get_str(kvdb_t *kvdb, const char *key, char **value, uint32_t *value_len)
+{
+    return kvdb_get(kvdb, key, strlen(key), (void**)value, value_len);
+}
+
+int kvdb_put_str(kvdb_t *kvdb, const char *key, const char *value)
+{
+    return kvdb_put(kvdb, key, strlen(key), &value, strlen(value));
+}
+
+int kvdb_get_data(kvdb_t *kvdb, const char *key, char **value, uint32_t *vlen)
+{
+    return kvdb_get(kvdb, key, strlen(key), (void**)value, vlen);
+}
+
+int kvdb_put_data(kvdb_t *kvdb, const char *key, const char *value, uint32_t vlen)
+{
+    return kvdb_put(kvdb, key, strlen(key), (void*)value, vlen);
+}
+
 
