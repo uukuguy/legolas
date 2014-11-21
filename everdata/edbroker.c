@@ -17,9 +17,6 @@
 
 #include "cboost.h"
 
-#define HEARTBEAT_INTERVAL 1000
-#define HEARTBEAT_LIVENESS 5
-
 /* -------- struct worker_t -------- */
 typedef struct worker_t {
     zframe_t *identity;

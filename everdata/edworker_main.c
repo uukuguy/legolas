@@ -41,7 +41,7 @@ static struct option const long_options[] = {
 };
 static const char *short_options = "e:u:w:s:dvth";
 
-extern int run_worker(const char *endpoint, int total_threads, int total_writers, int storage_type, int verbose);
+extern int run_edworker(const char *endpoint, int total_threads, int total_writers, int storage_type, int verbose);
 
 /* ==================== daemon_loop() ==================== */ 
 int daemon_loop(void *data)
@@ -49,7 +49,7 @@ int daemon_loop(void *data)
     notice_log("In daemon_loop()");
 
     const program_options_t *po = (const program_options_t *)data;
-    return run_worker(po->endpoint, po->total_threads, po->total_writers, po->storage_type, po->log_level >= LOG_DEBUG ? 1 : 0);
+    return run_edworker(po->endpoint, po->total_threads, po->total_writers, po->storage_type, po->log_level >= LOG_DEBUG ? 1 : 0);
 }
 
 /* ==================== usage() ==================== */ 
@@ -160,6 +160,6 @@ int main(int argc, char *argv[])
     if ( po.is_daemon ){
         return daemon_fork(daemon_loop, (void*)&po); 
     } else 
-        return run_worker(po.endpoint, po.total_threads, po.total_writers, po.storage_type, po.log_level >= LOG_DEBUG ? 1 : 0);
+        return run_edworker(po.endpoint, po.total_threads, po.total_writers, po.storage_type, po.log_level >= LOG_DEBUG ? 1 : 0);
 }
 
