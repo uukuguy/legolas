@@ -72,13 +72,9 @@ void container_thread_main(zsock_t *pipe, void *user_data)
 
     zloop_start(loop);
 
-    for ( int i = 0 ; i < total_buckets ; i++ ){
-        bucket_free(container->buckets[i]);
-    }
-    free(container->buckets);
-
     zloop_destroy(&loop);
 
+    trace_log("Container(%d) Exit.", container->id);
 }
 
 /* ================ container_new() ================ */
@@ -107,8 +103,7 @@ container_t *container_new(int container_id, int total_buckets, int storage_type
 
     container->buckets = (bucket_t**)malloc(sizeof(bucket_t*) * total_buckets);
     for ( int i = 0 ; i < container->total_buckets ; i++ ){
-        bucket_t *bucket = bucket_new(i, container, container->storage_type, container->broker_endpoint);
-        container->buckets[i] = bucket;
+        container->buckets[i] = bucket_new(i, container, container->storage_type, container->broker_endpoint);
     }
 
     container->heartbeat_at = zclock_time() + HEARTBEAT_INTERVAL;
@@ -126,6 +121,7 @@ void container_free(container_t *container)
 
     for ( int i = 0 ; i < container->total_buckets ; i++ ){
         bucket_free(container->buckets[i]);
+        container->buckets[i] = NULL;
     }
     free(container->buckets);
     container->buckets = NULL;

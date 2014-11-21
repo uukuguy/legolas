@@ -116,7 +116,7 @@ vnode_t *vnode_new(const char *root_dir, uint32_t id, enum eVnodeStorageType sto
     vnode->id = id;
     vnode->storage_type = storage_type;
     /*vnode->max_dbsize = 1024L * 1024L * 1024L * 4L;*/
-    vnode->max_dbsize = 1024L * 1024L * 500L;
+    vnode->max_dbsize = 1024L * 1024L * 800L;
 
     /* Create vnode root dir */
     sprintf(vnode->root_dir, "%s/%04d", root_dir, id);
