@@ -145,8 +145,8 @@ ${LIBBASE}: ${BASE_OBJS} ${KVDB_OBJS}
 # ---------------- deps ----------------
 .PHONY: ccl jemalloc libuv leveldb lmdb libsodium zeromq czmq zyre liblfds pcl react eblob
 
-deps: ccl jemalloc libuv leveldb lmdb lsm-sqlite4 libsodium zeromq czmq zyre msgpack cgreenlet crush lthread  pth libcoro rocksdb react eblob logcabin
-#pcl 
+deps: ccl jemalloc libuv leveldb lmdb lsm-sqlite4 libsodium zeromq czmq msgpack cgreenlet crush lthread  pth libcoro rocksdb react eblob logcabin
+#pcl zyre
 
 # ................ ccl ................
 
@@ -595,7 +595,6 @@ FINAL_LDFLAGS += ${LDFLAGS_CCL} \
 				${LDFLAGS_ROCKSDB} \
 				${LDFLAGS_LSM_SQLITE4} \
 				${LDFLAGS_LMDB} \
-				${LDFLAGS_ZYRE} \
 				${LDFLAGS_CZMQ} \
 				${LDFLAGS_ZEROMQ} \
 				${LDFLAGS_MSGPACK} \
@@ -613,6 +612,7 @@ FINAL_LDFLAGS += ${LDFLAGS_CCL} \
 #${LDFLAGS_LIBLFDS} 
 #${LDFLAGS_PCL} 
 #${LDFLAGS_COLIB} 
+				#${LDFLAGS_ZYRE} \
 
 ifeq (${UNAME}, Linux)
 	FINAL_CFLAGS += -DOS_LINUX
