@@ -23,31 +23,32 @@
 #define INTERVAL_INIT 1000
 #define INTERVAL_MAX 32000
 
-typedef struct writer_t {
+typedef struct write_ctx_t {
     zsock_t *sock;
     zframe_t *identity;
     vnode_t *vnode;
     object_t *object;
-} writer_t;
+} write_ctx_t;
 
-typedef struct reader_t {
+typedef struct read_ctx_t {
     zsock_t *sock;
     zframe_t *identity;
-} reader_t;
+} read_ctx_t;
 
-typedef struct deleter_t {
+typedef struct delete_ctx_t {
     zsock_t *sock;
     zframe_t *identity;
-} deleter_t;
+} delete_ctx_t;
 
 void write_queue_callback(work_queue_t *wq)
 {
-    writer_t *writer = NULL;
-    while ( (writer = (writer_t*)dequeue_work(wq)) != NULL ){
-        vnode_t *vnode = writer->vnode;
-        object_t *object = writer->object;
+    write_ctx_t *wctx = NULL;
+    while ( (wctx = (write_ctx_t*)dequeue_work(wq)) != NULL ){
+        /*vnode_t *vnode = wctx->vnode;*/
+        object_t *object = wctx->object;
 
-        int rc = vnode_write_to_storage(vnode, object);
+        /*int rc = vnode_write_to_storage(vnode, object);*/
+        int rc = 0;
         object_free(object);
 
         zmsg_t * sendback_msg = NULL;
@@ -56,15 +57,15 @@ void write_queue_callback(work_queue_t *wq)
         else 
             sendback_msg = create_status_message(MSG_STATUS_WORKER_ERROR);
 
-        zmsg_wrap(sendback_msg, writer->identity);
-        zmsg_send(&sendback_msg, writer->sock);
+        zmsg_wrap(sendback_msg, wctx->identity);
+        zmsg_send(&sendback_msg, wctx->sock);
     }
 }
 
 void read_queue_callback(work_queue_t *wq)
 {
-    reader_t *reader = NULL;
-    while ( (reader = (reader_t*)dequeue_work(wq)) != NULL ){
+    read_ctx_t *rctx = NULL;
+    while ( (rctx = (read_ctx_t*)dequeue_work(wq)) != NULL ){
         int rc = -1;
 
         zmsg_t * sendback_msg = NULL;
@@ -73,15 +74,15 @@ void read_queue_callback(work_queue_t *wq)
         else 
             sendback_msg = create_status_message(MSG_STATUS_WORKER_ERROR);
 
-        zmsg_wrap(sendback_msg, reader->identity);
-        zmsg_send(&sendback_msg, reader->sock);
+        zmsg_wrap(sendback_msg, rctx->identity);
+        zmsg_send(&sendback_msg, rctx->sock);
     }
 }
 
 void delete_queue_callback(work_queue_t *wq)
 {
-    deleter_t *deleter = NULL;
-    while ( (deleter = (deleter_t*)dequeue_work(wq)) != NULL ){
+    delete_ctx_t *dctx = NULL;
+    while ( (dctx = (delete_ctx_t*)dequeue_work(wq)) != NULL ){
         int rc = -1;
 
         zmsg_t * sendback_msg = NULL;
@@ -90,61 +91,61 @@ void delete_queue_callback(work_queue_t *wq)
         else 
             sendback_msg = create_status_message(MSG_STATUS_WORKER_ERROR);
 
-        zmsg_wrap(sendback_msg, deleter->identity);
-        zmsg_send(&sendback_msg, deleter->sock);
+        zmsg_wrap(sendback_msg, dctx->identity);
+        zmsg_send(&sendback_msg, dctx->sock);
     }
 }
 
-writer_t *writer_new(zsock_t *sock, zframe_t *identity, vnode_t *vnode, object_t *object)
+write_ctx_t *write_ctx_new(zsock_t *sock, zframe_t *identity, vnode_t *vnode, object_t *object)
 {
-    writer_t *writer = (writer_t*)malloc(sizeof(writer_t));
+    write_ctx_t *wctx = (write_ctx_t*)malloc(sizeof(write_ctx_t));
 
-    writer->sock = sock;
-    writer->identity = identity;
-    writer->vnode = vnode;
-    writer->object = object;
+    wctx->sock = sock;
+    wctx->identity = identity;
+    wctx->vnode = vnode;
+    wctx->object = object;
 
-    return writer;
+    return wctx;
 }
 
-void writer_free(writer_t *writer)
+void writer_ctx_free(write_ctx_t *wctx)
 {
-    free(writer);
+    free(wctx);
 }
 
-reader_t *reader_new(zsock_t *sock, zframe_t *identity)
+read_ctx_t *read_ctx_new(zsock_t *sock, zframe_t *identity)
 {
-    reader_t *reader = (reader_t*)malloc(sizeof(reader_t));
+    read_ctx_t *rctx = (read_ctx_t*)malloc(sizeof(read_ctx_t));
 
-    reader->sock = sock;
-    reader->identity = identity;
+    rctx->sock = sock;
+    rctx->identity = identity;
 
-    return reader;
+    return rctx;
 }
 
-void reader_free(reader_t *reader)
+void read_ctx_free(read_ctx_t *rctx)
 {
-    free(reader);
+    free(rctx);
 }
 
-deleter_t *deleter_new(zsock_t *sock, zframe_t *identity)
+delete_ctx_t *delete_ctx_new(zsock_t *sock, zframe_t *identity)
 {
-    deleter_t *deleter = (deleter_t*)malloc(sizeof(deleter_t));
+    delete_ctx_t *dctx = (delete_ctx_t*)malloc(sizeof(delete_ctx_t));
 
-    deleter->sock = sock;
-    deleter->identity = identity;
+    dctx->sock = sock;
+    dctx->identity = identity;
 
-    return deleter;
+    return dctx;
 }
 
-void deleter_free(deleter_t *deleter)
+void delete_ctx_free(delete_ctx_t *dctx)
 {
-    free(deleter);
+    free(dctx);
 }
 
 /* -------- struct worker_t -------- */
 typedef struct worker_t{
-    int id;
+    uint32_t id;
     /*vnode_t *vnode;*/
     vnode_t **vnodes;
     int total_writers;
@@ -160,19 +161,19 @@ typedef struct worker_t{
     zloop_t *loop;
 } worker_t;
 
-void worker_enqueue_write_queue(worker_t *worker, writer_t *writer)
+void worker_enqueue_write_queue(worker_t *worker, write_ctx_t *wctx)
 {
-    enqueue_work(worker->write_queue, (void*)writer);
+    enqueue_work(worker->write_queue, (void*)wctx);
 }
 
-void worker_enqueue_read_queue(worker_t *worker, reader_t *reader)
+void worker_enqueue_read_queue(worker_t *worker, read_ctx_t *rctx)
 {
-    enqueue_work(worker->read_queue, (void*)reader);
+    enqueue_work(worker->read_queue, (void*)rctx);
 }
 
-void worker_enqueue_delete_queue(worker_t *worker, deleter_t *deleter)
+void worker_enqueue_delete_queue(worker_t *worker, delete_ctx_t *dctx)
 {
-    enqueue_work(worker->read_queue, (void*)deleter);
+    enqueue_work(worker->read_queue, (void*)dctx);
 }
 
 vnode_t *worker_get_vnode_by_key(worker_t *worker, uint32_t h2)
@@ -285,7 +286,7 @@ zmsg_t *worker_put_data(worker_t *worker, zsock_t *sock, zframe_t *identity, zms
                     object_add_slice(object, data, data_size);
 
                     /* FiXME */
-                    /*writer_t *writer = writer_new(sock, identity, vnode, object);*/
+                    /*write_ctx_t *writer = writer_new(sock, identity, vnode, object);*/
                     /*worker_enqueue_write_queue(worker, writer);*/
                     /*return NULL;*/
 
@@ -307,9 +308,11 @@ zmsg_t *worker_put_data(worker_t *worker, zsock_t *sock, zframe_t *identity, zms
 }
 
 /* ================ worker_handle_message() ================ */
-zmsg_t *worker_handle_message(worker_t *worker, zsock_t *sock, zframe_t *identity, zmsg_t *msg)
+int worker_handle_message(worker_t *worker, zsock_t *sock, zmsg_t *msg)
 {
     /*zmsg_print(msg);*/
+
+    zframe_t *identity = zmsg_unwrap(msg);
 
     zmsg_t *sendback_msg = NULL;
 
@@ -321,51 +324,56 @@ zmsg_t *worker_handle_message(worker_t *worker, zsock_t *sock, zframe_t *identit
         sendback_msg = worker_del_data(worker, sock, identity, msg);
     }
 
-    /*if ( sendback_msg == NULL ){*/
-        /*sendback_msg = create_status_message(MSG_STATUS_WORKER_ERROR);*/
-    /*}*/
+    zmsg_destroy(&msg);
 
-    return sendback_msg;
-}
-
-/* ================ worker_new_sock() ================ */
-zsock_t *worker_new_sock(worker_t *worker)
-{
-    zsock_t *sock_worker = zsock_new_dealer(worker->edbroker_backend_endpoint);
-
-    if ( sock_worker != NULL ){
-        message_send_status(sock_worker, MSG_STATUS_WORKER_READY);
+    if (sendback_msg != NULL) {
+        zmsg_wrap(sendback_msg, identity);
+        zmsg_send(&sendback_msg, sock);
     }
 
-    return sock_worker;
+    return 0;
+}
+
+/* ================ worker_connect_to_broker() ================ */
+zsock_t *worker_connect_to_broker(worker_t *worker)
+{
+    zsock_t *sock_broker = zsock_new_dealer(worker->edbroker_backend_endpoint);
+
+    if ( sock_broker != NULL ){
+        /*message_send_status(sock_broker, MSG_STATUS_WORKER_READY);*/
+        zmsg_t *msg_worker_ready = create_status_message(MSG_STATUS_WORKER_READY);
+        zmsg_addmem(msg_worker_ready, &worker->id, sizeof(worker->id));
+        zmsg_send(&msg_worker_ready, sock_broker);
+    }
+
+    return sock_broker;
 }
 
 /* ================ worker_thread_main_for_dealer() ================ */
 void worker_thread_main(zsock_t *pipe, void *user_data)
 {
     worker_t *worker = (worker_t*)user_data;
-    int id = worker->id;
 
-    trace_log("Worker %d Ready.", id);
+    trace_log("Worker %d Ready.", worker->id);
 
     zsock_signal(pipe, 0);
 
     message_send_status(pipe, MSG_STATUS_ACTOR_READY);
 
-    zsock_t *sock_worker = worker_new_sock(worker);
+    zsock_t *sock_broker = worker_connect_to_broker(worker);
 
     uint32_t interval = INTERVAL_INIT;
     uint32_t liveness = HEARTBEAT_LIVENESS * 2;
 
+    zpoller_t *poller = zpoller_new(sock_broker, NULL);
     while ( true ){
-        zpoller_t *poller = zpoller_new(sock_worker, NULL);
         zsock_t *sock = zpoller_wait(poller, HEARTBEAT_INTERVAL / 2);
 
         if ( zclock_time() > worker->heartbeat_at ){
             trace_log("--> Send worker heartbeat.");
             worker->heartbeat_at = zclock_time() + HEARTBEAT_INTERVAL;
 
-            message_send_heartbeat(sock_worker, MSG_HEARTBEAT_WORKER);
+            message_send_heartbeat(sock_broker, MSG_HEARTBEAT_WORKER);
         }
 
         if ( sock != NULL ){
@@ -380,14 +388,7 @@ void worker_thread_main(zsock_t *pipe, void *user_data)
                 liveness = HEARTBEAT_LIVENESS;
                 zmsg_destroy(&msg);
             } else {
-                zframe_t *identity = zmsg_unwrap(msg);
-                zmsg_t *sendback_msg = worker_handle_message(worker, sock, identity, msg);
-                zmsg_destroy(&msg);
-
-                if (sendback_msg != NULL) {
-                    zmsg_wrap(sendback_msg, identity);
-                    zmsg_send(&sendback_msg, sock);
-                }
+                worker_handle_message(worker, sock, msg);
             }
         } else {
             if ( --liveness == 0 ){
@@ -397,21 +398,21 @@ void worker_thread_main(zsock_t *pipe, void *user_data)
                 }
 
                 warning_log("Worker %d timeout. Try reconnect...", worker->id);
-                zsock_destroy(&sock_worker);
-                sock_worker = worker_new_sock(worker);
+                zsock_destroy(&sock_broker);
+                sock_broker = worker_connect_to_broker(worker);
 
                 liveness = HEARTBEAT_LIVENESS;
             }
         }
 
-        zpoller_destroy(&poller);
     }
+    zpoller_destroy(&poller);
 
     message_send_status(pipe, MSG_STATUS_ACTOR_OVER);
 
-    zsock_destroy(&sock_worker);
+    zsock_destroy(&sock_broker);
 
-    trace_log("Worker %d Exit.", id);
+    trace_log("Worker %d Exit.", worker->id);
 
 }
 
