@@ -14,22 +14,41 @@
 #include "filesystem.h"
 #include "everdata.h"
 
-/* -------- struct client_t -------- */
-typedef struct client_t {
-    const char *endpoint;
-    int id;
-    const char *file_data;
-    uint32_t file_size;
-    uint32_t total_threads;
-    uint32_t total_files;
-    int op_code;
-    const char *key;
-    const char *filename;
+#include "zpipe.h"
 
-    uint32_t start_index;
-    zactor_t *actor;
+static char *file_data = NULL;
+static uint32_t file_size = 0;
 
-} client_t;
+/* ================ prepare_file_data() ================ */
+int prepare_file_data(const char *filename)
+{
+    FILE *file = fopen(filename, "rb");
+    if ( file == NULL ){
+        error_log("fopen() failed. file:%s", filename);
+        return -1;
+    }
+
+    fseek(file, 0, SEEK_END);
+    uint32_t size = ftell(file);
+    fseek(file, 0, SEEK_SET);
+
+    char *buf = zmalloc(size);
+
+    memset(buf, 0, sizeof(size));
+    uint32_t readed = fread(buf, 1, size, file); 
+    if ( readed != size ){
+        error_log("fread() failed. readed:%d file_size:%d", readed, size);
+        fclose(file);
+        return -1;
+    }
+
+    fclose(file);
+
+    file_data = buf;
+    file_size = size;
+
+    return 0;
+}
 
 /* ================ client_rebuild_data_key() ================ */
 void client_rebuild_data_key(client_t *client, uint32_t data_id, char *key)
@@ -162,12 +181,9 @@ void client_thread_main(zsock_t *pipe, void *user_data)
 
     trace_log("Client %d Ready.", id);
 
-    zsock_signal(pipe, 0);
-
-    char sz_id[16];
-    sprintf(sz_id, "%d", id);
-
-    message_send_status(pipe, MSG_STATUS_ACTOR_READY);
+    ZPIPE_ACTOR_THREAD_BEGIN(pipe);
+    /*zsock_signal(pipe, 0);*/
+    /*message_send_status(pipe, MSG_STATUS_ACTOR_READY);*/
 
     zsock_t *sock_client = zsock_new_req(client->endpoint);
     if ( sock_client == NULL ){
@@ -209,7 +225,8 @@ void client_thread_main(zsock_t *pipe, void *user_data)
             break;
     }
 
-    message_send_status(pipe, MSG_STATUS_ACTOR_OVER);
+    ZPIPE_ACTOR_THREAD_END(pipe);
+    /*message_send_status(pipe, MSG_STATUS_ACTOR_OVER);*/
 
     zsock_destroy(&sock_client);
 
@@ -217,23 +234,106 @@ void client_thread_main(zsock_t *pipe, void *user_data)
 
 }
 
+/* -------- struct client_t -------- */
+typedef struct client_t {
+    ZPIPE_ACTOR;
+
+    const char *endpoint;
+    int id;
+    const char *file_data;
+    uint32_t file_size;
+    uint32_t total_files;
+    int op_code;
+    const char *key;
+    const char *filename;
+    int verbose;
+
+    uint32_t start_index;
+    zactor_t *actor;
+
+} client_t;
+
+typedef struct edclient_t {
+    ZPIPE;
+    client_t **clients;
+
+    const char *endpoint;
+    int op_code;
+    uint32_t total_files;
+    const char *key;
+    const char *filename;
+    int verbose;
+} edclient_t;
+
+/* ================ edclient_new() ================ */
+edclient_t *edclient_new(const char *endpoint, int op_code, uint32_t total_clients, uint32_t total_files, const char *key, const char *filename, int verbose)
+{
+    edclient_t *edclient = (edclient_t*)malloc(sizeof(edclient_t));
+    memset(edclient, 0, sizeof(edclient));
+
+    edclient->endpoint = endpoinrt;
+    edclient->op_code = op_code;
+    edclient->total_files = total_files;
+    edclient->key = key;
+    edclient->filename = filename;
+    edclient->verbose = verbose;
+
+    ZPIPE_NEW(edclient, total_clients);
+
+    for (int i = 0 ; i < total_clients ; i++ ){
+        client_t *client = client_new();
+        edclient->clients[i] = client;
+    }
+
+    return edclient;
+}
+
+/* ================ edclient_free() ================ */
+void edclient_free(edclient_t *edclient)
+{
+    ZPIPE_FREE(edclient, clients);
+
+    free(edclient);
+}
+
+/* ================ edclient_loop() ================ */
+void edclient_loop(edclient_t *edclient){
+    ZPIPE_START_ACTORS(edclient, clients);
+}
+
+/* ================ run_edclient() ================ */
+int run_edclient(const char *endpoint, int op_code, uint32_t total_clients, uint32_t total_files, const char *key, const char *filename, int verbose)
+{
+    edclient_t *edclient = edclient_new(endpoint, op_code, total_clients, total_files, key, filename, verbose);
+
+    edclient_loop(edclient);
+
+    edclient_free(edclient);
+
+    return 0;
+}
+
 /* ================ client_new() ================ */
-client_t *client_new(int client_id, const char *endpoint)
+client_t *client_new(int client_id, const char *endpoint, int op_code, uint32_t total_files, const char *key, const char *filename, int verbose)
 {
     client_t *client = (client_t*)malloc(sizeof(client_t));
     memset(client, 0, sizeof(client_t));
 
     client->id = client_id;
     client->endpoint = endpoint;
+    client->op_code = op_code;
+    client->total_files = total_files;
+    client->key = key;
+    client->filename = filename;
+    client->verbose = verbose;
+
+    client->file_data = file_data;
+    client->file_size = file_size;
+
+    ZPIPE_ACTOR_NEW(client, client_thread_main);
+    /*client->actor = zactor_new(client_thread_main, client);*/
 
     return client;
-}
-
-/* ================ client_create_actor() ================ */
-void client_create_actor(client_t *client)
-{
-    client->actor = zactor_new(client_thread_main, client);
-    notice_log("Client %d start actor.", client->id);
 }
 
 /* ================ client_free() ================ */
@@ -275,39 +375,6 @@ int handle_pullin_on_client_pipe(zloop_t *loop, zsock_t *pipe, void *user_data)
     return 0;
 }
 
-static char *file_data = NULL;
-static uint32_t file_size = 0;
-
-/* ================ prepare_file_data() ================ */
-int prepare_file_data(const char *filename)
-{
-    FILE *file = fopen(filename, "rb");
-    if ( file == NULL ){
-        error_log("fopen() failed. file:%s", filename);
-        return -1;
-    }
-
-    fseek(file, 0, SEEK_END);
-    uint32_t size = ftell(file);
-    fseek(file, 0, SEEK_SET);
-
-    char *buf = zmalloc(size);
-
-    memset(buf, 0, sizeof(size));
-    uint32_t readed = fread(buf, 1, size, file); 
-    if ( readed != size ){
-        error_log("fread() failed. readed:%d file_size:%d", readed, size);
-        fclose(file);
-        return -1;
-    }
-
-    fclose(file);
-
-    file_data = buf;
-    file_size = size;
-
-    return 0;
-}
 
 /* ================ run_client() ================ */
 int run_client(const char *endpoint, int op_code, int total_threads, uint32_t total_files, const char *key, const char *filename, int verbose)
@@ -322,18 +389,7 @@ int run_client(const char *endpoint, int op_code, int total_threads, uint32_t to
 
     client_t **clients = (client_t**)malloc(sizeof(client_t*) * total_actors);
     for ( int i = 0 ; i < total_actors ; i++ ){
-        client_t *client = client_new(i, endpoint);
-
-        client->op_code = op_code;
-        client->total_threads = total_threads;
-        client->total_files = total_files;
-        client->key = key;
-        client->filename = filename;
-
-        client->file_data = file_data;
-        client->file_size = file_size;
-
-        client_create_actor(client);
+        client_t *client = client_new(i, endpoint, op_code, total_files, key, filename);
 
         clients[i] = client;
     }

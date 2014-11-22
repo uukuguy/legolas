@@ -41,7 +41,7 @@
         master_t *master = (master_t*)malloc(sizeof(master_t));
         memset(master, 0, sizeof(master_t));
 
-        ZPIPE_NEW(madster, total_actors);
+        ZPIPE_NEW(master, total_actors);
 
         for (int i = 0 ; i < total_actors ; i++ ){
             slave_t *slave = slave_new();
@@ -64,31 +64,6 @@
 #include "logger.h"
 #include "everdata.h"
 #include "zpipe.h"
-
-#define ZPIPE \
-        zpipe_t *zpipe;
-
-#define ZPIPE_NEW(parent, total_actors) \
-        parent->zpipe = zpipe_new(total_actors);
-
-#define ZPIPE_FREE(parent) \
-    zpipe_free(parent_zpipe); \
-    parent->zpipe = NULL;
-
-#define ZPIPE_START_ACTORS(parent, zpipe_actors) \
-        zpipe_start_actors(parent->zpipe, (zpipe_actor_t**)parent->zpipe_actors);
-
-#define ZPIPE_ACTOR \
-        zpipe_actor_t zpipe_actor;
-
-#define ZPIPE_ACTOR_NEW(actor, actor_thread_main) \
-        actor->zpipe_actor->actor = zactor_new(actor_thread_main, actor);
-
-#define ZPIPE_ACTOR_THREAD_BEGIN(pipe) \
-        zpipe_actor_thread_begin(pipe);
-
-#define ZPIPE_ACTOR_THREAD_END(pipe) \
-        zpipe_actor_thread_end(pipe);
 
 /* ================ zpipe_new() ================ */
 zpipe_t *zpipe_new(uint32_t total_actors)

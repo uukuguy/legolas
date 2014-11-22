@@ -20,7 +20,7 @@ typedef struct{
     const char *endpoint;
     int op_code;
     int total_files;
-    int total_threads;
+    int total_clients;
 
     const char *key;
     const char *filename;
@@ -46,13 +46,15 @@ static struct option const long_options[] = {
 };
 static const char *short_options = "e:wrxk:s:n:u:vth";
 
-extern int run_client(const char *endpoint, int op_code, int total_threads, uint32_t total_files, const char *key, const char *filename, int verbose);
+/*extern int run_client(const char *endpoint, int op_code, uint32_t total_clients, uint32_t total_files, const char *key, const char *filename, int verbose);*/
+extern int run_edclient(const char *endpoint, int op_code, uint32_t total_clients, uint32_t total_files, const char *key, const char *filename, int verbose);
 
 /* ==================== daemon_loop() ==================== */ 
 int daemon_loop(void *data)
 {
     const program_options_t *po = (const program_options_t *)data;
-    return run_client(po->endpoint, po->op_code, po->total_threads, po->total_files, po->key, po->filename, po->log_level >= LOG_DEBUG ? 1 : 0);
+    /*return run_client(po->endpoint, po->op_code, po->total_clients, po->total_files, po->key, po->filename, po->log_level >= LOG_DEBUG ? 1 : 0);*/
+    return run_edclient(po->endpoint, po->op_code, po->total_clients, po->total_files, po->key, po->filename, po->log_level >= LOG_DEBUG ? 1 : 0);
 }
 
 /* ==================== usage() ==================== */ 
@@ -88,7 +90,7 @@ int main(int argc, char *argv[])
 
     po.endpoint = "tcp://127.0.0.1:19977";
     po.op_code = 0;
-    po.total_threads = 16;
+    po.total_clients = 16;
     po.total_files = 6250;
     po.start_index = 0;
     po.key = "default";
@@ -104,9 +106,9 @@ int main(int argc, char *argv[])
                 po.endpoint = optarg;
                 break;
             case 'u':
-                po.total_threads = atoi(optarg);
-                if ( po.total_threads < 0 ) {
-                    po.total_threads = 1;
+                po.total_clients = atoi(optarg);
+                if ( po.total_clients < 0 ) {
+                    po.total_clients = 1;
                 }
                 break;
             case 'w':
@@ -174,7 +176,8 @@ int main(int argc, char *argv[])
        warning_log("Usage: %s --write | --read | --delete", program_name);
        rc = -1;
     } else {
-        rc = run_client(po.endpoint, po.op_code, po.total_threads, po.total_files, po.key, po.filename, po.log_level >= LOG_DEBUG ? 1 : 0);
+        /*rc = run_client(po.endpoint, po.op_code, po.total_clients, po.total_files, po.key, po.filename, po.log_level >= LOG_DEBUG ? 1 : 0);*/
+        rc = run_edclient(po.endpoint, po.op_code, po.total_clients, po.total_files, po.key, po.filename, po.log_level >= LOG_DEBUG ? 1 : 0);
     }
 
     /* -------- End Timing -------- */
@@ -182,7 +185,7 @@ int main(int argc, char *argv[])
     msec1 = tv.tv_sec * 1000 + tv.tv_usec / 1000; 
 
     notice_log("========> Total Time: %d.%03d sec.<========", (msec1 - msec0) / 1000, (msec1 - msec0) % 1000);
-    notice_log("Avarage speed: %d files/sec", po.total_files * po.total_threads * 1000 / (msec1 - msec0) );
+    notice_log("Avarage speed: %d files/sec", po.total_files * po.total_clients * 1000 / (msec1 - msec0) );
     notice_log("~~> End EverData Client.");
 
     return rc;
