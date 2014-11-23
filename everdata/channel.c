@@ -121,7 +121,7 @@ channel_t *channel_new(uint32_t channel_id, bucket_t *bucket)
     channel->heartbeat_at = zclock_time() + HEARTBEAT_INTERVAL;
 
     /* --------channel->actor -------- */
-    channel->actor = zactor_new(channel_thread_main, channel);
+    ZPIPE_ACTOR_NEW(channel, channel_thread_main);
 
     return channel;
 }
@@ -129,10 +129,7 @@ channel_t *channel_new(uint32_t channel_id, bucket_t *bucket)
 /* ================ channel_free() ================ */
 void channel_free(channel_t *channel)
 {
-    if ( channel->broker_sock != NULL ){
-        zsock_destroy(&channel->broker_sock);
-        channel->broker_sock = NULL;
-    }
+    ZPIPE_ACTOR_FREE(channel);
 
     free(channel);
 }

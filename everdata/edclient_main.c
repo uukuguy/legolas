@@ -37,7 +37,7 @@ static struct option const long_options[] = {
 	{"key", required_argument, NULL, 'k'},
 	{"start", required_argument, NULL, 's'},
 	{"count", required_argument, NULL, 'n'},
-	{"threads", required_argument, NULL, 'u'},
+	{"clients", required_argument, NULL, 'u'},
 	{"verbose", no_argument, NULL, 'v'},
 	{"trace", no_argument, NULL, 't'},
 	{"help", no_argument, NULL, 'h'},
@@ -65,7 +65,7 @@ static void usage(int status)
         printf("Usage: %s [OPTION] [PATH]\n", program_name);
         printf("Everdata Worker\n\
                 -e, --endpoint          specify the edbroker endpoint\n\
-                -u, --threads           count of threads\n\
+                -u, --clients           count of clients\n\
                 -w, --write             upload file to server\n\
                 -r, --read              download file from server\n\
                 -x, --delete            delete file in server\n\

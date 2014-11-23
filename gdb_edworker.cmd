@@ -1,6 +1,6 @@
 directory ./everdata:./server:./client:./base:./net:./deps/ccl:./deps/czmq/src
 
-set args --trace --threads 1 --writers 4 --storage LMDB 
+set args --trace --containers 1 --buckets 4 --storage LMDB 
 
 handle SIGPIPE nostop print
 b main

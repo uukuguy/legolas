@@ -19,8 +19,8 @@ static char program_name[] = "edworker";
 
 typedef struct{
     const char *endpoint;
-    int total_threads;
-    int total_writers;
+    uint32_t total_containers;
+    uint32_t total_buckets;
     int storage_type;
 
     int is_daemon;
@@ -29,8 +29,8 @@ typedef struct{
 
 static struct option const long_options[] = {
 	{"endpoint", required_argument, NULL, 'e'},
-	{"threads", required_argument, NULL, 'u'},
-	{"writers", required_argument, NULL, 'w'},
+	{"containers", required_argument, NULL, 'u'},
+	{"buckets", required_argument, NULL, 'w'},
 	{"storage", required_argument, NULL, 's'},
 	{"daemon", no_argument, NULL, 'd'},
 	{"verbose", no_argument, NULL, 'v'},
@@ -41,7 +41,7 @@ static struct option const long_options[] = {
 };
 static const char *short_options = "e:u:w:s:dvth";
 
-extern int run_edworker(const char *endpoint, int total_threads, int total_writers, int storage_type, int verbose);
+extern int run_edworker(const char *endpoint, uint32_t total_containers, int total_buckets, int storage_type, int verbose);
 
 /* ==================== daemon_loop() ==================== */ 
 int daemon_loop(void *data)
@@ -49,7 +49,7 @@ int daemon_loop(void *data)
     notice_log("In daemon_loop()");
 
     const program_options_t *po = (const program_options_t *)data;
-    return run_edworker(po->endpoint, po->total_threads, po->total_writers, po->storage_type, po->log_level >= LOG_DEBUG ? 1 : 0);
+    return run_edworker(po->endpoint, po->total_containers, po->total_buckets, po->storage_type, po->log_level >= LOG_DEBUG ? 1 : 0);
 }
 
 /* ==================== usage() ==================== */ 
@@ -62,8 +62,8 @@ static void usage(int status)
         printf("Usage: %s [OPTION] [PATH]\n", program_name);
         printf("Everdata Worker\n\
                 -e, --endpoint          specify the edbroker endpoint\n\
-                -u, --threads           count of threads\n\
-                -w, --writers           concurrent writers\n\
+                -u, --containers           count of containers\n\
+                -w, --buckets           count of buckets\n\
                 -s, --storage      NONE, LOGFILE, LMDB, EBLOB, LEVELDB, ROCKSDB, LSM\n\
                 -d, --daemon            run in the daemon mode. \n\
                 -v, --verbose           print debug messages\n\
@@ -73,15 +73,15 @@ static void usage(int status)
     }
     exit(status);
 }
-
+ 
 int main(int argc, char *argv[])
 {
     program_options_t po;
     memset(&po, 0, sizeof(program_options_t));
 
     po.endpoint = "tcp://127.0.0.1:19978";
-    po.total_threads = 1;
-    po.total_writers = 4;
+    po.total_containers = 1;
+    po.total_buckets = 4;
     po.storage_type = STORAGE_NONE;
     po.is_daemon = 0;
     po.log_level = LOG_INFO;
@@ -95,15 +95,15 @@ int main(int argc, char *argv[])
                 po.endpoint = optarg;
                 break;
             case 'u':
-                po.total_threads = atoi(optarg);
-                if ( po.total_threads < 0 ) {
-                    po.total_threads = 1;
+                po.total_containers = atoi(optarg);
+                if ( po.total_containers < 0 ) {
+                    po.total_containers = 1;
                 }
                 break;
             case 'w':
-                po.total_writers = atoi(optarg);
-                if ( po.total_writers < 0 ) {
-                    po.total_writers = 1;
+                po.total_buckets = atoi(optarg);
+                if ( po.total_buckets < 0 ) {
+                    po.total_buckets = 1;
                 }
                 break;
             case 's':
@@ -160,6 +160,6 @@ int main(int argc, char *argv[])
     if ( po.is_daemon ){
         return daemon_fork(daemon_loop, (void*)&po); 
     } else 
-        return run_edworker(po.endpoint, po.total_threads, po.total_writers, po.storage_type, po.log_level >= LOG_DEBUG ? 1 : 0);
+        return run_edworker(po.endpoint, po.total_containers, po.total_buckets, po.storage_type, po.log_level >= LOG_DEBUG ? 1 : 0);
 }
 

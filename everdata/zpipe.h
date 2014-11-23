@@ -18,6 +18,7 @@ typedef struct zpipe_t {
     uint32_t total_actors;
     uint32_t total_over_actors;
     int verbose;
+    void **actors;
 
     void *user_data;
 } zpipe_t;
@@ -30,27 +31,35 @@ typedef struct zpipe_actor_t{
 zpipe_t *zpipe_new(uint32_t total_actors);
 void zpipe_init(zpipe_t *zpipe, uint32_t total_actors);
 void zpipe_free(zpipe_t *zpipe);
-int zpipe_start_actors(zpipe_t *zpipe, zpipe_actor_t** zpipe_actors);
+int zpipe_loop(zpipe_t *zpipe);
 
 void zpipe_actor_thread_begin(zsock_t *pipe);
 void zpipe_actor_thread_end(zsock_t *pipe);
 
 #define ZPIPE \
-        zpipe_t *zpipe;
+        zpipe_t *zpipe; \
 
-#define ZPIPE_NEW(master, total_actors) \
-        master->zpipe = zpipe_new(total_actors);
+#define ZPIPE_NEW_BEGIN(master, total_slaves) \
+        master->zpipe = zpipe_new(total_slaves); \
+        master->zpipe->actors = (void**)malloc(sizeof(void*) * total_slaves); \
+        for (int i = 0 ; i < total_slaves ; i++ ){ \
 
-#define ZPIPE_FREE(master, slaves, slave_free) \
+#define ZPIPE_NEW_END(master, slave) \
+        master->zpipe->actors[i] = slave; \
+    }
+
+#define ZPIPE_FREE(master, slave_free) \
     for ( uint32_t i = 0 ; i < master->zpipe->total_actors ; i++ ){ \
-        slave_free(master->slaves[i]); \
-        master->slaves[i] = NULL; \
+        slave_free(master->zpipe->actors[i]); \
+        master->zpipe->actors[i] = NULL; \
     } \
+    free(master->zpipe->actors);\
+    master->zpipe->actors = NULL; \
     zpipe_free(master->zpipe); \
     master->zpipe = NULL;
 
-#define ZPIPE_START_ACTORS(master, zpipe_actors) \
-        zpipe_start_actors(master->zpipe, (zpipe_actor_t**)master->zpipe_actors);
+#define ZPIPE_LOOP(master) \
+        zpipe_loop(master->zpipe);
 
 #define ZPIPE_ACTOR \
         zpipe_actor_t zpipe_actor;

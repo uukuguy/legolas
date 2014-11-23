@@ -10,6 +10,10 @@
 #ifndef __EVERDATA_H__
 #define __EVERDATA_H__
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #include <stdint.h>
 
 #define HEARTBEAT_INTERVAL 1000
@@ -70,6 +74,11 @@ zmsg_t *create_action_message(const char *action);
 zmsg_t *create_data_message(const char *data, uint32_t data_size);
 zmsg_t *create_key_data_message(const char *key, const char *data, uint32_t data_size);
 zmsg_t *create_sendback_message(zmsg_t *msg);
+
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* __EVERDATA_H__ */
 

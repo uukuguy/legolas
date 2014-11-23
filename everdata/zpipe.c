@@ -54,7 +54,7 @@
    }
 
    void master_loop(master_t *master){
-        ZPIPE_START_ACTORS(master, slaves);
+        ZPIPE_LOOP(master, slaves);
    }
    
 */
@@ -129,12 +129,13 @@ int zpipe_handle_pullin(zloop_t *loop, zsock_t *pipe, void *user_data)
     return 0;
 }
 
-/* ================ zpipe_start_actors() ================ */
-int zpipe_start_actors(zpipe_t *zpipe, zpipe_actor_t** zpipe_actors)
+/* ================ zpipe_loop() ================ */
+int zpipe_loop(zpipe_t *zpipe )
 {
     zloop_t *loop = zloop_new();
     zloop_set_verbose(loop, zpipe->verbose);
 
+    zpipe_actor_t** zpipe_actors = (zpipe_actor_t**)zpipe->actors;
     uint32_t total_actors = zpipe->total_actors;
     for ( int i = 0 ; i < total_actors ; i++ ){
         zpipe_actors[i]->zpipe = zpipe;

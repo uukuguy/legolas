@@ -201,8 +201,6 @@ void client_thread_main(zsock_t *pipe, void *user_data)
     trace_log("Client %d Ready.", id);
 
     ZPIPE_ACTOR_THREAD_BEGIN(pipe);
-    /*zsock_signal(pipe, 0);*/
-    /*message_send_status(pipe, MSG_STATUS_ACTOR_READY);*/
 
     zsock_t *sock_client = zsock_new_req(client->endpoint);
     if ( sock_client == NULL ){
@@ -245,7 +243,6 @@ void client_thread_main(zsock_t *pipe, void *user_data)
     }
 
     ZPIPE_ACTOR_THREAD_END(pipe);
-    /*message_send_status(pipe, MSG_STATUS_ACTOR_OVER);*/
 
     zsock_destroy(&sock_client);
 
@@ -271,7 +268,6 @@ client_t *client_new(int client_id, const char *endpoint, int op_code, uint32_t 
     client->file_size = file_size;
 
     ZPIPE_ACTOR_NEW(client, client_thread_main);
-    /*client->actor = zactor_new(client_thread_main, client);*/
 
     return client;
 }
@@ -280,18 +276,16 @@ client_t *client_new(int client_id, const char *endpoint, int op_code, uint32_t 
 void client_free(client_t *client)
 {
     ZPIPE_ACTOR_FREE(client);
-    /*zactor_destroy(&client->actor);*/
-    /*client->actor = NULL;*/
     free(client);
 }
 
 /* -------- struct edclient_t -------- */
 typedef struct edclient_t {
     ZPIPE;
-    client_t **clients;
 
     const char *endpoint;
     int op_code;
+    uint32_t total_clients;
     uint32_t total_files;
     const char *key;
     const char *filename;
@@ -306,18 +300,11 @@ edclient_t *edclient_new(const char *endpoint, int op_code, uint32_t total_clien
 
     edclient->endpoint = endpoint;
     edclient->op_code = op_code;
+    edclient->total_clients = total_clients;
     edclient->total_files = total_files;
     edclient->key = key;
     edclient->filename = filename;
     edclient->verbose = verbose;
-
-    ZPIPE_NEW(edclient, total_clients);
-
-    edclient->clients = (client_t**)malloc(sizeof(client_t*) * total_clients);
-    for (int i = 0 ; i < total_clients ; i++ ){
-        client_t *client = client_new(i, endpoint, op_code, total_files, key, filename, verbose);
-        edclient->clients[i] = client;
-    }
 
     return edclient;
 }
@@ -325,14 +312,27 @@ edclient_t *edclient_new(const char *endpoint, int op_code, uint32_t total_clien
 /* ================ edclient_free() ================ */
 void edclient_free(edclient_t *edclient)
 {
-    ZPIPE_FREE(edclient, clients, client_free);
+    ZPIPE_FREE(edclient, client_free);
 
     free(edclient);
 }
 
 /* ================ edclient_loop() ================ */
 void edclient_loop(edclient_t *edclient){
-    ZPIPE_START_ACTORS(edclient, clients);
+
+    ZPIPE_NEW_BEGIN(edclient, edclient->total_clients);
+
+    client_t *client = client_new(i, 
+            edclient->endpoint, 
+            edclient->op_code, 
+            edclient->total_files, 
+            edclient->key, 
+            edclient->filename, 
+            edclient->verbose);
+
+    ZPIPE_NEW_END(edclient, client);
+
+    ZPIPE_LOOP(edclient);
 }
 
 /* ================ run_edclient() ================ */

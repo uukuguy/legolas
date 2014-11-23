@@ -11,36 +11,41 @@
 #ifndef __BUCKET_H__
 #define __BUCKET_H__
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #include <stdint.h>
+#include "zpipe.h"
 
 typedef struct _zactor_t zactor_t;
 typedef struct container_t container_t;
 typedef struct vnode_t vnode_t;
-typedef struct work_queue_t work_queue_t;
 typedef struct channel_t channel_t;
 
 /* -------- struct bucket_t -------- */
 typedef struct bucket_t {
+    ZPIPE_ACTOR;
+
+    ZPIPE;
+
+    uint32_t total_channels;
+
     uint32_t id;
     const char *broker_endpoint;
     int64_t heartbeat_at;
-    zactor_t *actor;
     vnode_t *vnode;
     container_t *container;
-
-    channel_t **channels;
-    uint32_t total_channels;
-    uint32_t total_over_channels;
-
-    work_queue_t *write_queue;
-    work_queue_t *read_queue;
-    work_queue_t *delete_queue;
 
 } bucket_t;
 
 bucket_t *bucket_new(int bucket_id, container_t *container, int storage_type, const char *broker_endpoint);
 void bucket_free(bucket_t *bucket);
 int bucket_handle_message(bucket_t *bucket, zsock_t *sock, zmsg_t *msg);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif // __BUCKET_H__
 

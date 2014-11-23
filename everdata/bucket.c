@@ -16,28 +16,10 @@
 #include "md5.h"
 #include "adlist.h"
 #include "everdata.h"
-#include "work.h"
 
 #include "container.h"
 #include "bucket.h"
 #include "channel.h"
-
-/* ================ bucket_connect_to_broker() ================ */
-zsock_t *bucket_connect_to_broker(bucket_t *bucket)
-{
-    zsock_t *broker_sock = zsock_new_dealer(bucket->broker_endpoint);
-
-    if ( broker_sock != NULL ){
-        zmsg_t *msg_worker_ready = create_status_message(MSG_STATUS_WORKER_READY);
-        zmsg_addmem(msg_worker_ready, &bucket->container->id, sizeof(uint32_t));
-        zmsg_addmem(msg_worker_ready, &bucket->id, sizeof(bucket->id));
-        zmsg_send(&msg_worker_ready, broker_sock);
-    } else {
-        warning_log("Bucket(%d) connect to broker failed. endpoint:%s", bucket->id, bucket->broker_endpoint);
-    }
-
-    return broker_sock;
-}
 
 /* ================ bucket_del_data() ================ */
 zmsg_t *bucket_del_data(bucket_t *bucket, zsock_t *sock, zframe_t *identity, zmsg_t *msg)
@@ -58,6 +40,7 @@ zmsg_t *bucket_del_data(bucket_t *bucket, zsock_t *sock, zframe_t *identity, zms
 /* ================ bucket_get_data() ================ */
 zmsg_t *bucket_get_data(bucket_t *bucket, zsock_t *sock, zframe_t *identity, zmsg_t *msg)
 {
+    vnode_t *vnode = bucket->vnode;
     zmsg_t *sendback_msg = NULL;
 
     zframe_t *frame_msgtype = zmsg_first(msg);
@@ -73,8 +56,6 @@ zmsg_t *bucket_get_data(bucket_t *bucket, zsock_t *sock, zframe_t *identity, zms
 
                 md5_value_t key_md5;
                 md5(&key_md5, (uint8_t *)key, key_len);
-
-                vnode_t *vnode = bucket->vnode;
 
                 object_t *object = vnode_read_from_storage(vnode, key_md5);
                 if ( object != NULL ){
@@ -119,6 +100,7 @@ zmsg_t *bucket_get_data(bucket_t *bucket, zsock_t *sock, zframe_t *identity, zms
 /* ================ bucket_put_data() ================ */
 zmsg_t *bucket_put_data(bucket_t *bucket, zsock_t *sock, zframe_t *identity, zmsg_t *msg)
 { 
+    vnode_t *vnode = bucket->vnode;
     zmsg_t *sendback_msg = NULL;
 
     UNUSED zframe_t *frame_msgtype = zmsg_first(msg);
@@ -139,13 +121,6 @@ zmsg_t *bucket_put_data(bucket_t *bucket, zsock_t *sock, zframe_t *identity, zms
                     object_t *object = object_new(key, key_len);
                     object->object_size = data_size;
                     object_add_slice(object, data, data_size);
-
-                    vnode_t *vnode = bucket->vnode;
-
-                    /* FiXME */
-                    /*write_ctx_t *writer = write_ctx_new(sock, identity, vnode, object);*/
-                    /*bucket_enqueue_write_queue(bucket, writer);*/
-                    /*return NULL;*/
 
                     vnode_write_to_storage(vnode, object);
                     object_free(object);
@@ -189,137 +164,33 @@ int bucket_handle_message(bucket_t *bucket, zsock_t *sock, zmsg_t *msg)
     return 0;
 }
 
-/* ================ handle_pullin_on_channel_pipe() ================ */
-int handle_pullin_on_channel_pipe(zloop_t *loop, zsock_t *pipe, void *user_data)
-{
-    channel_t *channel = (channel_t*)user_data;
-    bucket_t *bucket = channel->bucket;
-    container_t *container = bucket->container;
-
-    if ( bucket->total_over_channels >= bucket->total_channels ){
-        zloop_reader_end(loop, pipe);
-        return -1;
-    }
-
-    zmsg_t *msg = zmsg_recv(pipe);
-    if ( msg == NULL ){
-        zloop_reader_end(loop, pipe);
-        return -1;
-    }
-    /*zmsg_print(msg);*/
-
-    if ( message_check_status(msg, MSG_STATUS_ACTOR_OVER) == 0 ){
-        bucket->total_over_channels++;
-        notice_log("Channel(%d) Bucket(%d) Container(%d) over! (%d/%d)", channel->id, bucket->id, container->id, bucket->total_over_channels, bucket->total_channels);
-    }
-
-    zmsg_destroy(&msg);
-
-    return 0;
-}
-/* ================ new_bucket_thread_main() ================ */
-void new_bucket_thread_main(zsock_t *pipe, void *user_data)
+/* ================ bucket_thread_main() ================ */
+void bucket_thread_main(zsock_t *pipe, void *user_data)
 {
     bucket_t *bucket = (bucket_t*)user_data;
     container_t *container = bucket->container;
 
     trace_log("Bucket %d in worker(%d) Ready.", bucket->id, container->id);
 
-    zsock_signal(pipe, 0);
-    message_send_status(pipe, MSG_STATUS_ACTOR_READY);
+    ZPIPE_ACTOR_THREAD_BEGIN(pipe);
+    {
 
-    int verbose = container->verbose;
-    zloop_t *loop = zloop_new();
-    zloop_set_verbose(loop, verbose);
+        uint32_t total_channels = 2;
+        ZPIPE_NEW_BEGIN(bucket, total_channels);
 
-    uint32_t total_channels = bucket->total_channels;
+        channel_t *channel = channel_new(i, bucket);
 
-    for ( int i = 0 ; i < total_channels ; i++ ){
-        zactor_t *actor = bucket->channels[i]->actor;
-        zloop_reader(loop, (zsock_t*)zactor_resolve(actor), handle_pullin_on_channel_pipe, bucket->channels[i]);
+        ZPIPE_NEW_END(bucket, channel);
+
+        ZPIPE_LOOP(bucket);
+
     }
 
-    zloop_start(loop);
-
-    zloop_destroy(&loop);
+    ZPIPE_ACTOR_THREAD_END(pipe);
 
     trace_log("Bucket(%d) Container(%d) Exit.", bucket->id, container->id);
 }
 
-/* ================ bucket_thread_main() ================ */
-void bucket_thread_main(zsock_t *pipe, void *user_data)
-{
-    bucket_t *bucket = (bucket_t*)user_data;
-
-    trace_log("Bucket %d in worker(%d) Ready.", bucket->id, bucket->container->id);
-
-    zsock_signal(pipe, 0);
-    message_send_status(pipe, MSG_STATUS_ACTOR_READY);
-
-    zsock_t *broker_sock = bucket_connect_to_broker(bucket);
-    if ( broker_sock == NULL ){
-        warning_log("Bucket(%d) onnect to broker failed. endpoint:%s", bucket->id, bucket->broker_endpoint);
-    }
-
-    uint32_t interval = INTERVAL_INIT;
-    uint32_t liveness = HEARTBEAT_LIVENESS * 2;
-
-    zpoller_t *poller = zpoller_new(broker_sock, NULL);
-    while ( true ){
-        zsock_t *sock = zpoller_wait(poller, HEARTBEAT_INTERVAL / 2);
-
-        if ( zclock_time() > bucket->heartbeat_at ){
-            trace_log("--> Bucket(%d) Send worker heartbeat.", bucket->id);
-            bucket->heartbeat_at = zclock_time() + HEARTBEAT_INTERVAL;
-
-            message_send_heartbeat(broker_sock, MSG_HEARTBEAT_WORKER);
-        }
-
-        if ( sock != NULL ){
-            zmsg_t *msg = zmsg_recv(sock);
-            if ( msg == NULL ){
-                break;
-            }
-            /*zmsg_print(msg);*/
-
-            if ( message_check_heartbeat(msg, MSG_HEARTBEAT_BROKER) == 0 ){
-                trace_log("<-- Bucket(%d) Receive broker heartbeat.", bucket->id);
-                liveness = HEARTBEAT_LIVENESS;
-                zmsg_destroy(&msg);
-            } else {
-                bucket_handle_message(bucket, sock, msg);
-            }
-        } else {
-            if ( --liveness == 0 ){
-                /*zclock_sleep(interval);*/
-                if ( interval < INTERVAL_MAX ){
-                    interval *= 2;
-                }
-
-                warning_log("Bucket(%d) timeout. Try reconnect...", bucket->id);
-                zsock_destroy(&broker_sock);
-                broker_sock = bucket_connect_to_broker(bucket);
-
-                liveness = HEARTBEAT_LIVENESS;
-            }
-        }
-
-    }
-    zpoller_destroy(&poller);
-
-    zsock_destroy(&broker_sock);
-
-    message_send_status(pipe, MSG_STATUS_ACTOR_OVER);
-
-
-    trace_log("Bucket(%d) Exit.", bucket->id);
-
-}
-
-// in file bucket_queue.c. 
-void write_queue_callback(work_queue_t *wq);
-void read_queue_callback(work_queue_t *wq);
-void delete_queue_callback(work_queue_t *wq);
 /* ================ bucket_new() ================ */
 bucket_t *bucket_new(int bucket_id, container_t *container, int storage_type, const char *broker_endpoint)
 {
@@ -328,7 +199,6 @@ bucket_t *bucket_new(int bucket_id, container_t *container, int storage_type, co
 
     bucket->container = container;
     bucket->id = bucket_id;
-    bucket->container = container;
     bucket->broker_endpoint = broker_endpoint;
 
     /* -------- bucket->vnode -------- */
@@ -336,21 +206,8 @@ bucket_t *bucket_new(int bucket_id, container_t *container, int storage_type, co
 
     bucket->heartbeat_at = zclock_time() + HEARTBEAT_INTERVAL;
 
-    /* -------- bucket->xxx_queue -------- */
-    bucket->write_queue = init_work_queue(write_queue_callback, 0);
-    bucket->read_queue = init_work_queue(read_queue_callback, 0);
-    bucket->delete_queue = init_work_queue(delete_queue_callback, 0);
-
-    /* -------- bucket->channels -------- */
-    bucket->total_channels = 2;
-    bucket->channels = (channel_t**)malloc(sizeof(channel_t*) * bucket->total_channels);
-    for ( int i = 0 ; i < bucket->total_channels ; i++ ){
-        bucket->channels[i] = channel_new(i, bucket);
-    }
-
     /* -------- bucket->actor -------- */
-    bucket->actor = zactor_new(new_bucket_thread_main, bucket);
-    /*bucket->actor = zactor_new(bucket_thread_main, bucket);*/
+    ZPIPE_ACTOR_NEW(bucket, bucket_thread_main);
 
     return bucket;
 }
@@ -358,42 +215,14 @@ bucket_t *bucket_new(int bucket_id, container_t *container, int storage_type, co
 /* ================ bucket_free() ================ */
 void bucket_free(bucket_t *bucket)
 {
-    zactor_destroy(&bucket->actor);
-    bucket->actor = NULL;
-
-    if ( bucket->channels != NULL ){
-        for ( int i = 0 ; i < bucket->total_channels ; i++ ){
-            if ( bucket->channels[i] != NULL ){
-                channel_free(bucket->channels[i]);
-                bucket->channels[i] = NULL;
-            }
-        }
-        free(bucket->channels);
-        bucket->channels = NULL;
-    }
-
-    if ( bucket->write_queue != NULL ){
-        exit_work_queue(bucket->write_queue);
-        free(bucket->write_queue);
-        bucket->write_queue = NULL;
-    }
-
-    if ( bucket->read_queue != NULL ){
-        exit_work_queue(bucket->read_queue);
-        free(bucket->read_queue);
-        bucket->read_queue = NULL;
-    }
-
-    if ( bucket->delete_queue != NULL ){
-        exit_work_queue(bucket->delete_queue);
-        free(bucket->delete_queue);
-        bucket->delete_queue = NULL;
-    }
+    ZPIPE_FREE(bucket, channel_free);
 
     if ( bucket->vnode != NULL ){
         vnode_free(bucket->vnode);
         bucket->vnode = NULL;
     }
+
+    ZPIPE_ACTOR_FREE(bucket);
 
     free(bucket);
 }

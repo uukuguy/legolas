@@ -21,60 +21,26 @@
 #include "bucket.h"
 #include "container.h"
 
-/* ================ handle_pullin_on_bucket_pipe() ================ */
-int handle_pullin_on_bucket_pipe(zloop_t *loop, zsock_t *pipe, void *user_data)
-{
-    bucket_t *bucket = (bucket_t*)user_data;
-    container_t *container = bucket->container;
-
-    if ( container->total_over_buckets >= container->total_buckets ){
-        zloop_reader_end(loop, pipe);
-        return -1;
-    }
-
-    zmsg_t *msg = zmsg_recv(pipe);
-    if ( msg == NULL ){
-        zloop_reader_end(loop, pipe);
-        return -1;
-    }
-    /*zmsg_print(msg);*/
-
-    if ( message_check_status(msg, MSG_STATUS_ACTOR_OVER) == 0 ){
-        container->total_over_buckets++;
-        notice_log("Bucket actor %d over! (%d/%d)", bucket->id, container->total_over_buckets, container->total_buckets);
-    }
-
-    zmsg_destroy(&msg);
-
-    return 0;
-}
-
 void container_thread_main(zsock_t *pipe, void *user_data)
 {
-    // zactor pattern
-    zsock_signal(pipe, 0);
-    message_send_status(pipe, MSG_STATUS_ACTOR_READY);
-    // zactor pattern
+    ZPIPE_ACTOR_THREAD_BEGIN(pipe);
+    {
 
-    container_t *container = (container_t*)user_data;
-    trace_log("Container(%d) Ready.", container->id);
+        container_t *container = (container_t*)user_data;
+        trace_log("Container(%d) Ready.", container->id);
 
-    int verbose = container->verbose;
-    zloop_t *loop = zloop_new();
-    zloop_set_verbose(loop, verbose);
+        ZPIPE_NEW_BEGIN(container, container->total_buckets);
 
-    uint32_t total_buckets = container->total_buckets;
+        bucket_t *bucket = bucket_new(i, container, container->storage_type, container->broker_endpoint);
 
-    for ( int i = 0 ; i < total_buckets ; i++ ){
-        zactor_t *actor = container->buckets[i]->actor;
-        zloop_reader(loop, (zsock_t*)zactor_resolve(actor), handle_pullin_on_bucket_pipe, container->buckets[i]);
+        ZPIPE_NEW_END(container, bucket);
+
+        ZPIPE_LOOP(container);
+
+        trace_log("Container(%d) Exit.", container->id);
     }
+    ZPIPE_ACTOR_THREAD_END(pipe);
 
-    zloop_start(loop);
-
-    zloop_destroy(&loop);
-
-    trace_log("Container(%d) Exit.", container->id);
 }
 
 /* ================ container_new() ================ */
@@ -85,9 +51,10 @@ container_t *container_new(int container_id, int total_buckets, int storage_type
 
     container->id = container_id;
     container->storage_type = storage_type;
-    container->total_buckets = total_buckets;
     container->broker_endpoint = broker_endpoint;
     container->verbose = verbose;
+
+    container->total_buckets = total_buckets;
 
     const char *storage_dir = "./data/storage";
     if ( mkdir_if_not_exist(storage_dir) != 0 ){
@@ -101,14 +68,10 @@ container_t *container_new(int container_id, int total_buckets, int storage_type
         abort();
     }
 
-    container->buckets = (bucket_t**)malloc(sizeof(bucket_t*) * total_buckets);
-    for ( int i = 0 ; i < container->total_buckets ; i++ ){
-        container->buckets[i] = bucket_new(i, container, container->storage_type, container->broker_endpoint);
-    }
 
     container->heartbeat_at = zclock_time() + HEARTBEAT_INTERVAL;
 
-    container->actor = zactor_new(container_thread_main, container);
+    ZPIPE_ACTOR_NEW(container, container_thread_main);
 
     return container;
 }
@@ -116,15 +79,9 @@ container_t *container_new(int container_id, int total_buckets, int storage_type
 /* ================ container_free() ================ */
 void container_free(container_t *container)
 {
-    zactor_destroy(&container->actor);
-    container->actor = NULL;
+    ZPIPE_FREE(container, bucket_free);
 
-    for ( int i = 0 ; i < container->total_buckets ; i++ ){
-        bucket_free(container->buckets[i]);
-        container->buckets[i] = NULL;
-    }
-    free(container->buckets);
-    container->buckets = NULL;
+    ZPIPE_ACTOR_FREE(container);
 
     free(container);
 }
