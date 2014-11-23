@@ -1,12 +1,11 @@
 
-EVERDATA_OBJS = everdata.c.o
+EVERDATA_OBJS = everdata.c.o zpipe.c.o
 
 EDBROKER = ../bin/edbroker
 EDBROKER_OBJS = edbroker_main.c.o edbroker.c.o
 
 EDWORKER = ../bin/edworker
-EDWORKER_OBJS = edworker_main.c.o edworker.c.o container.c.o bucket.c.o bucket_queue.c.o channel.c.o zpipe.c.o
-
+EDWORKER_OBJS = edworker_main.c.o edworker.c.o container.c.o bucket.c.o bucket_queue.c.o channel.c.o 
 EDCLIENT = ../bin/edclient
 EDCLIENT_OBJS = edclient_main.c.o edclient.c.o
 
@@ -16,7 +15,7 @@ EDFS_OBJS = edfs.c.o
 LIBBASE = ../lib/libbase.a
 LIBSERVER_OBJS = ../server/vnode.c.o ../server/datazone.c.o ../server/object.c.o 
 
-COMMON_CFLAGS = -g -fPIC -Wall -Werror -I../deps/ccl -I../deps/zeromq/include -I../deps/czmq/include -I../include -I../server
+COMMON_CFLAGS = -g -fPIC -Wall -Werror -D_XOPEN_SOURCE -I../deps/ccl -I../deps/zeromq/include -I../deps/czmq/include -I../include -I../server
 
 FINAL_CFLAGS = -std=gnu11 ${COMMON_CFLAGS} 
 FINAL_CXXFLAGS = -std=c++11 ${COMMON_CFLAGS}

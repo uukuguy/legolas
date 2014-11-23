@@ -41,12 +41,12 @@ void zpipe_actor_thread_end(zsock_t *pipe);
 #define ZPIPE_NEW(master, total_actors) \
         master->zpipe = zpipe_new(total_actors);
 
-#define ZPIPE_FREE(master, slaves) \
+#define ZPIPE_FREE(master, slaves, slave_free) \
     for ( uint32_t i = 0 ; i < master->zpipe->total_actors ; i++ ){ \
-        client_free(master->slaves[i]); \
+        slave_free(master->slaves[i]); \
         master->slaves[i] = NULL; \
     } \
-    zpipe_free(maste->zpipe); \
+    zpipe_free(master->zpipe); \
     master->zpipe = NULL;
 
 #define ZPIPE_START_ACTORS(master, zpipe_actors) \
@@ -56,7 +56,12 @@ void zpipe_actor_thread_end(zsock_t *pipe);
         zpipe_actor_t zpipe_actor;
 
 #define ZPIPE_ACTOR_NEW(slave, slave_thread_main) \
-        slave->zpipe_actor->actor = zactor_new(slave_thread_main, slave);
+        slave->zpipe_actor.actor = zactor_new(slave_thread_main, slave);
+
+#define ZPIPE_ACTOR_FREE(slave) \
+    zactor_destroy(&slave->zpipe_actor.actor); \
+    slave->zpipe_actor.actor = NULL;
+
 
 #define ZPIPE_ACTOR_THREAD_BEGIN(pipe) \
         zpipe_actor_thread_begin(pipe);
