@@ -175,7 +175,7 @@ void bucket_thread_main(zsock_t *pipe, void *user_data)
     ZPIPE_ACTOR_THREAD_BEGIN(pipe);
     {
 
-        uint32_t total_channels = 2;
+        uint32_t total_channels = 1;
         ZPIPE_NEW_BEGIN(bucket, total_channels);
 
         channel_t *channel = channel_new(i, bucket);

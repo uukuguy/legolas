@@ -338,6 +338,8 @@ void edclient_loop(edclient_t *edclient){
 /* ================ run_edclient() ================ */
 int run_edclient(const char *endpoint, int op_code, uint32_t total_clients, uint32_t total_files, const char *key, const char *filename, int verbose)
 {
+    prepare_file_data(filename);
+
     edclient_t *edclient = edclient_new(endpoint, op_code, total_clients, total_files, key, filename, verbose);
 
     edclient_loop(edclient);
