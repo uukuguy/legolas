@@ -175,10 +175,9 @@ void bucket_thread_main(zsock_t *pipe, void *user_data)
     ZPIPE_ACTOR_THREAD_BEGIN(pipe);
     {
 
-        uint32_t total_channels = 1;
-        ZPIPE_NEW_BEGIN(bucket, total_channels);
+        ZPIPE_NEW_BEGIN(bucket, bucket->total_channels);
 
-        channel_t *channel = channel_new(i, bucket);
+        channel_t *channel = channel_new(bucket, i);
 
         ZPIPE_NEW_END(bucket, channel);
 
@@ -192,17 +191,20 @@ void bucket_thread_main(zsock_t *pipe, void *user_data)
 }
 
 /* ================ bucket_new() ================ */
-bucket_t *bucket_new(int bucket_id, container_t *container, int storage_type, const char *broker_endpoint)
+bucket_t *bucket_new(container_t *container, uint32_t bucket_id)
 {
     bucket_t *bucket = (bucket_t*)malloc(sizeof(bucket_t));
     memset(bucket, 0, sizeof(bucket_t));
 
-    bucket->container = container;
     bucket->id = bucket_id;
-    bucket->broker_endpoint = broker_endpoint;
+    bucket->container = container;
+    bucket->total_channels = container->total_channels;
+    bucket->storage_type = container->storage_type;
+    bucket->broker_endpoint = container->broker_endpoint;
+    bucket->verbose = container->verbose;
 
     /* -------- bucket->vnode -------- */
-    bucket->vnode = vnode_new(container->data_dir, bucket_id, storage_type, NULL);
+    bucket->vnode = vnode_new(container->data_dir, bucket_id, bucket->storage_type, NULL);
 
     bucket->heartbeat_at = zclock_time() + HEARTBEAT_INTERVAL;
 

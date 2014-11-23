@@ -74,8 +74,6 @@ int main(int argc, char *argv[])
     program_options_t po;
     memset(&po, 0, sizeof(program_options_t));
 
-    /*po.frontend = "tcp://127.0.0.1:19977";*/
-    /*po.backend = "tcp://127.0.0.1:19978";*/
     po.frontend = "tcp://*:19977";
     po.backend = "tcp://*:19978";
 

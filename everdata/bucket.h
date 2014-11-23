@@ -29,17 +29,20 @@ typedef struct bucket_t {
 
     ZPIPE;
 
-    uint32_t total_channels;
-
     uint32_t id;
-    const char *broker_endpoint;
-    int64_t heartbeat_at;
-    vnode_t *vnode;
     container_t *container;
+
+    uint32_t total_channels;
+    const char *broker_endpoint;
+    int storage_type;
+    int verbose;
+
+    vnode_t *vnode;
+    int64_t heartbeat_at;
 
 } bucket_t;
 
-bucket_t *bucket_new(int bucket_id, container_t *container, int storage_type, const char *broker_endpoint);
+bucket_t *bucket_new(container_t *container, uint32_t bucket_id);
 void bucket_free(bucket_t *bucket);
 int bucket_handle_message(bucket_t *bucket, zsock_t *sock, zmsg_t *msg);
 

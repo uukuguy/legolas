@@ -18,9 +18,10 @@
 static char program_name[] = "edworker";
 
 typedef struct{
-    const char *endpoint;
+    const char *broker_endpoint;
     uint32_t total_containers;
     uint32_t total_buckets;
+    uint32_t total_channels;
     int storage_type;
 
     int is_daemon;
@@ -31,6 +32,7 @@ static struct option const long_options[] = {
 	{"endpoint", required_argument, NULL, 'e'},
 	{"containers", required_argument, NULL, 'u'},
 	{"buckets", required_argument, NULL, 'w'},
+	{"channels", required_argument, NULL, 'c'},
 	{"storage", required_argument, NULL, 's'},
 	{"daemon", no_argument, NULL, 'd'},
 	{"verbose", no_argument, NULL, 'v'},
@@ -39,9 +41,9 @@ static struct option const long_options[] = {
 
 	{NULL, 0, NULL, 0},
 };
-static const char *short_options = "e:u:w:s:dvth";
+static const char *short_options = "e:u:w:c:s:dvth";
 
-extern int run_edworker(const char *endpoint, uint32_t total_containers, int total_buckets, int storage_type, int verbose);
+extern int run_edworker(const char *broker_endpoint, uint32_t total_containers, uint32_t total_buckets, uint32_t total_channels, int storage_type, int verbose);
 
 /* ==================== daemon_loop() ==================== */ 
 int daemon_loop(void *data)
@@ -49,7 +51,7 @@ int daemon_loop(void *data)
     notice_log("In daemon_loop()");
 
     const program_options_t *po = (const program_options_t *)data;
-    return run_edworker(po->endpoint, po->total_containers, po->total_buckets, po->storage_type, po->log_level >= LOG_DEBUG ? 1 : 0);
+    return run_edworker(po->broker_endpoint, po->total_containers, po->total_buckets, po->total_channels, po->storage_type, po->log_level >= LOG_DEBUG ? 1 : 0);
 }
 
 /* ==================== usage() ==================== */ 
@@ -64,6 +66,7 @@ static void usage(int status)
                 -e, --endpoint          specify the edbroker endpoint\n\
                 -u, --containers           count of containers\n\
                 -w, --buckets           count of buckets\n\
+                -w, --channels           count of channels\n\
                 -s, --storage      NONE, LOGFILE, LMDB, EBLOB, LEVELDB, ROCKSDB, LSM\n\
                 -d, --daemon            run in the daemon mode. \n\
                 -v, --verbose           print debug messages\n\
@@ -79,9 +82,10 @@ int main(int argc, char *argv[])
     program_options_t po;
     memset(&po, 0, sizeof(program_options_t));
 
-    po.endpoint = "tcp://127.0.0.1:19978";
+    po.broker_endpoint = "tcp://127.0.0.1:19978";
     po.total_containers = 1;
     po.total_buckets = 4;
+    po.total_channels = 2;
     po.storage_type = STORAGE_NONE;
     po.is_daemon = 0;
     po.log_level = LOG_INFO;
@@ -92,7 +96,7 @@ int main(int argc, char *argv[])
 				 &longindex)) >= 0) {
 		switch (ch) {
             case 'e':
-                po.endpoint = optarg;
+                po.broker_endpoint = optarg;
                 break;
             case 'u':
                 po.total_containers = atoi(optarg);
@@ -104,6 +108,12 @@ int main(int argc, char *argv[])
                 po.total_buckets = atoi(optarg);
                 if ( po.total_buckets < 0 ) {
                     po.total_buckets = 1;
+                }
+                break;
+            case 'c':
+                po.total_channels = atoi(optarg);
+                if ( po.total_channels < 0 ) {
+                    po.total_channels = 1;
                 }
                 break;
             case 's':
@@ -160,6 +170,6 @@ int main(int argc, char *argv[])
     if ( po.is_daemon ){
         return daemon_fork(daemon_loop, (void*)&po); 
     } else 
-        return run_edworker(po.endpoint, po.total_containers, po.total_buckets, po.storage_type, po.log_level >= LOG_DEBUG ? 1 : 0);
+        return run_edworker(po.broker_endpoint, po.total_containers, po.total_buckets, po.total_channels, po.storage_type, po.log_level >= LOG_DEBUG ? 1 : 0);
 }
 

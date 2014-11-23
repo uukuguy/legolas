@@ -35,7 +35,7 @@ typedef struct channel_t {
 
 } channel_t;
 
-channel_t *channel_new(uint32_t channel_id, bucket_t *bucket);
+channel_t *channel_new(bucket_t *bucket, uint32_t channel_id);
 void channel_free(channel_t *channel);
 
 #ifdef __cplusplus

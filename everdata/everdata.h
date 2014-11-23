@@ -16,6 +16,9 @@ extern "C" {
 
 #include <stdint.h>
 
+#define BROKER_FRONTEND_PORT 19977
+#define BROKER_BACKEND_PORT 19978
+    
 #define HEARTBEAT_INTERVAL 1000
 #define HEARTBEAT_LIVENESS 5
 #define INTERVAL_INIT 1000

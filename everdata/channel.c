@@ -110,13 +110,13 @@ void channel_thread_main(zsock_t *pipe, void *user_data)
 }
 
 /* ================ channel_new() ================ */
-channel_t *channel_new(uint32_t channel_id, bucket_t *bucket)
+channel_t *channel_new(bucket_t *bucket, uint32_t channel_id)
 {
     channel_t *channel = (channel_t*)malloc(sizeof(channel_t));
     memset(channel, 0, sizeof(channel_t));
 
-    channel->bucket = bucket;
     channel->id = channel_id;
+    channel->bucket = bucket;
     channel->broker_endpoint = bucket->broker_endpoint;
     channel->heartbeat_at = zclock_time() + HEARTBEAT_INTERVAL;
 

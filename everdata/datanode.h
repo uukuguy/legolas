@@ -23,13 +23,14 @@ typedef struct datanode_t{
 
     uint32_t total_containers;
     uint32_t total_buckets;
+    uint32_t total_channels;
     int storage_type;
-    const char *endpoint;
+    const char *broker_endpoint;
     int verbose;
 
 } datanode_t;
 
-datanode_t *datanode_new(uint32_t total_containers, uint32_t total_buckets, int storage_type, const char *endpoint, int verbose);
+datanode_t *datanode_new(uint32_t total_containers, uint32_t total_buckets, uint32_t total_channels, int storage_type, const char *broker_endpoint, int verbose);
 void datanode_free(datanode_t *datanode);
 void datanode_loop(datanode_t *datanode);
 
